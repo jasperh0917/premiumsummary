@@ -1,0 +1,1427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WellX · Premium Summary Tool</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Raleway:wght@700;800;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --orange:  #fb9b35;
+  --pink:    #f1517b;
+  --magenta: #b43082;
+  --navy:    #003780;
+  --sky:     #35c5fc;
+  --violet:  #8431cb;
+  --slate:   #5e788a;
+  --dark:    #0a0a0a;
+  --grad-full: linear-gradient(90deg, #fb9b35, #f1517b, #b43082, #8431cb, #35c5fc);
+  --grad-warm: linear-gradient(135deg, #fb9b35, #f1517b, #b43082);
+  --grad-cool: linear-gradient(135deg, #003780, #8431cb, #35c5fc);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',system-ui,sans-serif;background:#0a0a0a;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:40px 16px 80px;color:#1a2332}
+.card{background:#fff;border-radius:20px;box-shadow:0 12px 60px rgba(0,0,0,.55),0 2px 8px rgba(0,0,0,.3);width:100%;max-width:860px;overflow:hidden}
+
+/* Header */
+.card-header{background:#000;position:relative}
+.card-header::before{content:'';display:block;height:3px;background:var(--grad-full)}
+.header-inner{display:flex;align-items:center;gap:22px;padding:28px 36px 26px}
+.brand-name{font-family:'Raleway',sans-serif;font-weight:900;font-size:.65rem;letter-spacing:3.5px;text-transform:uppercase;background:var(--grad-full);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:6px}
+.header-text h1{font-family:'Raleway',sans-serif;font-size:1.4rem;font-weight:800;color:#fff;line-height:1.2;margin-bottom:6px}
+.header-text h1 span{display:block;font-size:.95rem;font-weight:500;color:rgba(255,255,255,.45);font-family:'Inter',sans-serif;margin-top:4px}
+.header-text p{font-size:.8rem;color:rgba(255,255,255,.4);line-height:1.5}
+
+/* Step bar */
+.step-bar{display:flex;align-items:center;padding:20px 36px;background:#f8faff;border-bottom:1px solid #e8eef8}
+.step-item{display:flex;align-items:center;gap:10px;cursor:default}
+.step-num{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Raleway',sans-serif;font-weight:800;font-size:.8rem;background:#d1d9e6;color:#9aa5b4;transition:.2s}
+.step-item.active .step-num{background:var(--navy);color:#fff}
+.step-item.done .step-num{background:var(--orange);color:#fff}
+.step-label{font-size:.78rem;font-weight:600;color:#9aa5b4;font-family:'Raleway',sans-serif;letter-spacing:.4px}
+.step-item.active .step-label{color:var(--navy)}
+.step-item.done .step-label{color:var(--orange)}
+.step-div{flex:1;height:2px;background:#e0e7f0;margin:0 12px;border-radius:2px;position:relative;overflow:hidden}
+.step-div.done::after{content:'';position:absolute;inset:0;background:var(--grad-warm)}
+
+/* Card body */
+.card-body{padding:32px 36px}
+.step-content{display:none}
+.step-content.active{display:block}
+
+/* Section label */
+.section-label{font-family:'Raleway',sans-serif;font-size:.67rem;font-weight:800;letter-spacing:1.8px;text-transform:uppercase;color:var(--navy);margin:28px 0 14px;padding-bottom:9px;border-bottom:2px solid transparent;border-image:var(--grad-full) 1}
+.section-label:first-child{margin-top:0}
+
+/* Fields */
+.field{margin-bottom:16px}
+.field label{display:block;font-size:.8rem;font-weight:600;color:#374151;margin-bottom:5px}
+.req{color:var(--pink);margin-left:2px}
+.field input,.field select,.field textarea{width:100%;padding:10px 14px;border:1.5px solid #d1d9e6;border-radius:9px;font-size:.9rem;font-family:'Inter',sans-serif;color:#1a2332;background:#fff;transition:.15s;appearance:none;-webkit-appearance:none}
+.field select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%235e788a' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:36px}
+.field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--navy);box-shadow:0 0 0 3px rgba(0,55,128,.1)}
+.field input.error,.field select.error{border-color:var(--pink);box-shadow:0 0 0 3px rgba(241,81,123,.1)}
+.row-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+@media(max-width:580px){.row-2,.row-3{grid-template-columns:1fr}}
+
+/* Commission table */
+.commission-table{width:100%;border-collapse:collapse;border-radius:11px;overflow:hidden;border:1.5px solid #e0e7f0}
+.commission-table thead tr{background:linear-gradient(90deg,rgba(0,55,128,.05),rgba(53,197,252,.05))}
+.commission-table thead th{padding:10px 16px;font-family:'Raleway',sans-serif;font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:1.2px;color:var(--navy);text-align:left}
+.commission-table thead th:last-child{text-align:right}
+.commission-table tbody tr{border-top:1px solid #eef1f6;transition:.1s}
+.commission-table tbody tr:hover{background:#f8f9fd}
+.commission-table td{padding:10px 16px;font-size:.88rem;font-family:'Inter',sans-serif}
+.commission-table td:first-child{font-weight:500;color:#374151;width:60%}
+.commission-table td:last-child{text-align:right;width:40%}
+.commission-table tfoot tr{background:#f0f4ff;border-top:2px solid var(--navy)}
+.commission-table tfoot td{font-weight:700;color:var(--navy);font-family:'Raleway',sans-serif}
+.pct-wrap{display:flex;align-items:center;justify-content:flex-end;gap:5px}
+.pct-wrap input{width:90px;padding:7px 10px;border:1.5px solid #d1d9e6;border-radius:7px;font-family:'Inter',sans-serif;font-size:.9rem;text-align:right;color:#1a2332;background:#fff;transition:.15s}
+.pct-wrap input:focus{outline:none;border-color:var(--sky);box-shadow:0 0 0 3px rgba(53,197,252,.15)}
+.pct-symbol{font-size:.9rem;font-weight:600;color:var(--slate)}
+#rmTotal{color:var(--navy);font-weight:800;font-family:'Raleway',sans-serif}
+
+/* File zones */
+.file-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.file-zone{border:2px dashed #c8d4e3;border-radius:11px;padding:22px 14px;text-align:center;cursor:pointer;transition:.15s;position:relative}
+.file-zone:hover,.file-zone.drag-over{border-color:var(--navy);background:rgba(0,55,128,.04)}
+.file-zone.has-file{border-style:solid;border-color:transparent;background:linear-gradient(#fff,#fff) padding-box,var(--grad-warm) border-box}
+.file-zone.error{border-color:var(--pink);border-style:solid}
+.file-zone input[type="file"]{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+.file-icon{font-size:1.6rem;margin-bottom:7px}
+.file-label{font-family:'Raleway',sans-serif;font-size:.75rem;font-weight:800;color:#374151;margin-bottom:3px;letter-spacing:.3px}
+.file-sub{font-size:.68rem;color:#9aa5b4;font-family:'Inter',sans-serif}
+.file-name{font-size:.68rem;background:var(--grad-warm);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-weight:600;margin-top:5px;word-break:break-all}
+
+/* Buttons */
+.btn-primary{flex:1;padding:13px 24px;background:var(--grad-cool);color:#fff;border:none;border-radius:10px;font-family:'Raleway',sans-serif;font-size:.95rem;font-weight:800;cursor:pointer;letter-spacing:.5px;transition:.15s;box-shadow:0 4px 18px rgba(0,55,128,.3)}
+.btn-primary:hover{opacity:.9;box-shadow:0 6px 24px rgba(0,55,128,.4)}
+.btn-primary:active{transform:scale(.98)}
+.btn-primary:disabled{opacity:.45;cursor:not-allowed;box-shadow:none}
+.btn-secondary{padding:13px 18px;background:transparent;border:1.5px solid #d1d9e6;border-radius:10px;font-family:'Inter',sans-serif;font-size:.88rem;font-weight:600;color:var(--slate);cursor:pointer;transition:.15s}
+.btn-secondary:hover{border-color:var(--slate);color:#374151}
+.btn-warm{background:var(--grad-warm) !important;box-shadow:0 4px 18px rgba(251,155,53,.3) !important}
+.btn-row{margin-top:28px;display:flex;align-items:center;gap:14px}
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:8px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ─── STEP 2: Rate Verification ──────────────────────────────────────────── */
+.pdf-viewer{background:#1a1a1a;border-radius:12px;overflow:hidden;margin-bottom:20px}
+.pdf-nav{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#111}
+.pdf-nav span{color:#fff;font-size:.82rem;font-family:'Raleway',sans-serif;font-weight:700}
+.pdf-nav button{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;padding:5px 14px;border-radius:6px;font-size:.8rem;cursor:pointer;transition:.15s}
+.pdf-nav button:hover{background:rgba(255,255,255,.2)}
+.pdf-nav button:disabled{opacity:.3;cursor:not-allowed}
+.pdf-img-wrap{display:flex;justify-content:center;padding:12px;max-height:420px;overflow-y:auto}
+.pdf-img-wrap img{max-width:100%;border-radius:4px}
+.extraction-badge{display:inline-flex;align-items:center;gap:7px;padding:7px 14px;border-radius:8px;font-size:.8rem;font-weight:600;margin-bottom:18px}
+.badge-success{background:#d4edda;color:#155724}
+.badge-warning{background:#fff3cd;color:#856404}
+.badge-info{background:#d1ecf1;color:#0c5460}
+
+/* Category tabs */
+.cat-tabs{display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap;align-items:center}
+.cat-tab{padding:7px 18px;border-radius:8px 8px 0 0;border:1.5px solid #d1d9e6;border-bottom:none;background:#f8faff;font-family:'Raleway',sans-serif;font-size:.78rem;font-weight:800;color:#9aa5b4;cursor:pointer;transition:.15s}
+.cat-tab.active{background:#fff;border-color:var(--navy);color:var(--navy)}
+.cat-tab .del-cat{margin-left:7px;color:var(--pink);font-size:.9rem;font-weight:900;cursor:pointer;opacity:.6}
+.cat-tab .del-cat:hover{opacity:1}
+.btn-add-cat{padding:7px 14px;border-radius:8px;border:1.5px dashed #c8d4e3;background:transparent;font-size:.78rem;font-family:'Inter',sans-serif;font-weight:600;color:var(--slate);cursor:pointer;transition:.15s}
+.btn-add-cat:hover{border-color:var(--navy);color:var(--navy)}
+
+/* Rate table */
+.rate-panel{display:none;border:1.5px solid #d1d9e6;border-radius:0 11px 11px 11px;padding:18px 16px}
+.rate-panel.active{display:block}
+.rate-tbl{width:100%;border-collapse:collapse;margin-bottom:16px}
+.rate-tbl thead th{padding:9px 12px;font-family:'Raleway',sans-serif;font-size:.67rem;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--navy);background:linear-gradient(90deg,rgba(0,55,128,.06),rgba(53,197,252,.04));text-align:center}
+.rate-tbl thead th:first-child{text-align:left}
+.rate-tbl tbody tr{border-top:1px solid #eef1f6}
+.rate-tbl tbody tr:hover{background:#f8faff}
+.rate-tbl td{padding:6px 10px}
+.rate-tbl td:first-child{font-weight:600;color:#374151;font-size:.85rem;width:110px}
+.rate-input{width:100%;padding:7px 10px;border:1.5px solid #d1d9e6;border-radius:7px;font-family:'Inter',sans-serif;font-size:.88rem;text-align:right;color:#1a2332;background:#fff;transition:.15s}
+.rate-input:focus{outline:none;border-color:var(--navy);box-shadow:0 0 0 3px rgba(0,55,128,.1)}
+.rate-input.highlight{border-color:var(--orange);background:#fff9f0}
+.mat-row{display:flex;align-items:center;gap:14px;background:#fff9f0;border:1.5px solid #ffe0b2;border-radius:9px;padding:12px 16px;margin-top:8px}
+.mat-row label{font-size:.82rem;font-weight:600;color:#e65100;flex:1}
+.mat-row .mat-note{font-size:.73rem;color:#bf360c;margin-top:2px}
+
+/* Quote totals */
+.quote-totals-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:20px}
+.qt-field{background:#f8faff;border:1.5px solid #e0e7f0;border-radius:9px;padding:12px 14px}
+.qt-field label{display:block;font-size:.72rem;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px}
+.qt-field input{width:100%;border:1.5px solid #d1d9e6;border-radius:7px;padding:8px 10px;font-family:'Inter',sans-serif;font-size:.9rem;color:#1a2332;background:#fff}
+.qt-field input:focus{outline:none;border-color:var(--navy);box-shadow:0 0 0 3px rgba(0,55,128,.1)}
+
+/* ─── STEP 3: Results ────────────────────────────────────────────────────── */
+.recon-banner{border-radius:12px;padding:20px 24px;margin-bottom:24px;display:flex;align-items:center;gap:18px}
+.recon-banner.match{background:linear-gradient(135deg,#d4edda,#c3e6cb)}
+.recon-banner.mismatch{background:linear-gradient(135deg,#f8d7da,#f5c6cb)}
+.recon-icon{font-size:2.2rem}
+.recon-title{font-family:'Raleway',sans-serif;font-weight:900;font-size:1.15rem}
+.recon-sub{font-size:.82rem;margin-top:3px;opacity:.8}
+.recon-banner.match .recon-title{color:#155724}
+.recon-banner.mismatch .recon-title{color:#721c24}
+.recon-banner.match .recon-sub{color:#155724}
+.recon-banner.mismatch .recon-sub{color:#721c24}
+
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}
+@media(max-width:600px){.stats-grid{grid-template-columns:1fr 1fr}}
+.stat-card{background:#f8faff;border:1.5px solid #e0e7f0;border-radius:11px;padding:14px 16px;text-align:center}
+.stat-card .stat-val{font-family:'Raleway',sans-serif;font-weight:900;font-size:1.1rem;color:var(--navy);margin-bottom:4px}
+.stat-card .stat-lbl{font-size:.72rem;font-weight:600;color:var(--slate);text-transform:uppercase;letter-spacing:.8px}
+.stat-card.highlight{border-color:var(--orange);background:#fff9f0}
+.stat-card.highlight .stat-val{color:var(--orange)}
+
+.diff-table{width:100%;border-collapse:collapse;border-radius:10px;overflow:hidden;margin-bottom:20px}
+.diff-table th{padding:10px 14px;background:linear-gradient(90deg,rgba(180,48,130,.1),rgba(132,49,203,.08));font-family:'Raleway',sans-serif;font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--magenta);text-align:left}
+.diff-table td{padding:10px 14px;border-top:1px solid #eef1f6;font-size:.88rem}
+.diff-table td.neg{color:#721c24;font-weight:600}
+.diff-table td.pos{color:#155724;font-weight:600}
+
+.download-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:24px}
+.download-card{border:1.5px solid #e0e7f0;border-radius:12px;padding:18px 20px;display:flex;align-items:center;gap:14px;transition:.15s}
+.download-card:hover{border-color:var(--navy);background:#f8faff;transform:translateY(-1px);box-shadow:0 4px 18px rgba(0,55,128,.08)}
+.download-card .dl-icon{font-size:2rem}
+.download-card .dl-text .dl-title{font-family:'Raleway',sans-serif;font-weight:800;font-size:.88rem;color:var(--navy)}
+.download-card .dl-text .dl-sub{font-size:.73rem;color:var(--slate);margin-top:2px}
+.btn-dl{margin-left:auto;padding:8px 16px;background:var(--grad-cool);color:#fff;border:none;border-radius:8px;font-family:'Raleway',sans-serif;font-weight:800;font-size:.8rem;cursor:pointer;transition:.15s;text-decoration:none;display:inline-block}
+.btn-dl:hover{opacity:.9}
+
+/* Toast */
+.toast{position:fixed;bottom:32px;left:50%;transform:translateX(-50%) translateY(80px);background:#1a2332;color:#fff;padding:13px 22px;border-radius:10px;font-family:'Inter',sans-serif;font-size:.88rem;font-weight:500;box-shadow:0 8px 32px rgba(0,0,0,.35);transition:.3s ease;opacity:0;z-index:9999;max-width:440px;text-align:center}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+.toast.success{background:var(--grad-cool)}
+.toast.error-t{background:linear-gradient(135deg,#b43082,#f1517b)}
+.toast.warning{background:linear-gradient(135deg,#fb9b35,#f1517b)}
+
+/* Loading overlay */
+.overlay{position:fixed;inset:0;background:rgba(10,10,10,.75);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:8888;display:none}
+.overlay.show{display:flex}
+.ov-card{background:#fff;border-radius:16px;padding:36px 48px;text-align:center;max-width:360px}
+.ov-spinner{width:48px;height:48px;border:4px solid #e0e7f0;border-top-color:var(--navy);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 16px}
+.ov-title{font-family:'Raleway',sans-serif;font-weight:800;font-size:1rem;color:var(--navy);margin-bottom:6px}
+.ov-sub{font-size:.82rem;color:var(--slate)}
+
+/* Info box */
+.info-box{background:#f0f4ff;border:1.5px solid #c8d8f8;border-radius:9px;padding:12px 16px;font-size:.82rem;color:#374151;line-height:1.55;margin-bottom:18px}
+.info-box strong{color:var(--navy)}
+
+.form-footer{text-align:center;margin-top:20px;font-size:.7rem;color:#b0bac6;font-family:'Inter',sans-serif}
+
+/* LSB toggle */
+.lsb-toggle{display:flex;align-items:center;gap:10px;padding:12px 16px;background:#f0f4ff;border:1.5px solid #c8d8f8;border-radius:9px;margin-top:14px}
+.lsb-toggle input[type=checkbox]{width:17px;height:17px;accent-color:var(--navy);cursor:pointer;flex-shrink:0}
+.lsb-toggle label{font-size:.85rem;font-weight:600;color:var(--navy);cursor:pointer;line-height:1.4}
+.lsb-toggle small{font-size:.73rem;color:var(--slate);display:block;margin-top:1px}
+
+/* Additional Loading section */
+.loading-section{margin-bottom:24px}
+.loading-add-row{display:grid;grid-template-columns:2fr 1fr 1.5fr 1.5fr auto;gap:10px;align-items:end;margin-bottom:14px}
+@media(max-width:700px){.loading-add-row{grid-template-columns:1fr 1fr;row-gap:10px}}
+.loading-add-row .field{margin:0}
+.loading-add-row .field label{font-size:.72rem}
+.btn-add-loading{padding:10px 18px;background:var(--grad-cool);color:#fff;border:none;border-radius:9px;font-family:'Raleway',sans-serif;font-size:.82rem;font-weight:800;cursor:pointer;transition:.15s;white-space:nowrap;align-self:end}
+.btn-add-loading:hover{opacity:.9}
+.loading-list{border:1.5px solid #e0e7f0;border-radius:10px;overflow:hidden}
+.loading-list-header{display:grid;grid-template-columns:2fr 1fr 1.5fr 1.5fr 36px;gap:10px;padding:8px 14px;background:linear-gradient(90deg,rgba(0,55,128,.06),rgba(53,197,252,.04));font-family:'Raleway',sans-serif;font-size:.67rem;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--navy)}
+.loading-list-row{display:grid;grid-template-columns:2fr 1fr 1.5fr 1.5fr 36px;gap:10px;padding:9px 14px;border-top:1px solid #eef1f6;font-size:.84rem;align-items:center}
+.loading-list-row:hover{background:#f8faff}
+.loading-list-row .ldr-name{font-weight:600;color:#1a2332}
+.loading-list-row .ldr-amt{color:var(--navy);font-weight:700}
+.loading-list-row .ldr-diag,.loading-list-row .ldr-notes{color:var(--slate);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.btn-rm-loading{width:28px;height:28px;border:none;background:#fce4ec;color:#c62828;border-radius:7px;cursor:pointer;font-size:1rem;line-height:1;display:flex;align-items:center;justify-content:center;transition:.15s}
+.btn-rm-loading:hover{background:#ef9a9a}
+.loading-empty{padding:18px;text-align:center;color:#9aa5b4;font-size:.82rem;font-style:italic}
+</style>
+</head>
+<body>
+
+<!-- Loading overlay -->
+<div class="overlay" id="overlay">
+  <div class="ov-card">
+    <div class="ov-spinner"></div>
+    <div class="ov-title" id="ovTitle">Processing…</div>
+    <div class="ov-sub" id="ovSub">This may take a few seconds</div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<div class="card">
+
+  <!-- Header -->
+  <div class="card-header">
+    <div class="header-inner">
+      <div class="header-text">
+        <div class="brand-name">WellX</div>
+        <h1>Premium Summary Tool<span>Automated Premium Calculation &amp; Reconciliation</span></h1>
+        <p>Upload approved quote PDF and member census to generate premium reports and verify totals.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step bar -->
+  <div class="step-bar">
+    <div class="step-item active" id="si-1">
+      <div class="step-num">1</div>
+      <div class="step-label">Policy Details</div>
+    </div>
+    <div class="step-div" id="sd-1"></div>
+    <div class="step-item" id="si-2">
+      <div class="step-num">2</div>
+      <div class="step-label">Verify Rates</div>
+    </div>
+    <div class="step-div" id="sd-2"></div>
+    <div class="step-item" id="si-3">
+      <div class="step-num">3</div>
+      <div class="step-label">Results</div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       STEP 1 — Intake Form
+  ══════════════════════════════════════════════════════════════════════ -->
+  <div class="card-body step-content active" id="step-1">
+    <form id="intakeForm" novalidate>
+
+      <div class="section-label">Client &amp; Broker</div>
+
+      <div class="field">
+        <label for="companyName">Company Name <span class="req">*</span></label>
+        <input type="text" id="companyName" placeholder="Enter company name" required>
+      </div>
+
+      <div class="row-2">
+        <div class="field">
+          <label for="brokerName">Broker <span class="req">*</span></label>
+          <select id="brokerName" required>
+            <option value="">Select broker</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="startDate">Insurance Start Date <span class="req">*</span></label>
+          <input type="date" id="startDate" required>
+        </div>
+      </div>
+
+      <div class="row-2">
+        <div class="field">
+          <label for="underwriter">Underwriter <span class="req">*</span></label>
+          <select id="underwriter" required>
+            <option value="">Select underwriter</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="rmPerson">RM</label>
+          <select id="rmPerson">
+            <option value="">Select RM</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row-2">
+        <div class="field">
+          <label for="planName">Plan <span class="req">*</span></label>
+          <select id="planName" required>
+            <option value="">Select plan</option>
+            <option value="Healthx">Healthx</option>
+            <option value="Healthxclusive">Healthxclusive</option>
+            <option value="Openx">Openx</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="planType">Plan Type <span class="req">*</span></label>
+          <select id="planType" required>
+            <option value="">Select type</option>
+            <option value="New">New</option>
+            <option value="Renewal">Renewal</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row-2">
+        <div class="field">
+          <label for="inceptionPayment">Inception Premium Payment</label>
+          <select id="inceptionPayment">
+            <option value="">Select payment mode</option>
+            <option value="Annual">Annual</option>
+            <option value="Quarterly">Quarterly</option>
+            <option value="Monthly">Monthly</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="endorsementFreq">Endorsement Frequency</label>
+          <select id="endorsementFreq">
+            <option value="">Select frequency</option>
+            <option value="Monthly">Monthly</option>
+            <option value="Quarterly">Quarterly</option>
+            <option value="Annual">Annual</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="section-label">Cost Structure</div>
+
+      <table class="commission-table">
+        <thead>
+          <tr><th>Component</th><th>Rate</th></tr>
+        </thead>
+        <tbody id="costStructureBody">
+          <!-- populated dynamically by updateCostStructure() -->
+        </tbody>
+        <tfoot>
+          <tr>
+            <td>Total</td>
+            <td style="text-align:right"><span id="rmTotal">—</span></td>
+          </tr>
+        </tfoot>
+      </table>
+
+      <div class="lsb-toggle">
+        <input type="checkbox" id="hasLsb">
+        <label for="hasLsb">
+          LSB Members (Lower Salary Band)
+          <small>If checked, LSB broker commission is capped at 5% — excess redistributed equally to insurer &amp; admin</small>
+        </label>
+      </div>
+
+      <div class="section-label">Documents</div>
+
+      <!-- Non-Healthx: tool + single census -->
+      <div id="uploadNonHealthx">
+        <div class="file-row">
+          <div class="file-zone" id="zone-tool">
+            <input type="file" id="toolFile" accept=".xlsx,.xls">
+            <div class="file-icon">🧮</div>
+            <div class="file-label">Quote Tool</div>
+            <div class="file-sub">Excel (.xlsx)</div>
+            <div class="file-name" id="toolName"></div>
+          </div>
+          <div class="file-zone" id="zone-census">
+            <input type="file" id="censusFile" accept=".xlsx,.xls,.csv">
+            <div class="file-icon">📊</div>
+            <div class="file-label">Member Census</div>
+            <div class="file-sub">Excel or CSV</div>
+            <div class="file-name" id="censusName"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Healthx only: two census files -->
+      <div id="uploadHealthx" style="display:none">
+        <div class="file-row">
+          <div class="file-zone" id="zone-quoted-census">
+            <input type="file" id="quotedCensusFile" accept=".xlsx,.xls,.csv">
+            <div class="file-icon">📋</div>
+            <div class="file-label">Quoted Census</div>
+            <div class="file-sub">Census used for quoting (reconciliation)</div>
+            <div class="file-name" id="quotedCensusName"></div>
+          </div>
+          <div class="file-zone" id="zone-confirmed-census">
+            <input type="file" id="confirmedCensusFile" accept=".xlsx,.xls,.csv">
+            <div class="file-icon">✅</div>
+            <div class="file-label">Confirmed Census</div>
+            <div class="file-sub">Final confirmed member list (final premium)</div>
+            <div class="file-name" id="confirmedCensusName"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button type="submit" class="btn-primary" id="step1Btn">
+          Extract Rates &amp; Continue →
+        </button>
+        <button type="button" class="btn-secondary" id="clearBtn">Clear</button>
+      </div>
+
+      <div class="form-footer">Powered by WellX · Confidential</div>
+    </form>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       STEP 2 — Verify Rates
+  ══════════════════════════════════════════════════════════════════════ -->
+  <div class="card-body step-content" id="step-2">
+
+    <div class="section-label">Extracted from Quote Tool</div>
+    <div id="extractionBadge" class="extraction-badge badge-success">
+      ✅ Rates and policy details extracted — review and edit below before calculating
+    </div>
+
+    <div id="toolSummaryCard" style="background:#f8faff;border:1.5px solid #e0e7f0;border-radius:12px;padding:18px 22px;margin-bottom:20px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px 24px;font-size:.83rem;font-family:'Inter',sans-serif">
+      <div><span style="font-weight:600;color:#374151">Policy Holder:</span> <span id="ts-company" style="color:var(--navy)">—</span></div>
+      <div><span style="font-weight:600;color:#374151">Product:</span> <span id="ts-product" style="color:#374151">—</span></div>
+      <div><span style="font-weight:600;color:#374151">Start Date:</span> <span id="ts-start" style="color:#374151">—</span></div>
+      <div><span style="font-weight:600;color:#374151">Underwriter:</span> <span id="ts-underwriter" style="color:#374151">—</span></div>
+      <div><span style="font-weight:600;color:#374151">Confirmed Quote:</span> <span id="ts-quote" style="color:var(--orange);font-weight:700">—</span></div>
+      <div><span style="font-weight:600;color:#374151">Members:</span> <span id="ts-members" style="color:#374151">—</span></div>
+    </div>
+
+    <div class="section-label">Rate Table — by Category</div>
+
+    <div class="info-box" id="rateInfoBox">
+      <strong>Gross premium rates have been pre-filled</strong> from the Quote Tool (GROSS PREMIUM columns). Review each category tab and adjust if needed before calculating.
+    </div>
+
+    <div class="cat-tabs" id="catTabs">
+      <!-- Tabs injected by JS -->
+      <button class="btn-add-cat" onclick="addCategory()">+ Add Category</button>
+    </div>
+
+    <div id="catPanels">
+      <!-- Panels injected by JS -->
+    </div>
+
+    <div class="section-label">Quote Totals (for Reconciliation)</div>
+    <div class="info-box">
+      Enter the totals from the confirmed quote PDF. These are used to verify the calculation matches the insurer's quote.
+    </div>
+    <div class="quote-totals-grid">
+      <div class="qt-field">
+        <label>Confirmed Quote Premium (AED)</label>
+        <input type="number" id="qtPremium" placeholder="e.g. 197231" step="0.01">
+      </div>
+      <div class="qt-field">
+        <label>Number of Members</label>
+        <input type="number" id="qtMembers" placeholder="e.g. 29">
+      </div>
+      <div class="qt-field">
+        <label>Grand Total incl. VAT (AED)</label>
+        <input type="number" id="qtGrandTotal" placeholder="e.g. 208219" step="0.01">
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn-primary btn-warm" id="step2Btn" onclick="calculatePremium()">
+        Calculate Premium →
+      </button>
+      <button class="btn-secondary" onclick="goToStep(1)">← Back</button>
+    </div>
+    <div class="form-footer">Powered by WellX · Confidential</div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       STEP 3 — Results
+  ══════════════════════════════════════════════════════════════════════ -->
+  <div class="card-body step-content" id="step-3">
+
+    <!-- Reconciliation Banner -->
+    <div class="recon-banner" id="reconBanner">
+      <div class="recon-icon" id="reconIcon">✅</div>
+      <div>
+        <div class="recon-title" id="reconTitle">Calculation Complete</div>
+        <div class="recon-sub" id="reconSub"></div>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-grid" id="statsGrid">
+      <div class="stat-card"><div class="stat-val" id="stMembers">—</div><div class="stat-lbl">Total Members</div></div>
+      <div class="stat-card"><div class="stat-val" id="stNet">—</div><div class="stat-lbl">Net Premium</div></div>
+      <div class="stat-card"><div class="stat-val" id="stMat">—</div><div class="stat-lbl">Maternity</div></div>
+      <div class="stat-card"><div class="stat-val" id="stBasmah">—</div><div class="stat-lbl">BASMAH Fees</div></div>
+      <div class="stat-card"><div class="stat-val" id="stSubtotal">—</div><div class="stat-lbl">Subtotal</div></div>
+      <div class="stat-card"><div class="stat-val" id="stVat">—</div><div class="stat-lbl">VAT (5%)</div></div>
+      <div class="stat-card highlight" style="grid-column:span 2"><div class="stat-val" id="stGrand">—</div><div class="stat-lbl">Grand Total</div></div>
+    </div>
+
+    <!-- Difference breakdown (shown when mismatch) -->
+    <div id="diffSection" style="display:none;margin-bottom:20px">
+      <div class="section-label" style="color:#721c24;border-image:linear-gradient(90deg,#b43082,#f1517b) 1">Mismatch Analysis</div>
+      <table class="diff-table">
+        <thead>
+          <tr><th>Item</th><th>Quote PDF</th><th>Calculated</th><th>Difference</th></tr>
+        </thead>
+        <tbody id="diffTableBody"></tbody>
+      </table>
+      <div class="info-box" style="border-color:#f5c6cb;background:#fdf3f5;color:#721c24">
+        <strong>Common causes:</strong> member count discrepancy, age bracket boundary differences, maternity surcharge eligibility, or category rate assignments. Review the Premium per Member file for individual breakdowns.
+      </div>
+    </div>
+
+    <!-- Additional Loading -->
+    <div class="section-label">Additional Loading</div>
+    <div class="loading-section">
+      <div class="loading-add-row">
+        <div class="field">
+          <label>Member</label>
+          <select id="loadingMemberSelect">
+            <option value="">Select member…</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Gross Loading (AED)</label>
+          <input type="number" id="loadingAmount" placeholder="e.g. 500" min="0" step="0.01">
+        </div>
+        <div class="field">
+          <label>Diagnosis / Condition</label>
+          <input type="text" id="loadingDiagnosis" placeholder="e.g. Diabetes Type 2">
+        </div>
+        <div class="field">
+          <label>Notes</label>
+          <input type="text" id="loadingNotes" placeholder="Optional notes">
+        </div>
+        <button class="btn-add-loading" onclick="addLoadingMember()">+ Add</button>
+      </div>
+
+      <div id="loadingListWrap">
+        <div class="loading-empty" id="loadingEmpty">No additional loadings added — leave empty if not applicable</div>
+        <div class="loading-list" id="loadingList" style="display:none">
+          <div class="loading-list-header">
+            <span>Member</span><span>Gross Loading</span><span>Diagnosis</span><span>Notes</span><span></span>
+          </div>
+          <div id="loadingRows"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Downloads -->
+    <div class="section-label">Download Report</div>
+    <div class="download-grid" style="grid-template-columns:1fr">
+      <div class="download-card">
+        <div class="dl-icon">📊</div>
+        <div class="dl-text">
+          <div class="dl-title">Premium Report</div>
+          <div class="dl-sub">Combined workbook: Premium Summary + Premium per Member — live formulas, loading, themed colours</div>
+        </div>
+        <button class="btn-dl" id="dlSummary" onclick="downloadSummary()">Download</button>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn-primary" onclick="resetAll()">Start New Calculation</button>
+      <button class="btn-secondary" onclick="goToStep(2)">← Back to Rates</button>
+    </div>
+    <div class="form-footer">Powered by WellX · Confidential</div>
+  </div>
+
+</div><!-- /card -->
+
+<script>
+// ── Dropdown data ─────────────────────────────────────────────────────────────
+const BROKERS = ["ADIB","AES Middle East (AES International)","Insurance Market","Al Sayegh","Al Manarah","Al Nabooda","Aon Middle East","Associated Insurance Brokers-AUH","Beneple","Berns Brett Masaood","Burns & Wilcox","Compass","Cedar","Continental","Cosmos","Cross Road","Doo","Fidelity Insurance Services","FISCO","Green Shield","Gargash","Gateway","Genesis","Howden","Indemnity","Interactive","Joie de Vivre International","Kaizzen Plus","Links","Lockton - Dubai","Lockton - Abu Dhabi","Lifecare International Broker","Malakut","Marsh","Newtech","Northern","Nasco Emirates - Abu Dhabi","Nasco M.E. - Dubai","New Shield","Nexus","Omega","Pearl","Phillip Middle East","Prominent","PWS Gulf","Pacific Prime","Platinum","Direct Sale","R2S","RMS","Seven","The Brokerage Firm","Unitrust","Viva","Wayyak","Wehbe Insurance Services","Other"];
+const UNDERWRITERS = ["Jasper","Mabel","Joseph","Angela"];
+const RMS = ["Sujith","Heston","Mark"];
+const DEFAULT_BRACKETS = ["0-10","11-17","18-25","26-30","31-35","36-40","41-45","46-50","51-55","56-59","60-64","65-99"];
+
+function populate(id, items) {
+  const sel = document.getElementById(id);
+  items.forEach(n => { const o = document.createElement('option'); o.value = o.textContent = n; sel.appendChild(o); });
+}
+populate('brokerName', BROKERS);
+populate('underwriter', UNDERWRITERS);
+populate('rmPerson', RMS);
+
+// ── Bracket definitions ───────────────────────────────────────────────────────
+const DHA_BRACKETS = [
+  {lo:0,hi:10,label:'0-10'},{lo:11,hi:17,label:'11-17'},{lo:18,hi:25,label:'18-25'},
+  {lo:26,hi:30,label:'26-30'},{lo:31,hi:35,label:'31-35'},{lo:36,hi:40,label:'36-40'},
+  {lo:41,hi:45,label:'41-45'},{lo:46,hi:50,label:'46-50'},{lo:51,hi:55,label:'51-55'},
+  {lo:56,hi:59,label:'56-59'},{lo:60,hi:64,label:'60-64'},{lo:65,hi:99,label:'65-99'},
+];
+const DOH_BRACKETS = [
+  {lo:0,hi:17,label:'0-17'},{lo:18,hi:40,label:'18-40'},
+  {lo:41,hi:60,label:'41-60'},{lo:61,hi:99,label:'61-99'},
+];
+
+// ── Cost Structure ────────────────────────────────────────────────────────────
+const COST_CONFIGS = {
+  // Healthx + Renewal
+  'Healthx|Renewal': [
+    { label: 'Broker Commission', id: 'rmBroker', value: 12.50, placeholder: true },
+    { label: 'QIC',               id: 'rmQic',    value: 4.50 },
+    { label: 'Healthx',           id: 'rmWellx',  value: 7.50 },
+    { label: 'Nas',               id: 'rmNas',    value: 5.00 },
+    { label: 'Insurance Tax',     id: 'rmTax',    value: 0.50 },
+  ],
+  // Healthx + New
+  'Healthx|New': [
+    { label: 'Broker Commission', id: 'rmBroker', value: 12.50, placeholder: true },
+    { label: 'QIC',               id: 'rmQic',    value: 0.00 },
+    { label: 'Healthx',           id: 'rmWellx',  value: 7.50 },
+    { label: 'Nas',               id: 'rmNas',    value: 5.00 },
+    { label: 'Insurance Tax',     id: 'rmTax',    value: 0.50 },
+  ],
+  // Healthxclusive + New
+  'Healthxclusive|New': [
+    { label: 'Broker Commission', id: 'rmBroker', value: 12.50, placeholder: true },
+    { label: 'QIC',               id: 'rmQic',    value: 0.00 },
+    { label: 'Healthx',           id: 'rmWellx',  value: 7.50 },
+    { label: 'Nas',               id: 'rmNas',    value: 5.00 },
+    { label: 'Insurance Tax',     id: 'rmTax',    value: 0.50 },
+  ],
+  // Healthxclusive + Renewal
+  'Healthxclusive|Renewal': [
+    { label: 'Broker Commission', id: 'rmBroker', value: 12.50, placeholder: true },
+    { label: 'QIC',               id: 'rmQic',    value: 0.00 },
+    { label: 'Healthx',           id: 'rmWellx',  value: 7.50 },
+    { label: 'Nas',               id: 'rmNas',    value: 5.00 },
+    { label: 'Insurance Tax',     id: 'rmTax',    value: 0.50 },
+  ],
+  // Openx + New
+  'Openx|New': [
+    { label: 'Broker Commission', id: 'rmBroker', value: 15.00, placeholder: true },
+    { label: 'DNI',               id: 'rmDni',    value: 4.00 },
+    { label: 'Openx',             id: 'rmWellx',  value: 5.00 },
+    { label: 'Nas',               id: 'rmNas',    value: 4.00 },
+    { label: 'Insurance Tax',     id: 'rmTax',    value: 0.50 },
+  ],
+  // Openx + Renewal
+  'Openx|Renewal': [
+    { label: 'Broker Commission', id: 'rmBroker', value: 15.00, placeholder: true },
+    { label: 'DNI',               id: 'rmDni',    value: 4.00 },
+    { label: 'Openx',             id: 'rmWellx',  value: 5.00 },
+    { label: 'Nas',               id: 'rmNas',    value: 4.00 },
+    { label: 'Insurance Tax',     id: 'rmTax',    value: 0.50 },
+  ],
+};
+
+function updateCostStructure() {
+  const plan     = document.getElementById('planName').value;
+  const planType = document.getElementById('planType').value;
+  const body     = document.getElementById('costStructureBody');
+  const key      = plan + '|' + planType;
+  const rows     = COST_CONFIGS[key];
+
+  if (!rows) {
+    body.innerHTML = '<tr><td colspan="2" style="text-align:center;color:#9aa5b4;font-size:.85rem;padding:16px">Select a Plan and Plan Type above</td></tr>';
+    document.getElementById('rmTotal').textContent = '—';
+    return;
+  }
+
+  body.innerHTML = rows.map(r => `
+    <tr>
+      <td>${r.label}</td>
+      <td><div class="pct-wrap">
+        <input type="number" class="rm-input" id="${r.id}" value="${r.value.toFixed(2)}"
+               min="0" max="100" step="0.25"${r.placeholder ? ' data-placeholder="true"' : ''}>
+        <span class="pct-symbol">%</span>
+      </div></td>
+    </tr>`).join('');
+
+  body.querySelectorAll('.rm-input').forEach(i => i.addEventListener('input', updateRmTotal));
+  updateRmTotal();
+}
+
+function updateRmTotal() {
+  const total = [...document.querySelectorAll('#costStructureBody .rm-input')]
+    .reduce((s, i) => s + (parseFloat(i.value) || 0), 0);
+  const el = document.getElementById('rmTotal');
+  el.textContent = document.querySelectorAll('#costStructureBody .rm-input').length
+    ? total.toFixed(2) + '%' : '—';
+}
+
+function onPlanChange() {
+  const plan      = document.getElementById('planName').value;
+  const isHealthx = plan === 'Healthx';
+  document.getElementById('uploadNonHealthx').style.display = isHealthx ? 'none' : '';
+  document.getElementById('uploadHealthx').style.display    = isHealthx ? '' : 'none';
+  // Update Step 2 info box text
+  const infoBox = document.getElementById('rateInfoBox');
+  if (infoBox) {
+    infoBox.innerHTML = isHealthx
+      ? '<strong>Enter gross premium rates manually</strong> from the insurer\'s quote letter. Select DHA or DOH bracket structure per category.'
+      : '<strong>Gross premium rates have been pre-filled</strong> from the Quote Tool (GROSS PREMIUM columns). Review each category tab and adjust if needed before calculating.';
+  }
+  updateCostStructure();
+}
+document.getElementById('planName').addEventListener('change', onPlanChange);
+document.getElementById('planType').addEventListener('change', updateCostStructure);
+updateCostStructure();
+
+// ── File zones ────────────────────────────────────────────────────────────────
+function setupZone(zoneId, inputId, nameId, accept) {
+  const zone  = document.getElementById(zoneId);
+  const input = document.getElementById(inputId);
+  const name  = document.getElementById(nameId);
+  input.addEventListener('change', () => {
+    if (input.files[0]) {
+      name.textContent = input.files[0].name;
+      zone.classList.add('has-file');
+      zone.classList.remove('error');
+    }
+  });
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault(); zone.classList.remove('drag-over');
+    const dt = e.dataTransfer;
+    if (dt.files.length) {
+      const file = dt.files[0];
+      const ext = file.name.split('.').pop().toLowerCase();
+      if ((accept === 'pdf' && ext !== 'pdf') || (accept === 'xlsx' && !['xlsx','xls','csv'].includes(ext))) {
+        showToast('Wrong file type', 'error-t'); return;
+      }
+      const dTransfer = new DataTransfer(); dTransfer.items.add(file); input.files = dTransfer.files;
+      name.textContent = file.name; zone.classList.add('has-file'); zone.classList.remove('error');
+    }
+  });
+}
+setupZone('zone-tool',              'toolFile',              'toolName',          'xlsx');
+setupZone('zone-census',            'censusFile',            'censusName',        'xlsx');
+setupZone('zone-quoted-census',     'quotedCensusFile',      'quotedCensusName',  'xlsx');
+setupZone('zone-confirmed-census',  'confirmedCensusFile',   'confirmedCensusName','xlsx');
+
+// ── Step navigation ───────────────────────────────────────────────────────────
+function goToStep(n) {
+  document.querySelectorAll('.step-content').forEach(el => el.classList.remove('active'));
+  document.getElementById('step-' + n).classList.add('active');
+  [1,2,3].forEach(i => {
+    const si = document.getElementById('si-' + i);
+    si.classList.remove('active','done');
+    if (i < n) si.classList.add('done');
+    if (i === n) si.classList.add('active');
+    const sd = document.getElementById('sd-' + i);
+    if (sd) sd.classList.toggle('done', i < n);
+  });
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+let toastTimer;
+function showToast(msg, type = '') {
+  clearTimeout(toastTimer);
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast ' + type;
+  t.classList.add('show');
+  toastTimer = setTimeout(() => t.classList.remove('show'), 4000);
+}
+
+// ── Overlay ───────────────────────────────────────────────────────────────────
+function showOverlay(title, sub) {
+  document.getElementById('ovTitle').textContent = title || 'Processing…';
+  document.getElementById('ovSub').textContent = sub || 'This may take a few seconds';
+  document.getElementById('overlay').classList.add('show');
+}
+function hideOverlay() { document.getElementById('overlay').classList.remove('show'); }
+
+// ── Category rate-table management ───────────────────────────────────────────
+let categories = [];    // [{letter, brackets:[{label,lo,hi,male,female}], maternity}]
+let activeCat  = 'A';
+
+function getCatFromBrackets(brackets) {
+  return brackets.map(b => ({
+    age_lo: b.lo, age_hi: b.hi, label: b.label, male: parseFloat(b.male)||0, female: parseFloat(b.female)||0
+  }));
+}
+
+function renderCatTabs() {
+  const tabsEl = document.getElementById('catTabs');
+  const addBtn = tabsEl.querySelector('.btn-add-cat');
+  // Remove old tabs
+  tabsEl.querySelectorAll('.cat-tab').forEach(t => t.remove());
+  categories.forEach(cat => {
+    const tab = document.createElement('div');
+    tab.className = 'cat-tab' + (cat.letter === activeCat ? ' active' : '');
+    tab.dataset.cat = cat.letter;
+    tab.innerHTML = `Category ${cat.letter}${categories.length > 1 ? `<span class="del-cat" onclick="removeCategory('${cat.letter}')">✕</span>` : ''}`;
+    tab.addEventListener('click', (e) => { if (!e.target.classList.contains('del-cat')) switchCat(cat.letter); });
+    tabsEl.insertBefore(tab, addBtn);
+  });
+}
+
+function renderCatPanel(cat) {
+  let panel = document.getElementById('panel-' + cat.letter);
+  if (!panel) {
+    panel = document.createElement('div');
+    panel.id = 'panel-' + cat.letter;
+    panel.className = 'rate-panel' + (cat.letter === activeCat ? ' active' : '');
+    document.getElementById('catPanels').appendChild(panel);
+  }
+  const plan = document.getElementById('planName').value;
+  const isHealthx = plan === 'Healthx';
+  const bracketType = cat.bracketType || 'dha';
+
+  const bracketSelectorHtml = isHealthx ? `
+    <div class="bracket-type-row" style="display:flex;align-items:center;gap:18px;margin-bottom:10px;padding:8px 12px;background:#f0f4ff;border-radius:8px;font-size:.83rem;font-family:'Inter',sans-serif">
+      <span style="font-weight:600;color:#374151">Bracket Structure:</span>
+      <label style="display:flex;align-items:center;gap:5px;cursor:pointer">
+        <input type="radio" name="bt-${cat.letter}" value="dha" ${bracketType === 'dha' ? 'checked' : ''}
+          onchange="setBracketType('${cat.letter}','dha')"> DHA (12 bands)
+      </label>
+      <label style="display:flex;align-items:center;gap:5px;cursor:pointer">
+        <input type="radio" name="bt-${cat.letter}" value="doh" ${bracketType === 'doh' ? 'checked' : ''}
+          onchange="setBracketType('${cat.letter}','doh')"> DOH (4 bands)
+      </label>
+    </div>` : '';
+
+  panel.innerHTML = bracketSelectorHtml + `
+    <table class="rate-tbl">
+      <thead>
+        <tr>
+          <th>Age Range</th>
+          <th>Male Rate (AED/yr)</th>
+          <th>Female Rate (AED/yr)</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${cat.brackets.map((b,i) => `
+          <tr>
+            <td>${b.label}</td>
+            <td><input class="rate-input ${b.male ? 'highlight' : ''}" type="number" min="0" step="1"
+                  id="male_${cat.letter}_${i}" value="${b.male || ''}" placeholder="0"
+                  oninput="updateRate('${cat.letter}', ${i}, 'male', this.value)"></td>
+            <td><input class="rate-input ${b.female ? 'highlight' : ''}" type="number" min="0" step="1"
+                  id="female_${cat.letter}_${i}" value="${b.female || ''}" placeholder="0"
+                  oninput="updateRate('${cat.letter}', ${i}, 'female', this.value)"></td>
+          </tr>`).join('')}
+      </tbody>
+    </table>
+    <div class="mat-row">
+      <div>
+        <label>Maternity Surcharge — Annual rate per eligible female</label>
+        <div class="mat-note">Applied to: Married females, age 18–45 (Dubai) / 18–50 (Abu Dhabi)</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="font-size:.82rem;color:#e65100;font-weight:600">AED</span>
+        <input class="rate-input" type="number" min="0" step="1" style="width:120px"
+          id="mat_${cat.letter}" value="${cat.maternity || ''}" placeholder="0"
+          oninput="updateMaternity('${cat.letter}', this.value)">
+      </div>
+    </div>`;
+  panel.className = 'rate-panel' + (cat.letter === activeCat ? ' active' : '');
+}
+
+function setBracketType(catLetter, type) {
+  const cat = categories.find(c => c.letter === catLetter);
+  if (!cat) return;
+  cat.bracketType = type;
+  const template = type === 'doh' ? DOH_BRACKETS : DHA_BRACKETS;
+  cat.brackets = template.map(b => ({ label: b.label, lo: b.lo, hi: b.hi, male: 0, female: 0 }));
+  renderCatPanel(cat);
+}
+
+function updateRate(catLetter, idx, gender, val) {
+  const cat = categories.find(c => c.letter === catLetter);
+  if (cat) cat.brackets[idx][gender] = parseFloat(val) || 0;
+}
+function updateMaternity(catLetter, val) {
+  const cat = categories.find(c => c.letter === catLetter);
+  if (cat) cat.maternity = parseFloat(val) || 0;
+}
+
+function switchCat(letter) {
+  activeCat = letter;
+  document.querySelectorAll('.cat-tab').forEach(t => t.classList.toggle('active', t.dataset.cat === letter));
+  document.querySelectorAll('.rate-panel').forEach(p => p.classList.remove('active'));
+  const panel = document.getElementById('panel-' + letter);
+  if (panel) panel.classList.add('active');
+}
+
+function addCategory() {
+  const used = categories.map(c => c.letter);
+  const next = ['A','B','C','D','E','F'].find(l => !used.includes(l));
+  if (!next) { showToast('Maximum 6 categories', 'warning'); return; }
+  const plan      = document.getElementById('planName').value;
+  const isHealthx = plan === 'Healthx';
+  const tmpl      = isHealthx ? DHA_BRACKETS : DEFAULT_BRACKETS;
+  const brackets  = isHealthx
+    ? tmpl.map(b => ({ label: b.label, lo: b.lo, hi: b.hi, male: 0, female: 0 }))
+    : tmpl.map(lbl => { const [lo,hi] = lbl.split('-').map(Number); return { label: lbl, lo, hi, male: 0, female: 0 }; });
+  const cat = {
+    letter: next,
+    brackets,
+    bracketType: isHealthx ? 'dha' : null,
+    maternity: 0
+  };
+  categories.push(cat);
+  renderCatTabs();
+  renderCatPanel(cat);
+  switchCat(next);
+}
+
+function removeCategory(letter) {
+  if (categories.length <= 1) return;
+  categories = categories.filter(c => c.letter !== letter);
+  const panel = document.getElementById('panel-' + letter);
+  if (panel) panel.remove();
+  if (activeCat === letter) activeCat = categories[0].letter;
+  renderCatTabs();
+  switchCat(activeCat);
+}
+
+function initCategories(extractedRates, matRate) {
+  categories = [];
+  const bracketList = extractedRates.length > 0 ? extractedRates : DEFAULT_BRACKETS.map(lbl => {
+    const [lo, hi] = lbl.split('-').map(Number);
+    return { label: lbl, age_lo: lo, age_hi: hi, male: 0, female: 0 };
+  });
+  const cat = {
+    letter: 'A',
+    brackets: bracketList.map(b => ({
+      label: b.label || `${b.age_lo}-${b.age_hi}`,
+      lo: b.age_lo, hi: b.age_hi,
+      male: b.male || 0, female: b.female || 0
+    })),
+    maternity: matRate || 0
+  };
+  categories.push(cat);
+  activeCat = 'A';
+  document.getElementById('catPanels').innerHTML = '';
+  renderCatTabs();
+  renderCatPanel(cat);
+}
+
+function initCategoriesFromVision(visionCats) {
+  categories = [];
+  document.getElementById('catPanels').innerHTML = '';
+  const plan      = document.getElementById('planName').value;
+  const isHealthx = plan === 'Healthx';
+
+  const letters = Object.keys(visionCats).sort();
+  for (const letter of letters) {
+    const catData = visionCats[letter];
+    const cat = {
+      letter: letter.toUpperCase(),
+      brackets: (catData.brackets || []).map(b => ({
+        label: b.label || `${b.age_lo}-${b.age_hi}`,
+        lo: b.age_lo, hi: b.age_hi,
+        male: b.male || 0, female: b.female || 0
+      })),
+      bracketType: null,
+      maternity: catData.maternity_rate || 0
+    };
+    categories.push(cat);
+  }
+
+  if (categories.length === 0) {
+    // Healthx: start with one blank DHA category
+    if (isHealthx) {
+      categories = [{
+        letter: 'A',
+        bracketType: 'dha',
+        brackets: DHA_BRACKETS.map(b => ({ label: b.label, lo: b.lo, hi: b.hi, male: 0, female: 0 })),
+        maternity: 0
+      }];
+    } else {
+      initCategories([], 0);
+      return;
+    }
+  }
+
+  activeCat = categories[0].letter;
+  renderCatTabs();
+  for (const cat of categories) renderCatPanel(cat);
+  switchCat(activeCat);
+}
+
+// ── Session token ─────────────────────────────────────────────────────────────
+let currentToken = '';
+
+// ── STEP 1 Submit ─────────────────────────────────────────────────────────────
+document.getElementById('intakeForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  // Validate required form fields
+  let valid = true;
+  ['companyName','brokerName','startDate','underwriter'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el.value.trim()) { el.classList.add('error'); valid = false; }
+    else el.classList.remove('error');
+  });
+  const plan      = document.getElementById('planName').value;
+  const isHealthx = plan === 'Healthx';
+
+  if (isHealthx) {
+    if (!document.getElementById('quotedCensusFile').files[0]) {
+      document.getElementById('zone-quoted-census').classList.add('error');
+      valid = false;
+    }
+    if (!document.getElementById('confirmedCensusFile').files[0]) {
+      document.getElementById('zone-confirmed-census').classList.add('error');
+      valid = false;
+    }
+  } else {
+    if (!document.getElementById('toolFile').files[0]) {
+      document.getElementById('zone-tool').classList.add('error');
+      valid = false;
+    }
+    if (!document.getElementById('censusFile').files[0]) {
+      document.getElementById('zone-census').classList.add('error');
+      valid = false;
+    }
+  }
+  if (!valid) { showToast('Please fill all required fields and upload the required files', 'error-t'); return; }
+
+  const btn = document.getElementById('step1Btn');
+  btn.disabled = true;
+  btn.innerHTML = isHealthx
+    ? '<span class="spinner"></span>Reading censuses…'
+    : '<span class="spinner"></span>Reading tool…';
+  showOverlay(
+    isHealthx ? 'Reading Census Files' : 'Reading Quote Tool',
+    isHealthx ? 'Preparing rate entry…' : 'Extracting rates and policy details…'
+  );
+
+  try {
+    const fd = new FormData();
+    fd.append('plan', plan);
+    if (isHealthx) {
+      fd.append('quoted_census',    document.getElementById('quotedCensusFile').files[0]);
+      fd.append('confirmed_census', document.getElementById('confirmedCensusFile').files[0]);
+    } else {
+      fd.append('tool',   document.getElementById('toolFile').files[0]);
+      fd.append('census', document.getElementById('censusFile').files[0]);
+    }
+
+    const res  = await fetch('/api/upload', { method: 'POST', body: fd });
+    const data = await res.json();
+    hideOverlay();
+
+    if (data.error) { showToast(data.error, 'error-t'); btn.disabled = false; btn.innerHTML = 'Extract Rates &amp; Continue →'; return; }
+
+    currentToken = data.token;
+    const td = data.tool_data || {};
+
+    if (isHealthx) {
+      // Healthx: no tool data, just init empty rate table and go to Step 2
+      // Update summary card to show minimal info
+      document.getElementById('ts-company').textContent     = document.getElementById('companyName').value || '—';
+      document.getElementById('ts-product').textContent     = 'Healthx';
+      document.getElementById('ts-start').textContent       = document.getElementById('startDate').value || '—';
+      document.getElementById('ts-underwriter').textContent = document.getElementById('underwriter').value || '—';
+      document.getElementById('ts-quote').textContent       = '—';
+      document.getElementById('ts-members').textContent     = '—';
+      initCategoriesFromVision({});   // empty → Healthx blank DHA category
+      goToStep(2);
+      showToast('Census files loaded — enter rates manually and click Calculate', 'success');
+    } else {
+      // ── Pre-fill tool summary card ──
+      document.getElementById('ts-company').textContent    = td.company_name || '—';
+      document.getElementById('ts-product').textContent    = td.product      || '—';
+      document.getElementById('ts-start').textContent      = td.start_date   || '—';
+      document.getElementById('ts-underwriter').textContent = td.underwriter || '—';
+      document.getElementById('ts-quote').textContent      = td.confirmed_quote
+        ? 'AED ' + Number(td.confirmed_quote).toLocaleString('en-US', {minimumFractionDigits:0, maximumFractionDigits:0})
+        : '—';
+      document.getElementById('ts-members').textContent    = td.members || '—';
+
+      // ── Pre-fill Step 1 form fields (override only if blank) ──
+      const setIfBlank = (id, val) => { const el = document.getElementById(id); if (el && !el.value && val) el.value = val; };
+      setIfBlank('companyName', td.company_name);
+      setIfBlank('startDate',   td.start_date);
+      if (td.underwriter) {
+        const uw = document.getElementById('underwriter');
+        for (const opt of uw.options) {
+          if (opt.value.toLowerCase() === td.underwriter.toLowerCase()) { uw.value = opt.value; break; }
+        }
+      }
+
+      // ── Pre-fill commission fields from tool fees (HSB rates as %) ──
+      const fees = td.fees || {};
+      const pct  = (v) => (v * 100).toFixed(2);
+      const setFee = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+      if (fees.broker)  setFee('rmBroker', pct(fees.broker.hsb));
+      if (fees.qic)     setFee('rmQic',    pct(fees.qic.hsb));
+      if (fees.healthx) setFee('rmWellx',  pct(fees.healthx.hsb));
+      if (fees.nas)     setFee('rmNas',    pct(fees.nas.hsb));
+      if (fees.levy)    setFee('rmTax',    pct(fees.levy.hsb));
+      updateRmTotal();
+
+      // ── Pre-fill quote totals ──
+      if (td.confirmed_quote) document.getElementById('qtPremium').value = td.confirmed_quote;
+      if (td.members)         document.getElementById('qtMembers').value = td.members;
+
+      // ── Init rate table from tool categories ──
+      if (data.vision_categories && Object.keys(data.vision_categories).length > 0) {
+        initCategoriesFromVision(data.vision_categories);
+      } else {
+        initCategories([], 0);
+      }
+
+      goToStep(2);
+      showToast('Tool data extracted — review rates and click Calculate', 'success');
+    }
+  } catch(err) {
+    hideOverlay();
+    showToast('Upload failed: ' + err.message, 'error-t');
+    btn.disabled = false;
+    btn.innerHTML = 'Extract Rates &amp; Continue →';
+  }
+});
+
+// ── STEP 2 Calculate ──────────────────────────────────────────────────────────
+async function calculatePremium() {
+  // Validate at least one rate is filled
+  const catA = categories.find(c => c.letter === 'A');
+  if (catA) {
+    const anyFilled = catA.brackets.some(b => b.male > 0 || b.female > 0);
+    if (!anyFilled) {
+      showToast('Please enter at least one premium rate for Category A', 'error-t');
+      return;
+    }
+  }
+
+  const btn = document.getElementById('step2Btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Calculating…';
+  showOverlay('Calculating Premiums', 'Processing census and generating Excel reports…');
+
+  const formData = {
+    company_name:     document.getElementById('companyName').value.trim(),
+    broker:           document.getElementById('brokerName').value,
+    start_date:       document.getElementById('startDate').value,
+    underwriter:      document.getElementById('underwriter').value,
+    rm_person:        document.getElementById('rmPerson').value,
+    plan:               document.getElementById('planName').value,
+    plan_type:          document.getElementById('planType').value,
+    inception_payment:  document.getElementById('inceptionPayment').value,
+    endorsement_freq:   document.getElementById('endorsementFreq').value,
+    has_lsb:            document.getElementById('hasLsb').checked,
+    age_method:         document.getElementById('planName').value === 'Healthx' ? 'anb' : 'alb',
+    rm_broker:          (document.getElementById('rmBroker')  || {}).value || '0',
+    rm_insurer:         (document.getElementById('rmQic')     || document.getElementById('rmDni') || {}).value || '0',
+    rm_wellx:           (document.getElementById('rmWellx')   || {}).value || '0',
+    rm_tpa:             (document.getElementById('rmNas')     || {}).value || '0',
+    rm_insurance_tax:   (document.getElementById('rmTax')     || {}).value || '0',
+  };
+
+  // Build verified_rates and maternity_rates from categories state
+  const verified_rates  = {};
+  const maternity_rates = {};
+  categories.forEach(cat => {
+    verified_rates[cat.letter] = cat.brackets.map(b => ({
+      age_lo: b.lo, age_hi: b.hi, label: b.label,
+      male: parseFloat(b.male) || 0, female: parseFloat(b.female) || 0
+    }));
+    maternity_rates[cat.letter] = parseFloat(cat.maternity) || 0;
+  });
+
+  const quote_totals = {
+    total_premium: parseFloat(document.getElementById('qtPremium').value) || 0,
+    members:       parseInt(document.getElementById('qtMembers').value) || 0,
+    grand_total:   parseFloat(document.getElementById('qtGrandTotal').value) || 0,
+  };
+
+  try {
+    const res  = await fetch('/api/calculate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: currentToken, form_data: formData, verified_rates, maternity_rates, quote_totals })
+    });
+    const data = await res.json();
+    hideOverlay();
+
+    if (data.error) { showToast(data.error, 'error-t'); btn.disabled = false; btn.innerHTML = 'Calculate Premium →'; return; }
+
+    // Populate Step 3
+    const t   = data.totals;
+    const rec = data.reconciliation;
+
+    // Stats
+    document.getElementById('stMembers').textContent  = data.member_count;
+    document.getElementById('stNet').textContent      = fmtAED(t.total_net);
+    document.getElementById('stMat').textContent      = fmtAED(t.total_maternity);
+    document.getElementById('stBasmah').textContent   = fmtAED(t.total_basmah);
+    document.getElementById('stSubtotal').textContent = fmtAED(t.subtotal);
+    document.getElementById('stVat').textContent      = fmtAED(t.vat);
+    document.getElementById('stGrand').textContent    = fmtAED(t.grand_total);
+
+    // Reconciliation banner
+    const banner = document.getElementById('reconBanner');
+    if (rec.match || rec.quote_premium === 0) {
+      banner.className = 'recon-banner match';
+      document.getElementById('reconIcon').textContent = '✅';
+      document.getElementById('reconTitle').textContent = 'Totals Match — Calculation Verified';
+      document.getElementById('reconSub').textContent =
+        rec.quote_premium > 0
+          ? `Calculated premium AED ${fmtAED(rec.calc_premium)} matches confirmed quote AED ${fmtAED(rec.quote_premium)}`
+          : 'No quote total provided for comparison. Download reports to review.';
+      document.getElementById('diffSection').style.display = 'none';
+    } else {
+      banner.className = 'recon-banner mismatch';
+      document.getElementById('reconIcon').textContent = '❌';
+      document.getElementById('reconTitle').textContent = 'Mismatch Detected — Review Required';
+      const diff = rec.difference;
+      document.getElementById('reconSub').textContent =
+        `Variance: AED ${fmtAED(Math.abs(diff))} ${diff > 0 ? 'above' : 'below'} confirmed quote`;
+
+      // Diff table
+      document.getElementById('diffSection').style.display = 'block';
+      const tbody = document.getElementById('diffTableBody');
+      tbody.innerHTML = '';
+      rec.items.forEach(item => {
+        const diff = item.diff;
+        const cls  = diff > 0 ? 'pos' : (diff < 0 ? 'neg' : '');
+        tbody.innerHTML += `<tr>
+          <td>${item.label}</td>
+          <td>${typeof item.quote === 'number' && item.quote > 100 ? 'AED ' + fmtAED(item.quote) : item.quote}</td>
+          <td>${typeof item.calc === 'number' && item.calc > 100 ? 'AED ' + fmtAED(item.calc) : item.calc}</td>
+          <td class="${cls}">${diff > 0 ? '+' : ''}${typeof diff === 'number' && Math.abs(diff) > 10 ? 'AED ' + fmtAED(diff) : diff}</td>
+        </tr>`;
+      });
+    }
+
+    // Store out_token & populate loading dropdown
+    currentOutToken = data.out_token;
+    loadingMembers  = [];
+    renderLoadingRows();
+    const memberSel = document.getElementById('loadingMemberSelect');
+    memberSel.innerHTML = '<option value="">Select member…</option>';
+    (data.members || []).forEach((m, i) => {
+      const opt = document.createElement('option');
+      opt.value = i;
+      opt.textContent = `${m.name} (Cat ${m.category} · ${m.relation})`;
+      opt._data = m;
+      memberSel.appendChild(opt);
+    });
+    membersList = data.members || [];
+
+    goToStep(3);
+    showToast(rec.match ? '✅ Reports generated — totals match!' : '⚠️ Reports generated — review mismatch', rec.match ? 'success' : 'warning');
+  } catch(err) {
+    hideOverlay();
+    showToast('Calculation failed: ' + err.message, 'error-t');
+    btn.disabled = false;
+    btn.innerHTML = 'Calculate Premium →';
+  }
+}
+
+// ── Additional Loading ────────────────────────────────────────────────────────
+let loadingMembers = [];
+let membersList    = [];
+let currentOutToken = '';
+
+function addLoadingMember() {
+  const sel    = document.getElementById('loadingMemberSelect');
+  const idx    = sel.value;
+  const amount = parseFloat(document.getElementById('loadingAmount').value);
+  const diag   = document.getElementById('loadingDiagnosis').value.trim();
+  const notes  = document.getElementById('loadingNotes').value.trim();
+
+  if (idx === '' || isNaN(amount) || amount <= 0) {
+    showToast('Select a member and enter a gross loading amount', 'error-t');
+    return;
+  }
+
+  const m = membersList[parseInt(idx)];
+  loadingMembers.push({
+    name:         m.name,
+    dob:          m.dob,
+    gender:       m.gender,
+    category:     m.category,
+    relation:     m.relation,
+    gross_loading: amount,
+    diagnosis:    diag,
+    notes:        notes,
+  });
+
+  // Reset inputs
+  sel.value = '';
+  document.getElementById('loadingAmount').value       = '';
+  document.getElementById('loadingDiagnosis').value    = '';
+  document.getElementById('loadingNotes').value        = '';
+
+  renderLoadingRows();
+}
+
+function removeLoadingMember(i) {
+  loadingMembers.splice(i, 1);
+  renderLoadingRows();
+}
+
+function renderLoadingRows() {
+  const rows  = document.getElementById('loadingRows');
+  const list  = document.getElementById('loadingList');
+  const empty = document.getElementById('loadingEmpty');
+
+  if (loadingMembers.length === 0) {
+    list.style.display  = 'none';
+    empty.style.display = 'block';
+    return;
+  }
+
+  list.style.display  = 'block';
+  empty.style.display = 'none';
+
+  rows.innerHTML = loadingMembers.map((m, i) => `
+    <div class="loading-list-row">
+      <span class="ldr-name">${m.name}<br><small style="font-weight:400;color:var(--slate)">Cat ${m.category} · ${m.relation}</small></span>
+      <span class="ldr-amt">AED ${m.gross_loading.toLocaleString('en-AE', {minimumFractionDigits:2,maximumFractionDigits:2})}</span>
+      <span class="ldr-diag">${m.diagnosis || '—'}</span>
+      <span class="ldr-notes">${m.notes || '—'}</span>
+      <button class="btn-rm-loading" onclick="removeLoadingMember(${i})" title="Remove">×</button>
+    </div>`).join('');
+}
+
+async function downloadSummary() {
+  const btn = document.getElementById('dlSummary');
+  const origText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '⏳ Generating…';
+
+  try {
+    const res = await fetch('/api/finalize_summary', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        out_token:       currentOutToken,
+        loading_members: loadingMembers,
+        has_lsb:         document.getElementById('hasLsb').checked,
+        inception_payment: document.getElementById('inceptionPayment').value,
+        endorsement_freq:  document.getElementById('endorsementFreq').value,
+      })
+    });
+    const data = await res.json();
+    if (data.error) { showToast(data.error, 'error-t'); return; }
+
+    // Trigger download
+    const link = document.createElement('a');
+    link.href  = `/download/${data.prd_token}/prd`;
+    link.click();
+    showToast('✅ Premium Summary generated!', 'success');
+  } catch(err) {
+    showToast('Download failed: ' + err.message, 'error-t');
+  } finally {
+    btn.disabled    = false;
+    btn.textContent = origText;
+  }
+}
+
+// ── Utilities ─────────────────────────────────────────────────────────────────
+function fmtAED(n) {
+  if (typeof n !== 'number') return n;
+  return n.toLocaleString('en-AE', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
+
+function resetAll() {
+  // Reset form
+  document.getElementById('intakeForm').reset();
+  document.getElementById('toolName').textContent   = '';
+  document.getElementById('censusName').textContent = '';
+  document.getElementById('zone-tool').classList.remove('has-file','error');
+  document.getElementById('zone-census').classList.remove('has-file','error');
+  document.querySelectorAll('.error').forEach(el => el.classList.remove('error'));
+  updateRmTotal();
+  // Reset step 2 summary card
+  ['ts-company','ts-product','ts-start','ts-underwriter','ts-quote','ts-members'].forEach(id => {
+    document.getElementById(id).textContent = '—';
+  });
+  document.getElementById('qtPremium').value    = '';
+  document.getElementById('qtMembers').value    = '';
+  document.getElementById('qtGrandTotal').value = '';
+  document.getElementById('catPanels').innerHTML = '';
+  document.getElementById('catTabs').querySelectorAll('.cat-tab').forEach(t => t.remove());
+  categories = [];
+  // Reset button states
+  document.getElementById('step1Btn').disabled = false;
+  document.getElementById('step1Btn').innerHTML = 'Extract Rates &amp; Continue →';
+  document.getElementById('step2Btn').disabled = false;
+  document.getElementById('step2Btn').innerHTML = 'Calculate Premium →';
+  // Reset loading section
+  loadingMembers = []; membersList = []; currentOutToken = '';
+  document.getElementById('loadingMemberSelect').innerHTML = '<option value="">Select member…</option>';
+  renderLoadingRows();
+  // Go back to step 1
+  goToStep(1);
+  currentToken = ''; currentPage = 0; totalPages = 1;
+}
+
+document.getElementById('clearBtn').addEventListener('click', resetAll);
+</script>
+</body>
+</html>

@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<!-- saved from url=(0110)file:///Users/jasperhealthx/Documents/Claude/Projects/DHA%20report%20analysis%20AI%20agent/dha-rfq-intake.html -->
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WellX AI Underwriter</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com/">
+  <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="">
+  <link href="./WellX AI Underwriter_files/css2" rel="stylesheet">
+  <style>
+    /* ─── WellX Brand Tokens ──────────────────────────────────────────────── */
+    :root {
+      --wellx-energy-orange:  #fb9b35;
+      --wellx-pulse-pink:     #f1517b;
+      --wellx-deep-magenta:   #b43082;
+      --wellx-navy-core:      #003780;
+      --wellx-sky-electric:   #35c5fc;
+      --wellx-deep-violet:    #8431cb;
+      --wellx-slate:          #5e788a;
+
+      --wellx-gradient-full:     linear-gradient(90deg, #fb9b35, #f1517b, #b43082, #8431cb, #35c5fc);
+      --wellx-gradient-warm:     linear-gradient(135deg, #fb9b35, #f1517b, #b43082);
+      --wellx-gradient-cool:     linear-gradient(135deg, #003780, #8431cb, #35c5fc);
+    }
+
+    /* ─── Reset & Base ─────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: #0a0a0a;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 16px 80px;
+      color: #1a2332;
+    }
+
+    /* ─── Card ──────────────────────────────────────────────────────────────── */
+    .card {
+      background: #fff;
+      border-radius: 20px;
+      box-shadow: 0 12px 60px rgba(0,0,0,.55), 0 2px 8px rgba(0,0,0,.3);
+      width: 100%;
+      max-width: 720px;
+      overflow: hidden;
+    }
+
+    /* ─── Header ────────────────────────────────────────────────────────────── */
+    .card-header {
+      background: #000;
+      padding: 0;
+      position: relative;
+    }
+
+    /* Rainbow accent line at very top */
+    .card-header::before {
+      content: '';
+      display: block;
+      height: 3px;
+      background: linear-gradient(90deg, #fb9b35, #f1517b, #b43082, #8431cb, #35c5fc);
+    }
+
+    .header-inner {
+      display: flex;
+      align-items: center;
+      gap: 22px;
+      padding: 28px 36px 30px;
+    }
+
+    .header-text { flex: 1; }
+
+    .header-text .brand-name {
+      font-family: 'Raleway', sans-serif;
+      font-weight: 900;
+      font-size: .65rem;
+      letter-spacing: 3.5px;
+      text-transform: uppercase;
+      background: linear-gradient(90deg, #fb9b35, #f1517b, #b43082, #8431cb, #35c5fc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 7px;
+    }
+
+    .header-text h1 {
+      font-family: 'Raleway', sans-serif;
+      font-size: 1.35rem;
+      font-weight: 800;
+      letter-spacing: -.2px;
+      color: #fff;
+      line-height: 1.25;
+      margin-bottom: 8px;
+    }
+
+    .header-text h1 span {
+      display: block;
+      font-size: 1rem;
+      font-weight: 600;
+      color: rgba(255,255,255,.45);
+      font-family: 'Inter', sans-serif;
+      letter-spacing: 0;
+      margin-top: 3px;
+    }
+
+    .header-text p {
+      font-family: 'Inter', sans-serif;
+      font-size: .8rem;
+      color: rgba(255,255,255,.45);
+      line-height: 1.55;
+      font-weight: 400;
+    }
+
+    /* ─── Body ──────────────────────────────────────────────────────────────── */
+    .card-body { padding: 32px 36px; }
+
+    /* ─── Section label ─────────────────────────────────────────────────────── */
+    .section-label {
+      font-family: 'Raleway', sans-serif;
+      font-size: .67rem;
+      font-weight: 800;
+      letter-spacing: 1.8px;
+      text-transform: uppercase;
+      color: var(--wellx-navy-core);
+      margin: 30px 0 14px;
+      padding-bottom: 9px;
+      border-bottom: 2px solid transparent;
+      border-image: linear-gradient(90deg, #fb9b35, #f1517b, #b43082, #8431cb, #35c5fc) 1;
+    }
+    .section-label:first-of-type { margin-top: 0; }
+
+    /* ─── Field ─────────────────────────────────────────────────────────────── */
+    .field { margin-bottom: 18px; }
+    .field label {
+      display: block;
+      font-size: .8rem;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 6px;
+      font-family: 'Inter', sans-serif;
+    }
+    .field label .req { color: var(--wellx-pulse-pink); margin-left: 2px; }
+
+    .field input[type="text"],
+    .field input[type="date"],
+    .field textarea,
+    .field select {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1.5px solid #d1d9e6;
+      border-radius: 9px;
+      font-size: .9rem;
+      font-family: 'Inter', sans-serif;
+      color: #1a2332;
+      background: #fff;
+      transition: border-color .15s, box-shadow .15s;
+      appearance: none;
+      -webkit-appearance: none;
+    }
+    .field select {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%235e788a' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 14px center;
+      padding-right: 36px;
+    }
+    .field input:focus,
+    .field select:focus,
+    .field textarea:focus {
+      outline: none;
+      border-color: var(--wellx-navy-core);
+      box-shadow: 0 0 0 3px rgba(0,55,128,.1);
+    }
+    .field input.error,
+    .field select.error,
+    .field textarea.error {
+      border-color: var(--wellx-pulse-pink);
+      box-shadow: 0 0 0 3px rgba(241,81,123,.1);
+    }
+    .field textarea { resize: vertical; min-height: 90px; }
+
+    /* ─── Two-col row ───────────────────────────────────────────────────────── */
+    .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 520px) { .row-2 { grid-template-columns: 1fr; } }
+
+    /* ─── Commission table ──────────────────────────────────────────────────── */
+    .commission-table {
+      width: 100%;
+      border-collapse: collapse;
+      border-radius: 11px;
+      overflow: hidden;
+      border: 1.5px solid #e0e7f0;
+    }
+    .commission-table thead tr {
+      background: linear-gradient(90deg, rgba(0,55,128,.05), rgba(53,197,252,.05));
+    }
+    .commission-table thead th {
+      padding: 10px 16px;
+      font-family: 'Raleway', sans-serif;
+      font-size: .68rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--wellx-navy-core);
+      text-align: left;
+    }
+    .commission-table thead th:last-child { text-align: right; }
+    .commission-table tbody tr {
+      border-top: 1px solid #eef1f6;
+      transition: background .1s;
+    }
+    .commission-table tbody tr:hover { background: #f8f9fd; }
+    .commission-table td {
+      padding: 10px 16px;
+      font-size: .88rem;
+      font-family: 'Inter', sans-serif;
+    }
+    .commission-table td:first-child {
+      font-weight: 500;
+      color: #374151;
+      width: 60%;
+    }
+    .commission-table td:last-child { text-align: right; width: 40%; }
+
+    .pct-input-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 5px;
+    }
+    .pct-input-wrap input {
+      width: 90px;
+      padding: 7px 10px;
+      border: 1.5px solid #d1d9e6;
+      border-radius: 7px;
+      font-family: 'Inter', sans-serif;
+      font-size: .9rem;
+      text-align: right;
+      color: #1a2332;
+      background: #fff;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .pct-input-wrap input:focus {
+      outline: none;
+      border-color: var(--wellx-sky-electric);
+      box-shadow: 0 0 0 3px rgba(53,197,252,.15);
+    }
+    .pct-input-wrap input.error {
+      border-color: var(--wellx-pulse-pink);
+    }
+    .pct-symbol {
+      font-size: .9rem;
+      font-weight: 600;
+      color: var(--wellx-slate);
+    }
+
+    /* ─── File uploads ──────────────────────────────────────────────────────── */
+    .file-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+    @media (max-width: 560px) { .file-row { grid-template-columns: 1fr; } }
+
+    .file-zone {
+      border: 2px dashed #c8d4e3;
+      border-radius: 11px;
+      padding: 20px 12px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .15s, background .15s;
+      position: relative;
+    }
+    .file-zone:hover, .file-zone.drag-over {
+      border-color: var(--wellx-navy-core);
+      background: rgba(0,55,128,.04);
+    }
+    .file-zone.has-file {
+      border-style: solid;
+      border-color: transparent;
+      background: linear-gradient(#fff,#fff) padding-box,
+                  linear-gradient(135deg, #fb9b35, #f1517b, #b43082) border-box;
+    }
+    .file-zone.error {
+      border-color: var(--wellx-pulse-pink);
+      border-style: solid;
+    }
+    .file-zone input[type="file"] {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      opacity: 0; cursor: pointer;
+    }
+    .file-icon { font-size: 1.5rem; margin-bottom: 7px; }
+    .file-label {
+      font-family: 'Raleway', sans-serif;
+      font-size: .75rem;
+      font-weight: 800;
+      color: #374151;
+      margin-bottom: 3px;
+      letter-spacing: .3px;
+    }
+    .file-sub {
+      font-size: .68rem;
+      color: #9aa5b4;
+      font-family: 'Inter', sans-serif;
+    }
+    .file-name {
+      font-size: .68rem;
+      background: linear-gradient(135deg, #fb9b35, #f1517b, #b43082);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      font-weight: 600;
+      margin-top: 5px;
+      word-break: break-all;
+      font-family: 'Inter', sans-serif;
+    }
+
+    /* ─── Submit ────────────────────────────────────────────────────────────── */
+    .submit-wrap {
+      margin-top: 30px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .btn-submit {
+      flex: 1;
+      padding: 13px 24px;
+      background: linear-gradient(135deg, #003780, #8431cb, #35c5fc);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-family: 'Raleway', sans-serif;
+      font-size: .95rem;
+      font-weight: 800;
+      cursor: pointer;
+      letter-spacing: .5px;
+      transition: opacity .15s, transform .1s, box-shadow .15s;
+      box-shadow: 0 4px 18px rgba(0,55,128,.3);
+    }
+    .btn-submit:hover {
+      opacity: .9;
+      box-shadow: 0 6px 24px rgba(0,55,128,.4);
+    }
+    .btn-submit:active { transform: scale(.98); }
+    .btn-submit:disabled { opacity: .45; cursor: not-allowed; box-shadow: none; }
+
+    .btn-reset {
+      padding: 13px 18px;
+      background: transparent;
+      border: 1.5px solid #d1d9e6;
+      border-radius: 10px;
+      font-family: 'Inter', sans-serif;
+      font-size: .88rem;
+      font-weight: 600;
+      color: var(--wellx-slate);
+      cursor: pointer;
+      transition: border-color .15s, color .15s;
+    }
+    .btn-reset:hover { border-color: var(--wellx-slate); color: #374151; }
+
+    /* ─── Toast ─────────────────────────────────────────────────────────────── */
+    .toast {
+      position: fixed;
+      bottom: 32px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: #1a2332;
+      color: #fff;
+      padding: 13px 22px;
+      border-radius: 10px;
+      font-family: 'Inter', sans-serif;
+      font-size: .88rem;
+      font-weight: 500;
+      box-shadow: 0 8px 32px rgba(0,0,0,.35);
+      transition: transform .3s ease, opacity .3s ease;
+      opacity: 0;
+      z-index: 9999;
+      max-width: 420px;
+      text-align: center;
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+    .toast.success  { background: linear-gradient(135deg, #003780, #8431cb); }
+    .toast.error-toast { background: linear-gradient(135deg, #b43082, #f1517b); }
+
+    /* ─── Spinner ───────────────────────────────────────────────────────────── */
+    .spinner {
+      display: inline-block;
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,.35);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      vertical-align: middle;
+      margin-right: 8px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .form-footer {
+      text-align: center;
+      margin-top: 22px;
+      font-size: .7rem;
+      color: #b0bac6;
+      font-family: 'Inter', sans-serif;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     🔧  EDIT YOUR DROPDOWNS HERE — add, remove, or reorder names freely.
+         Nothing else needs to change.
+     ══════════════════════════════════════════════════════════════════════ -->
+<script>
+
+// ── Webhook URL (paste your Power Automate HTTP trigger URL here) ──────────
+const WEBHOOK_URL = "https://defaultd95714da71c448eb9af2dd7eba560e.41.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/fc0333d479f4435896124d8e4949f98f/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=Z1i-SLPHu8nJrVDfFcdhsuQt2jkA0Hjc9z-qXBiKwK0";
+
+// ── Broker list ────────────────────────────────────────────────────────────
+const BROKERS = [
+  "ADIB",
+  "AES Middle East (AES International)",
+  "Insurance Market",
+  "Al Sayegh",
+  "Al Manarah",
+  "Al Nabooda",
+  "Aon Middle East",
+  "Associated Insurance Brokers-AUH",
+  "Beneple",
+  "Berns Brett Masaood",
+  "Burns & Wilcox",
+  "Compass",
+  "Cedar",
+  "Continental",
+  "Cosmos",
+  "Cross Road",
+  "Doo",
+  "Fidelity Insurance Services",
+  "FISCO",
+  "Green Shield",
+  "Gargash",
+  "Gateway",
+  "Genesis",
+  "Howden",
+  "Indemnity",
+  "Interactive",
+  "Joie de Vivre International",
+  "Kaizzen Plus",
+  "Links",
+  "Lockton - Dubai",
+  "Lockton - Abu Dhabi",
+  "Lifecare International Broker",
+  "Malakut",
+  "Marsh",
+  "Newtech",
+  "Northern",
+  "Nasco Emirates - Abu Dhabi",
+  "Nasco M.E. - Dubai",
+  "New Shield",
+  "Nexus",
+  "Omega",
+  "Pearl",
+  "Phillip Middle East",
+  "Prominent",
+  "PWS Gulf",
+  "Pacific Prime",
+  "Platinum",
+  "Direct Sale",
+  "R2S",
+  "RMS",
+  "Seven",
+  "The Brokerage Firm",
+  "Unitrust",
+  "Viva",
+  "Wayyak",
+  "Wehbe Insurance Services",
+  "Other",
+];
+
+// ── Relationship Managers ──────────────────────────────────────────────────
+const RELATIONSHIP_MANAGERS = [
+  "Sujith",
+  "Heston",
+];
+
+// ── Underwriters ───────────────────────────────────────────────────────────
+const UNDERWRITERS = [
+  "Jasper",
+  "Mabel",
+  "Joseph",
+  "Angela",
+];
+
+// ══════════════════════════════════════════════════════════════════════════
+//  END OF EDITABLE CONFIG — do not modify below this line
+// ══════════════════════════════════════════════════════════════════════════
+
+// Populate a <select> from an array, keeping the first placeholder option
+function populateSelect(id, items) {
+  const sel = document.getElementById(id);
+  items.forEach(name => {
+    const opt = document.createElement('option');
+    opt.value = name;
+    opt.textContent = name;
+    sel.appendChild(opt);
+  });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  populateSelect('brokerName',           BROKERS);
+  populateSelect('relationshipManager',  RELATIONSHIP_MANAGERS);
+  populateSelect('underwriter',          UNDERWRITERS);
+});
+
+</script>
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+
+<div class="card">
+
+  <div class="card-header">
+    <div class="header-inner">
+
+      <div class="header-text">
+        <div class="brand-name">WellX</div>
+        <h1>
+          AI Underwriter
+          <span>DHA Claims Analysis</span>
+        </h1>
+        <p>Submit DHA Report, Census, and TOB documents for AI&nbsp;analysis. All 3 files required.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card-body">
+    <form id="rfqForm" novalidate="">
+
+      <!-- ── Client & Broker ─────────────────────────────────────────────── -->
+      <div class="section-label">Client &amp; Broker</div>
+
+      <div class="field">
+        <label for="companyName">Company Name <span class="req">*</span></label>
+        <input type="text" id="companyName" name="companyName" placeholder="Enter company name" required="">
+      </div>
+
+      <div class="row-2">
+        <div class="field">
+          <label for="brokerName">Broker Name <span class="req">*</span></label>
+          <select id="brokerName" name="brokerName" required="">
+            <option value="">Select broker</option>
+            <!-- populated from BROKERS array above -->
+          <option value="ADIB">ADIB</option><option value="AES Middle East (AES International)">AES Middle East (AES International)</option><option value="Insurance Market">Insurance Market</option><option value="Al Sayegh">Al Sayegh</option><option value="Al Manarah">Al Manarah</option><option value="Al Nabooda">Al Nabooda</option><option value="Aon Middle East">Aon Middle East</option><option value="Associated Insurance Brokers-AUH">Associated Insurance Brokers-AUH</option><option value="Beneple">Beneple</option><option value="Berns Brett Masaood">Berns Brett Masaood</option><option value="Burns &amp; Wilcox">Burns &amp; Wilcox</option><option value="Compass">Compass</option><option value="Cedar">Cedar</option><option value="Continental">Continental</option><option value="Cosmos">Cosmos</option><option value="Cross Road">Cross Road</option><option value="Doo">Doo</option><option value="Fidelity Insurance Services">Fidelity Insurance Services</option><option value="FISCO">FISCO</option><option value="Green Shield">Green Shield</option><option value="Gargash">Gargash</option><option value="Gateway">Gateway</option><option value="Genesis">Genesis</option><option value="Howden">Howden</option><option value="Indemnity">Indemnity</option><option value="Interactive">Interactive</option><option value="Joie de Vivre International">Joie de Vivre International</option><option value="Kaizzen Plus">Kaizzen Plus</option><option value="Links">Links</option><option value="Lockton - Dubai">Lockton - Dubai</option><option value="Lockton - Abu Dhabi">Lockton - Abu Dhabi</option><option value="Lifecare International Broker">Lifecare International Broker</option><option value="Malakut">Malakut</option><option value="Marsh">Marsh</option><option value="Newtech">Newtech</option><option value="Northern">Northern</option><option value="Nasco Emirates - Abu Dhabi">Nasco Emirates - Abu Dhabi</option><option value="Nasco M.E. - Dubai">Nasco M.E. - Dubai</option><option value="New Shield">New Shield</option><option value="Nexus">Nexus</option><option value="Omega">Omega</option><option value="Pearl">Pearl</option><option value="Phillip Middle East">Phillip Middle East</option><option value="Prominent">Prominent</option><option value="PWS Gulf">PWS Gulf</option><option value="Pacific Prime">Pacific Prime</option><option value="Platinum">Platinum</option><option value="Direct Sale">Direct Sale</option><option value="R2S">R2S</option><option value="RMS">RMS</option><option value="Seven">Seven</option><option value="The Brokerage Firm">The Brokerage Firm</option><option value="Unitrust">Unitrust</option><option value="Viva">Viva</option><option value="Wayyak">Wayyak</option><option value="Wehbe Insurance Services">Wehbe Insurance Services</option><option value="Other">Other</option></select>
+        </div>
+
+        <div class="field">
+          <label for="policyDate">Policy Effective Date <span class="req">*</span></label>
+          <input type="date" id="policyDate" name="policyDate" required="">
+        </div>
+      </div>
+
+      <div class="row-2">
+        <div class="field">
+          <label for="relationshipManager">Relationship Manager <span class="req">*</span></label>
+          <select id="relationshipManager" name="relationshipManager" required="">
+            <option value="">Select</option>
+            <!-- populated from RELATIONSHIP_MANAGERS array above -->
+          <option value="Sujith">Sujith</option><option value="Heston">Heston</option></select>
+        </div>
+
+        <div class="field">
+          <label for="underwriter">Underwriter <span class="req">*</span></label>
+          <select id="underwriter" name="underwriter" required="">
+            <option value="">Select</option>
+            <!-- populated from UNDERWRITERS array above -->
+          <option value="Jasper">Jasper</option><option value="Mabel">Mabel</option><option value="Joseph">Joseph</option><option value="Angela">Angela</option></select>
+        </div>
+      </div>
+
+      <!-- ── Cost Structure ──────────────────────────────────────────────── -->
+      <div class="section-label">Cost Structure</div>
+
+      <table class="commission-table">
+        <thead>
+          <tr>
+            <th>Component</th>
+            <th style="text-align:right">Rate</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Broker Commission</td>
+            <td>
+              <div class="pct-input-wrap">
+                <input type="number" id="brokerCommission" name="brokerCommission" value="10.00" min="0" max="100" step="0.01" required="">
+                <span class="pct-symbol">%</span>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td>WellX</td>
+            <td>
+              <div class="pct-input-wrap">
+                <input type="number" id="wellx" name="wellx" value="5.00" min="0" max="100" step="0.01" required="">
+                <span class="pct-symbol">%</span>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td>Insurer</td>
+            <td>
+              <div class="pct-input-wrap">
+                <input type="number" id="insurer" name="insurer" value="0.50" min="0" max="100" step="0.01" required="">
+                <span class="pct-symbol">%</span>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td>TPA</td>
+            <td>
+              <div class="pct-input-wrap">
+                <input type="number" id="tpa" name="tpa" value="5.00" min="0" max="100" step="0.01" required="">
+                <span class="pct-symbol">%</span>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td>RI Broker</td>
+            <td>
+              <div class="pct-input-wrap">
+                <input type="number" id="riBroker" name="riBroker" value="0.00" min="0" max="100" step="0.01" required="">
+                <span class="pct-symbol">%</span>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td>Reinsurer Margin</td>
+            <td>
+              <div class="pct-input-wrap">
+                <input type="number" id="reinsurerMargin" name="reinsurerMargin" value="7.00" min="0" max="100" step="0.01" required="">
+                <span class="pct-symbol">%</span>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- ── Documents ───────────────────────────────────────────────────── -->
+      <div class="section-label">Documents</div>
+
+      <div class="file-row">
+        <div class="file-zone" id="zone-dha" data-field="dhaPdf" data-accept=".pdf">
+          <input type="file" id="dhaPdf" name="dhaPdf" accept=".pdf" required="">
+          <div class="file-icon">📄</div>
+          <div class="file-label">DHA Report</div>
+          <div class="file-sub">PDF only</div>
+          <div class="file-name" id="name-dha"></div>
+        </div>
+
+        <div class="file-zone" id="zone-census" data-field="censusPdf" data-accept=".xlsx,.xls,.csv">
+          <input type="file" id="censusPdf" name="censusPdf" accept=".xlsx,.xls,.csv" required="">
+          <div class="file-icon">📊</div>
+          <div class="file-label">Broker Census</div>
+          <div class="file-sub">Excel / CSV</div>
+          <div class="file-name" id="name-census"></div>
+        </div>
+
+        <div class="file-zone" id="zone-tob" data-field="tobFile" data-accept=".pdf,.docx,.xlsx">
+          <input type="file" id="tobFile" name="tobFile" accept=".pdf,.docx,.xlsx" required="">
+          <div class="file-icon">📋</div>
+          <div class="file-label">TOB</div>
+          <div class="file-sub">PDF / Word / Excel</div>
+          <div class="file-name" id="name-tob"></div>
+        </div>
+      </div>
+
+      <!-- ── Notes ───────────────────────────────────────────────────────── -->
+      <div class="section-label">Additional Notes</div>
+      <div class="field">
+        <textarea id="notes" name="notes" placeholder="Any additional context for the underwriting team…"></textarea>
+      </div>
+
+      <!-- ── Submit ──────────────────────────────────────────────────────── -->
+      <div class="submit-wrap">
+        <button type="submit" class="btn-submit" id="submitBtn">Submit for Analysis</button>
+        <button type="button" class="btn-reset" id="resetBtn">Clear</button>
+      </div>
+
+      <div class="form-footer">Powered by WellX · Confidential</div>
+
+    </form>
+  </div>
+</div>
+
+<!-- ─── Toast ─────────────────────────────────────────────────────────────── -->
+<div class="toast" id="toast">✅ Submitted successfully! The analysis is underway.</div>
+
+<script>
+  /* ── File zone UI ──────────────────────────────────────────────────────── */
+  document.querySelectorAll('.file-zone').forEach(zone => {
+    const input = zone.querySelector('input[type="file"]');
+    const nameEl = zone.querySelector('.file-name');
+
+    input.addEventListener('change', () => updateZone(zone, input, nameEl));
+
+    zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+    zone.addEventListener('drop', e => {
+      e.preventDefault();
+      zone.classList.remove('drag-over');
+      if (e.dataTransfer.files.length) {
+        const dt = new DataTransfer();
+        dt.items.add(e.dataTransfer.files[0]);
+        input.files = dt.files;
+        updateZone(zone, input, nameEl);
+      }
+    });
+  });
+
+  function updateZone(zone, input, nameEl) {
+    if (input.files && input.files[0]) {
+      zone.classList.add('has-file');
+      zone.classList.remove('error');
+      nameEl.textContent = input.files[0].name;
+    } else {
+      zone.classList.remove('has-file');
+      nameEl.textContent = '';
+    }
+  }
+
+  /* ── Toast helper ──────────────────────────────────────────────────────── */
+  function showToast(msg, type = '') {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast show ' + type;
+    setTimeout(() => { t.className = 'toast'; }, 4500);
+  }
+
+  /* ── Validation ────────────────────────────────────────────────────────── */
+  function validate(form) {
+    let ok = true;
+    form.querySelectorAll('.error').forEach(el => el.classList.remove('error'));
+
+    ['companyName','brokerName','relationshipManager','underwriter','policyDate'].forEach(id => {
+      const el = form.elements[id];
+      if (!el.value.trim()) { el.classList.add('error'); ok = false; }
+    });
+
+    ['brokerCommission','wellx','insurer','tpa','riBroker','reinsurerMargin'].forEach(id => {
+      const el = form.elements[id];
+      const v = parseFloat(el.value);
+      if (el.value === '' || isNaN(v) || v < 0 || v > 100) {
+        el.classList.add('error'); ok = false;
+      }
+    });
+
+    [['dhaPdf','zone-dha'],['censusPdf','zone-census'],['tobFile','zone-tob']].forEach(([id, zoneId]) => {
+      const el = form.elements[id];
+      if (!el.files || !el.files[0]) {
+        document.getElementById(zoneId).classList.add('error'); ok = false;
+      }
+    });
+
+    return ok;
+  }
+
+  /* ── Reset ─────────────────────────────────────────────────────────────── */
+  document.getElementById('resetBtn').addEventListener('click', () => {
+    document.getElementById('rfqForm').reset();
+    document.querySelectorAll('.file-zone').forEach(z => {
+      z.classList.remove('has-file','error');
+      z.querySelector('.file-name').textContent = '';
+    });
+  });
+
+  /* ── Submit ─────────────────────────────────────────────────────────────── */
+  document.getElementById('rfqForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+
+    if (!validate(form)) {
+      showToast('Please fill in all required fields.', 'error-toast');
+      return;
+    }
+
+    if (WEBHOOK_URL === 'YOUR_POWER_AUTOMATE_HTTP_TRIGGER_URL') {
+      showToast('⚙️ Webhook URL not configured yet — check the top of the HTML file.', 'error-toast');
+      return;
+    }
+
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Submitting…';
+
+    try {
+      const fd = new FormData();
+      fd.append('companyName',          form.elements.companyName.value.trim());
+      fd.append('brokerName',           form.elements.brokerName.value);
+      fd.append('relationshipManager',  form.elements.relationshipManager.value);
+      fd.append('underwriter',          form.elements.underwriter.value);
+      fd.append('policyEffectiveDate',  form.elements.policyDate.value);
+      fd.append('commissionBroker',     parseFloat(form.elements.brokerCommission.value).toFixed(2));
+      fd.append('commissionWellx',      parseFloat(form.elements.wellx.value).toFixed(2));
+      fd.append('commissionInsurer',    parseFloat(form.elements.insurer.value).toFixed(2));
+      fd.append('commissionTPA',        parseFloat(form.elements.tpa.value).toFixed(2));
+      fd.append('riBroker',             parseFloat(form.elements.riBroker.value).toFixed(2));
+      fd.append('commissionMargins',    parseFloat(form.elements.reinsurerMargin.value).toFixed(2));
+      fd.append('notes',                form.elements.notes.value.trim());
+      fd.append('dhaReport',            form.elements.dhaPdf.files[0]);
+      fd.append('census',               form.elements.censusPdf.files[0]);
+      fd.append('tob',                  form.elements.tobFile.files[0]);
+
+      const res = await fetch(WEBHOOK_URL, { method: 'POST', body: fd });
+
+      if (res.ok) {
+        showToast('✅ Submitted successfully! The analysis is underway.', 'success');
+        form.reset();
+        document.querySelectorAll('.file-zone').forEach(z => {
+          z.classList.remove('has-file','error');
+          z.querySelector('.file-name').textContent = '';
+        });
+      } else {
+        throw new Error(`Server responded with ${res.status}`);
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('❌ Submission failed. Please try again or contact support.', 'error-toast');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Submit for Analysis';
+    }
+  });
+</script>
+
+
+</body></html>
