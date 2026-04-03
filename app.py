@@ -1,6 +1,6 @@
 import os, io, uuid, re, base64, json
 from datetime import datetime, date
-from flask import Flask, request, jsonify, render_template, send_file
+from flask import Flask, request, jsonify, render_template, send_file, Response
 import fitz  # PyMuPDF
 import pandas as pd
 import openpyxl
@@ -1375,7 +1375,11 @@ def index():
 def brand_logo():
     if os.path.isfile(BRAND_LOGO_PATH):
         return send_file(BRAND_LOGO_PATH, mimetype='image/png')
-    return "", 404
+    # Fallback logo for cloud deploys where local asset path is unavailable.
+    svg = """<svg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 48 48'>
+<path fill='#111' d='M5 29c4-5 10-4 14 1 3 4 6 5 9 0 5-10 12-13 17-5 5 8 2 18-6 20-7 2-12-1-16-7-1-2-2-2-3 0-4 7-12 8-17 1-3-4-2-8 2-10z'/>
+</svg>"""
+    return Response(svg, mimetype='image/svg+xml')
 
 @app.route('/api/upload', methods=['POST'])
 def api_upload():

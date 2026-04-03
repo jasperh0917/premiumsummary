@@ -1,0 +1,5 @@
+Flask
+PyMuPDF
+pandas
+openpyxl
+anthropic
