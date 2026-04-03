@@ -190,6 +190,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0a0a0a;min-height:100v
 .download-card .dl-text .dl-sub{font-size:.73rem;color:var(--slate);margin-top:2px}
 .btn-dl{margin-left:auto;padding:8px 16px;background:var(--grad-cool);color:#fff;border:none;border-radius:8px;font-family:'Raleway',sans-serif;font-weight:800;font-size:.8rem;cursor:pointer;transition:.15s;text-decoration:none;display:inline-block}
 .btn-dl:hover{opacity:.9}
+.btn-dl-primary{padding:13px 24px;font-size:.95rem;border-radius:10px;box-shadow:0 4px 18px rgba(0,55,128,.3)}
 
 /* Toast */
 .toast{position:fixed;bottom:32px;left:50%;transform:translateX(-50%) translateY(80px);background:#1a2332;color:#fff;padding:13px 22px;border-radius:10px;font-family:'Inter',sans-serif;font-size:.88rem;font-weight:500;box-shadow:0 8px 32px rgba(0,0,0,.35);transition:.3s ease;opacity:0;z-index:9999;max-width:440px;text-align:center}
@@ -210,7 +211,8 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0a0a0a;min-height:100v
 .info-box{background:#f0f4ff;border:1.5px solid #c8d8f8;border-radius:9px;padding:12px 16px;font-size:.82rem;color:#374151;line-height:1.55;margin-bottom:18px}
 .info-box strong{color:var(--navy)}
 
-.form-footer{text-align:center;margin-top:20px;font-size:.7rem;color:#b0bac6;font-family:'Inter',sans-serif}
+.form-footer{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:20px;font-size:.72rem;color:#1a2332;font-family:'Inter',sans-serif}
+.footer-logo-img{width:28px;height:28px;object-fit:contain;display:block}
 
 /* LSB toggle */
 .lsb-toggle{display:flex;align-items:center;gap:10px;padding:12px 16px;background:#f0f4ff;border:1.5px solid #c8d8f8;border-radius:9px;margin-top:14px}
@@ -346,18 +348,16 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0a0a0a;min-height:100v
 
       <div class="row-2">
         <div class="field">
-          <label for="inceptionPayment">Inception Premium Payment</label>
+          <label for="inceptionPayment">Payment Mode</label>
           <select id="inceptionPayment">
-            <option value="">Select payment mode</option>
             <option value="Annual">Annual</option>
             <option value="Quarterly">Quarterly</option>
             <option value="Monthly">Monthly</option>
           </select>
         </div>
         <div class="field">
-          <label for="endorsementFreq">Endorsement Frequency</label>
+          <label for="endorsementFreq">Endorsement Payment Mode</label>
           <select id="endorsementFreq">
-            <option value="">Select frequency</option>
             <option value="Monthly">Monthly</option>
             <option value="Quarterly">Quarterly</option>
             <option value="Annual">Annual</option>
@@ -439,7 +439,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0a0a0a;min-height:100v
         <button type="button" class="btn-secondary" id="clearBtn">Clear</button>
       </div>
 
-      <div class="form-footer">Powered by WellX · Confidential</div>
+      <div class="form-footer"><img class="footer-logo-img" src="/brand-logo" alt="Wellx logo"><span>Powered by Wellx Labs</span></div>
     </form>
   </div>
 
@@ -502,7 +502,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0a0a0a;min-height:100v
       </button>
       <button class="btn-secondary" onclick="goToStep(1)">← Back</button>
     </div>
-    <div class="form-footer">Powered by WellX · Confidential</div>
+    <div class="form-footer"><img class="footer-logo-img" src="/brand-logo" alt="Wellx logo"><span>Powered by Wellx Labs</span></div>
   </div>
 
   <!-- ═══════════════════════════════════════════════════════════════════
@@ -586,18 +586,18 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0a0a0a;min-height:100v
       <div class="download-card">
         <div class="dl-icon">📊</div>
         <div class="dl-text">
-          <div class="dl-title">Premium Report</div>
+          <div class="dl-title">Premium Summary</div>
           <div class="dl-sub">Combined workbook: Premium Summary + Premium per Member — live formulas, loading, themed colours</div>
         </div>
-        <button class="btn-dl" id="dlSummary" onclick="downloadSummary()">Download</button>
+        <button class="btn-dl btn-dl-primary" id="dlSummary" onclick="downloadSummary()">Download Premium Summary</button>
       </div>
     </div>
 
-    <div class="btn-row">
-      <button class="btn-primary" onclick="resetAll()">Start New Calculation</button>
-      <button class="btn-secondary" onclick="goToStep(2)">← Back to Rates</button>
+    <div class="btn-row" id="postDownloadActions" style="display:none">
+      <button class="btn-secondary" onclick="resetAll()">Restart Calculation</button>
+      <button class="btn-secondary" onclick="goToStep(2)">← Go Back</button>
     </div>
-    <div class="form-footer">Powered by WellX · Confidential</div>
+    <div class="form-footer"><img class="footer-logo-img" src="/brand-logo" alt="Wellx logo"><span>Powered by Wellx Labs</span></div>
   </div>
 
 </div><!-- /card -->
@@ -779,6 +779,16 @@ function goToStep(n) {
     const sd = document.getElementById('sd-' + i);
     if (sd) sd.classList.toggle('done', i < n);
   });
+  if (n === 1) {
+    const step1Btn = document.getElementById('step1Btn');
+    step1Btn.disabled = false;
+    step1Btn.innerHTML = 'Extract Rates &amp; Continue →';
+  }
+  if (n === 2) {
+    const step2Btn = document.getElementById('step2Btn');
+    step2Btn.disabled = false;
+    step2Btn.innerHTML = 'Calculate Premium →';
+  }
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -1258,6 +1268,8 @@ async function calculatePremium() {
 
     // Store out_token & populate loading dropdown
     currentOutToken = data.out_token;
+    summaryDownloaded = false;
+    document.getElementById('postDownloadActions').style.display = 'none';
     loadingMembers  = [];
     renderLoadingRows();
     const memberSel = document.getElementById('loadingMemberSelect');
@@ -1285,6 +1297,7 @@ async function calculatePremium() {
 let loadingMembers = [];
 let membersList    = [];
 let currentOutToken = '';
+let summaryDownloaded = false;
 
 function addLoadingMember() {
   const sel    = document.getElementById('loadingMemberSelect');
@@ -1373,6 +1386,8 @@ async function downloadSummary() {
     const link = document.createElement('a');
     link.href  = `/download/${data.prd_token}/prd`;
     link.click();
+    summaryDownloaded = true;
+    document.getElementById('postDownloadActions').style.display = 'flex';
     showToast('✅ Premium Summary generated!', 'success');
   } catch(err) {
     showToast('Download failed: ' + err.message, 'error-t');
@@ -1414,7 +1429,9 @@ function resetAll() {
   document.getElementById('step2Btn').innerHTML = 'Calculate Premium →';
   // Reset loading section
   loadingMembers = []; membersList = []; currentOutToken = '';
+  summaryDownloaded = false;
   document.getElementById('loadingMemberSelect').innerHTML = '<option value="">Select member…</option>';
+  document.getElementById('postDownloadActions').style.display = 'none';
   renderLoadingRows();
   // Go back to step 1
   goToStep(1);

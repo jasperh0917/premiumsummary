@@ -22,6 +22,7 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
 _ROOT = os.path.dirname(os.path.abspath(__file__))
+BRAND_LOGO_PATH = "/Users/jasperhealthx/.cursor/projects/Users-jasperhealthx-Desktop-AI-Projects-Premium-Summary/assets/Wellxinvertedsymbolforlightbackgrounds-01_5c95fcab-62ee60a8-af11-4678-90dc-a8942cbefa09.png"
 app = Flask(__name__,
             root_path=_ROOT,
             template_folder=os.path.join(_ROOT, 'templates'),
@@ -668,15 +669,15 @@ def get_theme(plan: str) -> dict:
 
 
 # ── Mismatch Analysis ─────────────────────────────────────────────────────────
-def build_mismatch_analysis(members_data, q_premium, c_premium, q_members, net_loading_total=0.0):
+def build_mismatch_analysis(members_data, q_premium, c_premium, q_members, gross_loading_total=0.0):
     causes = []
     if q_members and abs(len(members_data) - q_members) > 0:
         causes.append(f"Member count: census {len(members_data)} vs quote {q_members}")
     error_members = [m for m in members_data if m.get('error', '')]
     if error_members:
         causes.append(f"{len(error_members)} member(s) have no matching rate bracket")
-    if net_loading_total > 0:
-        causes.append(f"Net loading AED {net_loading_total:,.2f} included in final premium")
+    if gross_loading_total > 0:
+        causes.append(f"Gross loading AED {gross_loading_total:,.2f} included in final premium")
     if not causes:
         causes.append("Review age brackets, maternity eligibility and category assignments")
     return causes
@@ -694,8 +695,8 @@ def make_combined_excel(form_data, members_data, verified_rates, maternity_rates
     broker_name = form_data.get('broker', '')
     underwriter = form_data.get('underwriter', '')
     start_date  = form_data.get('start_date', '')
-    inception   = form_data.get('inception_payment', '')
-    endorse     = form_data.get('endorsement_freq', '')
+    inception   = form_data.get('inception_payment') or 'Annual'
+    endorse     = form_data.get('endorsement_freq') or 'Monthly'
 
     # Insurer / admin label based on plan
     is_openx     = plan.lower() == 'openx'
@@ -777,7 +778,7 @@ def make_combined_excel(form_data, members_data, verified_rates, maternity_rates
     # ── Title (rows 1-2) ───────────────────────────────────────────────────────
     ws.row_dimensions[1].height = 38
     ws.merge_cells('A1:G1')
-    t1 = ws.cell(row=1, column=1, value='WELLX  |  PREMIUM SUMMARY')
+    t1 = ws.cell(row=1, column=1, value='PREMIUM SUMMARY')
     t1.font      = Font(name='Raleway', bold=True, size=16, color=WHITE)
     t1.fill      = PatternFill('solid', fgColor=PRI)
     t1.alignment = Alignment(horizontal='center', vertical='center')
@@ -852,13 +853,13 @@ def make_combined_excel(form_data, members_data, verified_rates, maternity_rates
     cv(9, 6, 'FEES IN %', bold=True, color=PRI, halign='center', name='Raleway', size=9.5)
 
     # Row 10
-    info_label(10, 1, 'Inception Premium Payment'); info_val(10, 2, inception)
+    info_label(10, 1, 'Payment Mode'); info_val(10, 2, inception)
     cv(10, 6, 'HSB', bold=True, color=PRI, halign='center', name='Raleway', size=9.5)
     if has_lsb:
         cv(10, 7, 'LSB', bold=True, color=PRI, halign='center', name='Raleway', size=9.5)
 
     # Row 11
-    info_label(11, 1, 'Endorsement Frequency'); info_val(11, 2, endorse)
+    info_label(11, 1, 'Endorsement Payment Mode'); info_val(11, 2, endorse)
     cv(11, 5, 'Broker', bold=True, color=DARK, size=9.5)
     cv(11, 6, pct_val(broker_h), halign='center', size=9.5, num_fmt='0.00%')
     if has_lsb:
@@ -1118,79 +1119,10 @@ def make_combined_excel(form_data, members_data, verified_rates, maternity_rates
         j24.alignment     = Alignment(horizontal='center', vertical='center')
         j24.number_format = '#,##0.00'
 
-    # ── Reconciliation block ────────────────────────────────────────────────────
-    rec_row = row + 2
-    ws.merge_cells(f'A{rec_row}:G{rec_row}')
-    rec_hdr = ws.cell(row=rec_row, column=1, value='RECONCILIATION')
-    rec_hdr.font      = Font(name='Raleway', bold=True, size=10, color=WHITE)
-    rec_hdr.fill      = PatternFill('solid', fgColor=MID)
-    rec_hdr.alignment = Alignment(horizontal='center', vertical='center')
-    ws.row_dimensions[rec_row].height = 22
-    rec_row += 1
-
-    if is_healthx and quoted_totals_calc is not None:
-        recon_data = [
-            ('Confirmed Quote Premium (PDF)',        q_premium,         '#,##0.00'),
-            ('Calculated — Quoted Census',           c_premium,         '#,##0.00'),
-            ('Calculated — Confirmed Census',        conf_premium,      '#,##0.00'),
-            ('Net Loading Applied',                  total_net_load,    '#,##0.00'),
-            ('Final Premium (incl. loading)',         final_grand_total, '#,##0.00'),
-            ('Variance (quoted census vs PDF quote)', diff,              '#,##0.00'),
-        ]
-        if q_members or quoted_member_count:
-            recon_data += [
-                ('Members – Quote (PDF)',    q_members if q_members else '—',    '0' if q_members else '@'),
-                ('Members – Quoted Census',  quoted_member_count if quoted_member_count else '—', '0' if quoted_member_count else '@'),
-                ('Members – Confirmed Census', len(members_data), '0'),
-            ]
-    else:
-        recon_data = [
-            ('Confirmed Quote Premium (PDF)', q_premium,         '#,##0.00'),
-            ('Calculated Premium (Census)',   c_premium,         '#,##0.00'),
-            ('Net Loading Applied',           total_net_load,    '#,##0.00'),
-            ('Final Premium (incl. loading)', final_grand_total, '#,##0.00'),
-            ('Variance (vs quote)',           diff,              '#,##0.00'),
-        ]
-        if q_members:
-            recon_data += [
-                ('Members – Quote',   q_members,               '0'),
-                ('Members – Census',  len(members_data),       '0'),
-                ('Member Variance',   len(members_data)-q_members, '0'),
-            ]
-
-    for label, value, fmt in recon_data:
-        ws.merge_cells(f'A{rec_row}:B{rec_row}')
-        lbl = ws.cell(row=rec_row, column=1, value=label)
-        lbl.font      = Font(name='Inter', bold=True, size=9.5, color='374151')
-        lbl.fill      = PatternFill('solid', fgColor=LGT)
-        val = ws.cell(row=rec_row, column=3, value=value)
-        val.font           = Font(name='Inter', size=9.5, color=DARK)
-        val.number_format  = fmt
-        val.alignment      = Alignment(horizontal='right', vertical='center')
-        rec_row += 1
-
-    status_txt = '✅  MATCH (within AED 20)' if is_match else '❌  MISMATCH'
-    banner = ws.cell(row=rec_row, column=1, value=status_txt)
-    banner.font      = Font(name='Raleway', bold=True, size=11,
-                            color=GREEN_FG if is_match else RED_FG)
-    banner.fill      = PatternFill('solid', fgColor=GREEN_BG if is_match else RED_BG)
-    banner.alignment = Alignment(horizontal='center', vertical='center')
-    ws.merge_cells(f'A{rec_row}:G{rec_row}')
-    ws.row_dimensions[rec_row].height = 22
-    rec_row += 1
-
-    if not is_match:
-        causes = build_mismatch_analysis(members_data, q_premium, c_premium, q_members, total_net_load)
-        for cause in causes:
-            cc = ws.cell(row=rec_row, column=1, value=f'• {cause}')
-            cc.font      = Font(name='Inter', size=9, color=RED_FG, italic=True)
-            cc.fill      = PatternFill('solid', fgColor=RED_BG)
-            ws.merge_cells(f'A{rec_row}:G{rec_row}')
-            rec_row += 1
-
     # Footer
-    ws.cell(row=rec_row+1, column=1).value = f'Created: {datetime.now().strftime("%d %b %Y  %H:%M")}'
-    ws.cell(row=rec_row+1, column=1).font  = Font(name='Inter', size=8, color='9aa5b4', italic=True)
+    footer_row = row + 2
+    ws.cell(row=footer_row, column=1).value = f'Created: {datetime.now().strftime("%d %b %Y  %H:%M")}'
+    ws.cell(row=footer_row, column=1).font  = Font(name='Inter', size=8, color='9aa5b4', italic=True)
 
     apply_borders(ws1)
 
@@ -1199,63 +1131,60 @@ def make_combined_excel(form_data, members_data, verified_rates, maternity_rates
     # ══════════════════════════════════════════════════════════════════════════
     ws = ws2
 
-    # Column widths (A–S)
-    mem_widths = [5, 34, 14, 9, 9, 14, 14, 14, 9, 14, 14, 12, 12, 18, 22, 16, 16, 22, 22]
+    # Column widths (A–Q)
+    mem_widths = [5, 34, 14, 9, 9, 14, 14, 14, 9, 14, 14, 14, 14, 22, 22, 22, 22]
     for i, w in enumerate(mem_widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = w
 
     # Title
     ws.row_dimensions[1].height = 42
-    ws.merge_cells('A1:S1')
-    t1m = ws.cell(row=1, column=1, value='WELLX  |  PREMIUM PER MEMBER')
+    ws.merge_cells('A1:Q1')
+    t1m = ws.cell(row=1, column=1, value='PREMIUM PER MEMBER')
     t1m.font      = Font(name='Raleway', bold=True, size=16, color=WHITE)
     t1m.fill      = PatternFill('solid', fgColor=PRI)
     t1m.alignment = Alignment(horizontal='center', vertical='center')
 
     ws.row_dimensions[2].height = 22
-    ws.merge_cells('A2:S2')
+    ws.merge_cells('A2:Q2')
     t2m = ws.cell(row=2, column=1, value=company.upper())
     t2m.font      = Font(name='Raleway', bold=True, size=11, color=ORANGE)
     t2m.fill      = PatternFill('solid', fgColor=PRI)
     t2m.alignment = Alignment(horizontal='center', vertical='center')
 
-    # Summary bar (row 3)
+    # Summary bar (row 3) — value cells filled with formulas after member rows exist (auditing)
     mem_row = 3
-    sub_with_load   = totals['subtotal'] + total_net_load
-    vat_with_load   = sub_with_load * VAT_RATE
-    grand_with_load = sub_with_load + vat_with_load
+    summary_row = 3
+    final_premium_with_loading = totals['total_net'] + totals['total_maternity'] + total_gross_load
 
     summary_items = [
-        ('Total Members',      len(members_data),         False, PRI),
-        ('Net Premium',        totals['total_net'],        True,  PRI),
-        ('Total Maternity',    totals['total_maternity'],  True,  MID),
-        ('BASMAH',             totals['total_basmah'],     True,  '005580'),
-        ('Subtotal excl. VAT', sub_with_load,              True,  PRI),
-        ('VAT (5%)',           vat_with_load,              True,  PRI),
-        ('Grand Total',        grand_with_load,            True,  ORANGE),
+        ('Total Members',      False, PRI),
+        ('Net Premium',        True,  PRI),
+        ('Total Maternity',    True,  MID),
+        ('Gross Loading',      True,  PRI),
+        ('Final Premium',      True,  ORANGE),
     ]
-    for i, (label, value, is_aed, color) in enumerate(summary_items):
+    for i, (label, is_aed, color) in enumerate(summary_items):
         col = (i * 2) + 1
-        if col + 1 <= 14:
-            lc = ws.cell(row=mem_row, column=col, value=label)
+        if col + 1 <= 10:
+            lc = ws.cell(row=summary_row, column=col, value=label)
             lc.font      = Font(name='Inter', bold=True, size=8, color=WHITE)
             lc.fill      = PatternFill('solid', fgColor=color)
             lc.alignment = Alignment(horizontal='center', vertical='center')
-            vc = ws.cell(row=mem_row, column=col+1, value=value)
+            vc = ws.cell(row=summary_row, column=col + 1, value=None)
             vc.font      = Font(name='Inter', bold=True, size=9, color=WHITE)
             vc.fill      = PatternFill('solid', fgColor=color)
             vc.alignment = Alignment(horizontal='center', vertical='center')
             if is_aed:
                 vc.number_format = '"AED "#,##0'
-    ws.row_dimensions[mem_row].height = 22
+    ws.row_dimensions[summary_row].height = 22
     mem_row += 1
 
     # Column headers (row 4)
     age_col_label = 'Age (ANB)' if is_healthx else 'Age (ALB)'
     hdrs2 = ['No.', 'Full Name', 'Date of Birth', 'Gender', 'Category',
              'Relationship', 'Marital Status', 'Emirate (Visa)', age_col_label, 'Age Bracket',
-             'Base Premium', 'Maternity', 'BASMAH', 'Total (excl VAT)', 'Notes',
-             'Gross Loading', 'Net Loading', 'Diagnosis', 'Loading Notes']
+             'Premium', 'Maternity Premium', 'Gross Loading', 'Final Premium (incl. loading)',
+             'Notes', 'Diagnosis', 'Loading Notes']
     for c, h in enumerate(hdrs2, 1):
         cell = ws.cell(row=mem_row, column=c, value=h)
         cell.font      = Font(name='Inter', bold=True, size=9, color=WHITE)
@@ -1267,6 +1196,8 @@ def make_combined_excel(form_data, members_data, verified_rates, maternity_rates
 
     # Build loading lookup
     loading_map = {lm.get('name', '').strip().lower(): lm for lm in loading_members}
+
+    first_data_row = mem_row
 
     for m in members_data:
         alt     = m['no'] % 2 == 0
@@ -1283,8 +1214,15 @@ def make_combined_excel(form_data, members_data, verified_rates, maternity_rates
         else:
             bg = WHITE
 
-        total = m['base_premium'] + m['maternity_premium'] + m['basmah_fee']
-        notes = 'Maternity surcharge applied' if has_mat else (m.get('error', '') or '')
+        gross_loading = float(lm_data.get('gross_loading', 0) or 0) if has_load else 0.0
+        notes_parts = []
+        if has_load:
+            notes_parts.append('Loading applied')
+        if has_mat:
+            notes_parts.append('Maternity surcharge applied')
+        if m.get('error', ''):
+            notes_parts.append(m.get('error', ''))
+        notes = ' | '.join(notes_parts)
 
         # Parse DOB to date object for DD MMM YYYY format
         dob_val = m['dob']
@@ -1296,78 +1234,84 @@ def make_combined_excel(form_data, members_data, verified_rates, maternity_rates
             except Exception:
                 pass
 
-        vals = [m['no'], m['name'], dob_val, m['gender'], m['category'],
-                m['relation'], m.get('marital_status', ''), m.get('emirate', ''),
-                m['age_alb'], m['age_bracket'],
-                m['base_premium'], m['maternity_premium'], m['basmah_fee'], total, notes,
-                float(lm_data.get('gross_loading', 0) or 0) if has_load else None,
-                None,
-                lm_data.get('diagnosis', '') if has_load else None,
-                lm_data.get('notes', '') if has_load else None]
-
-        for c, v in enumerate(vals, 1):
-            cell = ws.cell(row=mem_row, column=c, value=v)
+        r = mem_row
+        base_cols = [m['no'], m['name'], dob_val, m['gender'], m['category'],
+                     m['relation'], m.get('marital_status', ''), m.get('emirate', ''),
+                     m['age_alb'], m['age_bracket']]
+        for c, v in enumerate(base_cols, 1):
+            cell = ws.cell(row=r, column=c, value=v)
             cell.font   = Font(name='Inter', size=9)
             cell.fill   = PatternFill('solid', fgColor=bg)
             cell.border = thin_border()
             if c == 3:
                 cell.number_format = 'DD MMM YYYY'
                 cell.alignment     = Alignment(horizontal='center', vertical='center')
-            elif c in (11, 12, 13, 14, 16):
-                cell.number_format = '#,##0.00'
-                cell.alignment     = Alignment(horizontal='right', vertical='center')
             elif c == 2:
                 cell.alignment = Alignment(horizontal='left', vertical='center')
             else:
                 cell.alignment = Alignment(horizontal='center', vertical='center')
 
-        # Net Loading formula col 17 (Q)
-        if has_load:
-            nl = ws.cell(row=mem_row, column=17)
-            nl.value         = f"=P{mem_row}*(1-'Premium Summary'!$F$16)"
-            nl.font          = Font(name='Inter', size=9)
-            nl.fill          = PatternFill('solid', fgColor=bg)
-            nl.border        = thin_border()
-            nl.number_format = '#,##0.00'
-            nl.alignment     = Alignment(horizontal='right', vertical='center')
+        for c, v in zip((11, 12, 13), (m['base_premium'], m['maternity_premium'], gross_loading)):
+            cell = ws.cell(row=r, column=c, value=v)
+            cell.font          = Font(name='Inter', size=9)
+            cell.fill          = PatternFill('solid', fgColor=bg)
+            cell.border        = thin_border()
+            cell.number_format = '#,##0.00'
+            cell.alignment     = Alignment(horizontal='right', vertical='center')
+
+        fin = ws.cell(row=r, column=14, value=f'=SUM(K{r}:M{r})')
+        fin.font          = Font(name='Inter', size=9)
+        fin.fill          = PatternFill('solid', fgColor=bg)
+        fin.border        = thin_border()
+        fin.number_format = '#,##0.00'
+        fin.alignment     = Alignment(horizontal='right', vertical='center')
+
+        for c, v in zip((15, 16, 17), (notes,
+                                       lm_data.get('diagnosis', '') if has_load else None,
+                                       lm_data.get('notes', '') if has_load else None)):
+            cell = ws.cell(row=r, column=c, value=v)
+            cell.font   = Font(name='Inter', size=9)
+            cell.fill   = PatternFill('solid', fgColor=bg)
+            cell.border = thin_border()
+            cell.alignment = Alignment(horizontal='center', vertical='center')
 
         mem_row += 1
 
-    # Totals row
-    for c, v in enumerate(['', 'TOTALS', '', '', '', '', '', '', '', '',
-                            totals['total_net'], totals['total_maternity'],
-                            totals['total_basmah'], totals['subtotal'], '',
-                            total_gross_load, total_net_load, '', ''], 1):
-        cell = ws.cell(row=mem_row, column=c, value=v)
+    last_member_row = mem_row - 1
+
+    # Totals row (SUM formulas — audit trail)
+    totals_row = mem_row
+    for c, v in enumerate(['', 'TOTALS', '', '', '', '', '', '', '', '', None, None, None, None, '', '', ''], 1):
+        cell = ws.cell(row=totals_row, column=c, value=v)
         cell.font      = Font(name='Raleway', bold=True, size=10, color=WHITE)
         cell.fill      = PatternFill('solid', fgColor=PRI)
         cell.border    = thin_border(WHITE)
-        cell.alignment = Alignment(horizontal='right' if c >= 11 else 'left', vertical='center')
-        if c in (11, 12, 13, 14, 16, 17):
+        cell.alignment = Alignment(horizontal='right' if c in (11, 12, 13, 14) else 'left', vertical='center')
+        if c in (11, 12, 13, 14):
             cell.number_format = '#,##0.00'
+    if last_member_row >= first_data_row:
+        ws.cell(row=totals_row, column=11, value=f'=SUM(K{first_data_row}:K{last_member_row})')
+        ws.cell(row=totals_row, column=12, value=f'=SUM(L{first_data_row}:L{last_member_row})')
+        ws.cell(row=totals_row, column=13, value=f'=SUM(M{first_data_row}:M{last_member_row})')
+        ws.cell(row=totals_row, column=14, value=f'=SUM(N{first_data_row}:N{last_member_row})')
+    else:
+        for col in (11, 12, 13, 14):
+            ws.cell(row=totals_row, column=col, value=0)
     mem_row += 1
 
-    # VAT row
-    ws.cell(row=mem_row, column=13, value='VAT (5%)').font = Font(name='Raleway', bold=True, size=9.5, color=PRI)
-    vc2 = ws.cell(row=mem_row, column=14, value=vat_with_load)
-    vc2.font          = Font(name='Raleway', bold=True, size=9.5, color=PRI)
-    vc2.number_format = '#,##0.00'
-    vc2.alignment     = Alignment(horizontal='right', vertical='center')
-    mem_row += 1
-
-    # Grand Total row
-    ws.merge_cells(f'M{mem_row}:N{mem_row}')
-    gt_lbl = ws.cell(row=mem_row, column=13, value='GRAND TOTAL')
-    gt_lbl.font      = Font(name='Raleway', bold=True, size=11, color=WHITE)
-    gt_lbl.fill      = PatternFill('solid', fgColor=ORANGE)
-    gt_lbl.alignment = Alignment(horizontal='right', vertical='center')
-    gt_val = ws.cell(row=mem_row, column=14, value=grand_with_load)
-    gt_val.font          = Font(name='Raleway', bold=True, size=11, color=WHITE)
-    gt_val.fill          = PatternFill('solid', fgColor=ORANGE)
-    gt_val.number_format = '#,##0.00'
-    gt_val.alignment     = Alignment(horizontal='right', vertical='center')
-    ws.row_dimensions[mem_row].height = 22
-    mem_row += 1
+    # Top summary bar formulas (reference member data rows only, not the TOTALS row)
+    if last_member_row >= first_data_row:
+        ws.cell(row=summary_row, column=2,  value=f'=COUNTA(B{first_data_row}:B{last_member_row})')
+        ws.cell(row=summary_row, column=4,  value=f'=SUM(K{first_data_row}:K{last_member_row})')
+        ws.cell(row=summary_row, column=6,  value=f'=SUM(L{first_data_row}:L{last_member_row})')
+        ws.cell(row=summary_row, column=8,  value=f'=SUM(M{first_data_row}:M{last_member_row})')
+        ws.cell(row=summary_row, column=10, value=f'=SUM(N{first_data_row}:N{last_member_row})')
+    else:
+        ws.cell(row=summary_row, column=2,  value=0)
+        ws.cell(row=summary_row, column=4,  value=0)
+        ws.cell(row=summary_row, column=6,  value=0)
+        ws.cell(row=summary_row, column=8,  value=0)
+        ws.cell(row=summary_row, column=10, value=0)
 
     # ── Summary block (Fix 10) ─────────────────────────────────────────────────
     mem_row += 2
@@ -1380,7 +1324,7 @@ def make_combined_excel(form_data, members_data, verified_rates, maternity_rates
     if is_match:
         analysis_txt = '✅ Match (within AED 20)'
     else:
-        causes = build_mismatch_analysis(members_data, q_premium, c_premium, q_members, total_net_load)
+        causes = build_mismatch_analysis(members_data, q_premium, c_premium, q_members, total_gross_load)
         analysis_txt = '❌ ' + ' | '.join(causes)
 
     summary_block = [
@@ -1388,7 +1332,7 @@ def make_combined_excel(form_data, members_data, verified_rates, maternity_rates
         ('Broker',                        broker_name),
         ('Commission Structure',          comm_str),
         ('Confirmed Premium',             f'AED {q_premium:,.2f}'),
-        ('Final Premium (incl. loading)', f'AED {final_grand_total:,.2f}'),
+        ('Final Premium (incl. loading)', None),
         ('Premium Analysis',              analysis_txt),
     ]
 
@@ -1399,7 +1343,10 @@ def make_combined_excel(form_data, members_data, verified_rates, maternity_rates
         lbl_cell.alignment = Alignment(horizontal='left', vertical='center')
 
         ws.merge_cells(f'B{mem_row}:E{mem_row}')
-        val_cell = ws.cell(row=mem_row, column=2, value=value)
+        if label == 'Final Premium (incl. loading)':
+            val_cell = ws.cell(row=mem_row, column=2, value='="AED "&TEXT(J3,"#,##0.00")')
+        else:
+            val_cell = ws.cell(row=mem_row, column=2, value=value)
         val_cell.font      = Font(name='Inter', size=9.5, color=DARK)
         val_cell.alignment = Alignment(horizontal='left', vertical='center', wrap_text=True)
 
@@ -1423,6 +1370,12 @@ def make_combined_excel(form_data, members_data, verified_rates, maternity_rates
 @app.route('/')
 def index():
     return render_template('index.html')
+
+@app.route('/brand-logo')
+def brand_logo():
+    if os.path.isfile(BRAND_LOGO_PATH):
+        return send_file(BRAND_LOGO_PATH, mimetype='image/png')
+    return "", 404
 
 @app.route('/api/upload', methods=['POST'])
 def api_upload():
