@@ -3,3 +3,5 @@ PyMuPDF
 pandas
 openpyxl
 anthropic
+xlrd
+msoffcrypto-tool

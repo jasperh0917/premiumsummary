@@ -235,6 +235,21 @@ def _safe_num(v, default=0.0):
     except Exception:
         return default
 
+def maybe_decrypt(file_bytes, password=''):
+    """Decrypt an Office file if encrypted; return original bytes if not."""
+    try:
+        import msoffcrypto
+        office_file = msoffcrypto.OfficeFile(io.BytesIO(file_bytes))
+        if office_file.is_encrypted():
+            decrypted = io.BytesIO()
+            office_file.load_key(password=password)
+            office_file.decrypt(decrypted)
+            return decrypted.getvalue()
+    except Exception:
+        pass
+    return file_bytes
+
+
 def parse_healthxclusive_tool(excel_bytes):
     """
     Parse the HealthXclusive Tool Excel's 'Premium Summary' sheet.
@@ -243,7 +258,7 @@ def parse_healthxclusive_tool(excel_bytes):
     import warnings
     with warnings.catch_warnings():
         warnings.simplefilter('ignore')
-        xl = openpyxl.load_workbook(io.BytesIO(excel_bytes), data_only=True)
+        xl = openpyxl.load_workbook(io.BytesIO(maybe_decrypt(excel_bytes)), data_only=True)
 
     if 'Premium Summary' not in xl.sheetnames:
         raise ValueError("'Premium Summary' sheet not found. Please upload the HealthXclusive Tool Excel.")
@@ -373,6 +388,113 @@ def parse_healthxclusive_tool(excel_bytes):
 
     return result
 
+
+def parse_openx_tool(tool_bytes):
+    """Parse OpenX quote tool Excel file (Premium Summary sheet).
+
+    Structure differs from Healthxclusive:
+    - Category headers: 'CAT A', 'CAT B', 'CATEGORY C', … in column A
+    - Column headers row has 'Age Range' in col A, 'Premium' in col B (male) and col D (female)
+    - Bracket rows: col A = age range label, col B = male rate, col D = female rate
+    - Employees and dependents share the same rate — extracted once, applied to both
+    """
+    wb = openpyxl.load_workbook(io.BytesIO(maybe_decrypt(tool_bytes)), data_only=True)
+    ws = wb['Premium Summary']
+
+    result = {
+        'company_name':   '',
+        'product':        'OpenX',
+        'start_date':     '',
+        'end_date':       '',
+        'confirmed_quote': 0.0,
+        'members':        0,
+        'flat_fees':      {'basmah': 37, 'hcv': 0, 'trudoc': 0, 'slash': 0},
+        'fees':           {},
+        'categories':     {},
+    }
+
+    # Extract company name and start date from rows 1-3
+    for r in ws.iter_rows(min_row=1, max_row=3, values_only=True):
+        label = str(r[0] or '').strip().rstrip(':')
+        if label == 'Policyholder':
+            result['company_name'] = str(r[2] or '').strip()
+        elif label == 'Start Date':
+            v = r[2]
+            if hasattr(v, 'strftime'):
+                result['start_date'] = v.strftime('%Y-%m-%d')
+
+    # I8 = confirmed quote premium, I13 = grand total incl. VAT (col I = index 8)
+    v_i8 = ws.cell(row=8,  column=9).value
+    v_i13 = ws.cell(row=13, column=9).value
+    if isinstance(v_i8,  (int, float)): result['confirmed_quote'] = round(float(v_i8),  2)
+    if isinstance(v_i13, (int, float)): result['grand_total']     = round(float(v_i13), 2)
+
+    current_cat  = None
+    in_brackets  = False
+    total_male   = 0
+    total_female = 0
+
+    for row in ws.iter_rows(values_only=True):
+        a = str(row[0] or '').strip()
+
+        # Detect category header: 'CAT A', 'CAT B', 'CATEGORY C', etc.
+        cat_match = re.match(r'^CAT(?:EGORY)?\s+([A-Z])', a, re.IGNORECASE)
+        if cat_match:
+            current_cat = cat_match.group(1).upper()
+            in_brackets = False
+            result['categories'][current_cat] = {'brackets': [], 'maternity_rate': 0}
+            continue
+
+        # Column headers row signals start of bracket data
+        if a == 'Age Range':
+            in_brackets = True
+            continue
+
+        # End of bracket section — accumulate member counts
+        if a == 'Subtotals':
+            in_brackets = False
+            m_count = row[2]   # Column C — male subtotal
+            f_count = row[4]   # Column E — female subtotal
+            if isinstance(m_count, (int, float)): total_male   += int(m_count)
+            if isinstance(f_count, (int, float)): total_female += int(f_count)
+            continue
+
+        # Parse bracket rows
+        if in_brackets and current_cat and a:
+            male_rate   = row[1]   # Column B — male premium
+            female_rate = row[3]   # Column D — female premium
+
+            m_ok = isinstance(male_rate,   (int, float))
+            f_ok = isinstance(female_rate, (int, float))
+            if not (m_ok or f_ok):
+                continue  # skip #DIV/0! or empty rows
+
+            parts = a.split('-')
+            try:
+                lo = int(parts[0])
+                hi = int(parts[1]) if len(parts) > 1 else 99
+            except (ValueError, IndexError):
+                continue
+
+            result['categories'][current_cat]['brackets'].append({
+                'label':  a,
+                'age_lo': lo,
+                'age_hi': hi,
+                'male':   round(float(male_rate),   2) if m_ok else round(float(female_rate), 2),
+                'female': round(float(female_rate), 2) if f_ok else round(float(male_rate),   2),
+            })
+
+    # Remove categories with no valid brackets
+    result['categories'] = {
+        k: v for k, v in result['categories'].items()
+        if v['brackets']
+    }
+
+    result['members'] = total_male + total_female
+
+    return result
+
+
 # ── Census Parsing ────────────────────────────────────────────────────────────
 def detect_header_row(rows):
     search = {'dob', 'date of birth', 'gender', 'relation', 'category', 'marital'}
@@ -445,13 +567,26 @@ def parse_census(file_bytes, filename, start_date_str, age_method='alb'):
         all_rows  = [list(df.columns)] + df.values.tolist()
         header_idx = 0
         data_start = 1
-    else:
-        xl = openpyxl.load_workbook(io.BytesIO(file_bytes), data_only=True)
-        sheet_name = next((s for s in xl.sheetnames if 'INCEP' in s.upper()), xl.sheetnames[0])
-        ws = xl[sheet_name]
-        all_rows  = [[cell.value for cell in row] for row in ws.iter_rows()]
+    elif filename.lower().endswith('.xls'):
+        df = pd.read_excel(io.BytesIO(file_bytes), sheet_name=0, header=None, engine='xlrd')
+        all_rows   = df.values.tolist()
         header_idx = detect_header_row(all_rows)
         data_start = header_idx + 2  # skip notes row
+    else:
+        try:
+            xl = openpyxl.load_workbook(io.BytesIO(maybe_decrypt(file_bytes)), data_only=True)
+        except Exception:
+            # Fallback for files saved with wrong extension or legacy format
+            df = pd.read_excel(io.BytesIO(file_bytes), sheet_name=0, header=None, engine='xlrd')
+            all_rows   = df.values.tolist()
+            header_idx = detect_header_row(all_rows)
+            data_start = header_idx + 2
+        else:
+            sheet_name = next((s for s in xl.sheetnames if 'INCEP' in s.upper()), xl.sheetnames[0])
+            ws = xl[sheet_name]
+            all_rows  = [[cell.value for cell in row] for row in ws.iter_rows()]
+            header_idx = detect_header_row(all_rows)
+            data_start = header_idx + 2  # skip notes row
 
     col_map = detect_col_map(all_rows[header_idx])
     if 'dob' not in col_map:
@@ -461,7 +596,6 @@ def parse_census(file_bytes, filename, start_date_str, age_method='alb'):
 
     start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
     members = []
-    blank_emirate_rows = []
 
     for row_vals in all_rows[data_start:]:
         dob_raw = row_vals[col_map['dob']] if col_map['dob'] < len(row_vals) else None
@@ -531,10 +665,9 @@ def parse_census(file_bytes, filename, start_date_str, age_method='alb'):
 
         emirate_raw = get_val('emirate', '')
         if not emirate_raw or emirate_raw.lower() in ('nan', 'none', ''):
-            blank_emirate_rows.append(name or f"Row {len(members) + data_start + 1}")
-            continue
-
-        emirate = emirate_raw.strip()
+            emirate = 'Dubai'  # default when blank or formula result not cached
+        else:
+            emirate = emirate_raw.strip()
 
         age_fn = calculate_anb if age_method == 'anb' else calculate_alb
         members.append({
@@ -547,14 +680,6 @@ def parse_census(file_bytes, filename, start_date_str, age_method='alb'):
             'age_alb':        age_fn(dob, start_date),
             'emirate':        emirate,
         })
-
-    if blank_emirate_rows:
-        names_list = ', '.join(blank_emirate_rows[:5])
-        extra = f' and {len(blank_emirate_rows) - 5} more' if len(blank_emirate_rows) > 5 else ''
-        raise ValueError(
-            f"Emirates of Visa Issuance is blank for {len(blank_emirate_rows)} member(s): "
-            f"{names_list}{extra}. Please complete the census before proceeding."
-        )
 
     return members
 
@@ -1421,7 +1546,10 @@ def api_upload():
     census_bytes = census_file.read()
 
     try:
-        tool_data = parse_healthxclusive_tool(tool_bytes)
+        if plan.lower() == 'openx':
+            tool_data = parse_openx_tool(tool_bytes)
+        else:
+            tool_data = parse_healthxclusive_tool(tool_bytes)
     except Exception as e:
         return jsonify({'error': f'Tool parsing error: {str(e)}'}), 400
 
