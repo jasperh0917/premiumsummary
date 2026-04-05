@@ -373,6 +373,99 @@ def parse_healthxclusive_tool(excel_bytes):
 
     return result
 
+
+def parse_openx_tool(tool_bytes):
+    """Parse OpenX quote tool Excel file (Premium Summary sheet).
+
+    Structure differs from Healthxclusive:
+    - Category headers: 'CAT A', 'CAT B', 'CATEGORY C', … in column A
+    - Column headers row has 'Age Range' in col A, 'Premium' in col B (male) and col D (female)
+    - Bracket rows: col A = age range label, col B = male rate, col D = female rate
+    - Employees and dependents share the same rate — extracted once, applied to both
+    """
+    wb = openpyxl.load_workbook(io.BytesIO(tool_bytes), data_only=True)
+    ws = wb['Premium Summary']
+
+    result = {
+        'company_name':   '',
+        'product':        'OpenX',
+        'start_date':     '',
+        'end_date':       '',
+        'confirmed_quote': 0.0,
+        'members':        0,
+        'flat_fees':      {'basmah': 37, 'hcv': 0, 'trudoc': 0, 'slash': 0},
+        'fees':           {},
+        'categories':     {},
+    }
+
+    # Extract company name and start date from rows 1-3
+    for r in ws.iter_rows(min_row=1, max_row=3, values_only=True):
+        label = str(r[0] or '').strip().rstrip(':')
+        if label == 'Policyholder':
+            result['company_name'] = str(r[2] or '').strip()
+        elif label == 'Start Date':
+            v = r[2]
+            if hasattr(v, 'strftime'):
+                result['start_date'] = v.strftime('%Y-%m-%d')
+
+    current_cat  = None
+    in_brackets  = False
+
+    for row in ws.iter_rows(values_only=True):
+        a = str(row[0] or '').strip()
+
+        # Detect category header: 'CAT A', 'CAT B', 'CATEGORY C', etc.
+        cat_match = re.match(r'^CAT(?:EGORY)?\s+([A-Z])', a, re.IGNORECASE)
+        if cat_match:
+            current_cat = cat_match.group(1).upper()
+            in_brackets = False
+            result['categories'][current_cat] = {'brackets': [], 'maternity_rate': 0}
+            continue
+
+        # Column headers row signals start of bracket data
+        if a == 'Age Range':
+            in_brackets = True
+            continue
+
+        # End of bracket section
+        if a == 'Subtotals':
+            in_brackets = False
+            continue
+
+        # Parse bracket rows
+        if in_brackets and current_cat and a:
+            male_rate   = row[1]   # Column B — male premium
+            female_rate = row[3]   # Column D — female premium
+
+            m_ok = isinstance(male_rate,   (int, float))
+            f_ok = isinstance(female_rate, (int, float))
+            if not (m_ok or f_ok):
+                continue  # skip #DIV/0! or empty rows
+
+            parts = a.split('-')
+            try:
+                lo = int(parts[0])
+                hi = int(parts[1]) if len(parts) > 1 else 99
+            except (ValueError, IndexError):
+                continue
+
+            result['categories'][current_cat]['brackets'].append({
+                'label':  a,
+                'age_lo': lo,
+                'age_hi': hi,
+                'male':   round(float(male_rate),   2) if m_ok else round(float(female_rate), 2),
+                'female': round(float(female_rate), 2) if f_ok else round(float(male_rate),   2),
+            })
+
+    # Remove categories with no valid brackets
+    result['categories'] = {
+        k: v for k, v in result['categories'].items()
+        if v['brackets']
+    }
+
+    return result
+
+
 # ── Census Parsing ────────────────────────────────────────────────────────────
 def detect_header_row(rows):
     search = {'dob', 'date of birth', 'gender', 'relation', 'category', 'marital'}
@@ -1421,7 +1514,10 @@ def api_upload():
     census_bytes = census_file.read()
 
     try:
-        tool_data = parse_healthxclusive_tool(tool_bytes)
+        if plan.lower() == 'openx':
+            tool_data = parse_openx_tool(tool_bytes)
+        else:
+            tool_data = parse_healthxclusive_tool(tool_bytes)
     except Exception as e:
         return jsonify({'error': f'Tool parsing error: {str(e)}'}), 400
 
