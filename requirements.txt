@@ -3,3 +3,4 @@ PyMuPDF
 pandas
 openpyxl
 anthropic
+xlrd

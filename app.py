@@ -408,8 +408,16 @@ def parse_openx_tool(tool_bytes):
             if hasattr(v, 'strftime'):
                 result['start_date'] = v.strftime('%Y-%m-%d')
 
+    # I8 = confirmed quote premium, I13 = grand total incl. VAT (col I = index 8)
+    v_i8 = ws.cell(row=8,  column=9).value
+    v_i13 = ws.cell(row=13, column=9).value
+    if isinstance(v_i8,  (int, float)): result['confirmed_quote'] = round(float(v_i8),  2)
+    if isinstance(v_i13, (int, float)): result['grand_total']     = round(float(v_i13), 2)
+
     current_cat  = None
     in_brackets  = False
+    total_male   = 0
+    total_female = 0
 
     for row in ws.iter_rows(values_only=True):
         a = str(row[0] or '').strip()
@@ -427,9 +435,13 @@ def parse_openx_tool(tool_bytes):
             in_brackets = True
             continue
 
-        # End of bracket section
+        # End of bracket section — accumulate member counts
         if a == 'Subtotals':
             in_brackets = False
+            m_count = row[2]   # Column C — male subtotal
+            f_count = row[4]   # Column E — female subtotal
+            if isinstance(m_count, (int, float)): total_male   += int(m_count)
+            if isinstance(f_count, (int, float)): total_female += int(f_count)
             continue
 
         # Parse bracket rows
@@ -462,6 +474,8 @@ def parse_openx_tool(tool_bytes):
         k: v for k, v in result['categories'].items()
         if v['brackets']
     }
+
+    result['members'] = total_male + total_female
 
     return result
 
@@ -538,13 +552,26 @@ def parse_census(file_bytes, filename, start_date_str, age_method='alb'):
         all_rows  = [list(df.columns)] + df.values.tolist()
         header_idx = 0
         data_start = 1
-    else:
-        xl = openpyxl.load_workbook(io.BytesIO(file_bytes), data_only=True)
-        sheet_name = next((s for s in xl.sheetnames if 'INCEP' in s.upper()), xl.sheetnames[0])
-        ws = xl[sheet_name]
-        all_rows  = [[cell.value for cell in row] for row in ws.iter_rows()]
+    elif filename.lower().endswith('.xls'):
+        df = pd.read_excel(io.BytesIO(file_bytes), sheet_name=0, header=None, engine='xlrd')
+        all_rows   = df.values.tolist()
         header_idx = detect_header_row(all_rows)
         data_start = header_idx + 2  # skip notes row
+    else:
+        try:
+            xl = openpyxl.load_workbook(io.BytesIO(file_bytes), data_only=True)
+        except Exception:
+            # Fallback for files saved with wrong extension or legacy format
+            df = pd.read_excel(io.BytesIO(file_bytes), sheet_name=0, header=None, engine='xlrd')
+            all_rows   = df.values.tolist()
+            header_idx = detect_header_row(all_rows)
+            data_start = header_idx + 2
+        else:
+            sheet_name = next((s for s in xl.sheetnames if 'INCEP' in s.upper()), xl.sheetnames[0])
+            ws = xl[sheet_name]
+            all_rows  = [[cell.value for cell in row] for row in ws.iter_rows()]
+            header_idx = detect_header_row(all_rows)
+            data_start = header_idx + 2  # skip notes row
 
     col_map = detect_col_map(all_rows[header_idx])
     if 'dob' not in col_map:
