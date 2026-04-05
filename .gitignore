@@ -31,3 +31,5 @@ instance/
 # IDE
 .vscode/
 .idea/
+.vercel
+.claude/
