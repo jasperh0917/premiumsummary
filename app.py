@@ -235,6 +235,21 @@ def _safe_num(v, default=0.0):
     except Exception:
         return default
 
+def maybe_decrypt(file_bytes, password=''):
+    """Decrypt an Office file if encrypted; return original bytes if not."""
+    try:
+        import msoffcrypto
+        office_file = msoffcrypto.OfficeFile(io.BytesIO(file_bytes))
+        if office_file.is_encrypted():
+            decrypted = io.BytesIO()
+            office_file.load_key(password=password)
+            office_file.decrypt(decrypted)
+            return decrypted.getvalue()
+    except Exception:
+        pass
+    return file_bytes
+
+
 def parse_healthxclusive_tool(excel_bytes):
     """
     Parse the HealthXclusive Tool Excel's 'Premium Summary' sheet.
@@ -243,7 +258,7 @@ def parse_healthxclusive_tool(excel_bytes):
     import warnings
     with warnings.catch_warnings():
         warnings.simplefilter('ignore')
-        xl = openpyxl.load_workbook(io.BytesIO(excel_bytes), data_only=True)
+        xl = openpyxl.load_workbook(io.BytesIO(maybe_decrypt(excel_bytes)), data_only=True)
 
     if 'Premium Summary' not in xl.sheetnames:
         raise ValueError("'Premium Summary' sheet not found. Please upload the HealthXclusive Tool Excel.")
@@ -383,7 +398,7 @@ def parse_openx_tool(tool_bytes):
     - Bracket rows: col A = age range label, col B = male rate, col D = female rate
     - Employees and dependents share the same rate — extracted once, applied to both
     """
-    wb = openpyxl.load_workbook(io.BytesIO(tool_bytes), data_only=True)
+    wb = openpyxl.load_workbook(io.BytesIO(maybe_decrypt(tool_bytes)), data_only=True)
     ws = wb['Premium Summary']
 
     result = {
@@ -559,7 +574,7 @@ def parse_census(file_bytes, filename, start_date_str, age_method='alb'):
         data_start = header_idx + 2  # skip notes row
     else:
         try:
-            xl = openpyxl.load_workbook(io.BytesIO(file_bytes), data_only=True)
+            xl = openpyxl.load_workbook(io.BytesIO(maybe_decrypt(file_bytes)), data_only=True)
         except Exception:
             # Fallback for files saved with wrong extension or legacy format
             df = pd.read_excel(io.BytesIO(file_bytes), sheet_name=0, header=None, engine='xlrd')
