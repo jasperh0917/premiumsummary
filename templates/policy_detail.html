@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Policy Detail — Wellx Labs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Raleway:wght@700;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --navy:   #003780;
+  --mid:    #1a5ba0;
+  --orange: #e65100;
+  --slate:  #64748b;
+  --dark:   #1a2332;
+  --light:  #f0f4ff;
+  --white:  #ffffff;
+  --green:  #16a34a;
+  --red:    #dc2626;
+  --grad:   linear-gradient(135deg,#003780,#8431cb,#35c5fc);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',system-ui,sans-serif;background:#0a0a0a;min-height:100vh;color:#1a2332;padding:0 0 80px}
+
+.top-nav{background:#000;border-bottom:3px solid transparent;border-image:var(--grad) 1;display:flex;align-items:center;justify-content:space-between;padding:14px 32px}
+.nav-brand{font-family:'Raleway',sans-serif;font-weight:900;font-size:.7rem;letter-spacing:3px;text-transform:uppercase;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.nav-links{display:flex;gap:6px}
+.nav-links a{color:#94a3b8;font-size:.8rem;font-weight:600;text-decoration:none;padding:6px 14px;border-radius:8px;transition:.15s}
+.nav-links a:hover{background:#1e293b;color:#fff}
+.nav-links a.active{background:var(--navy);color:#fff}
+
+.page{max-width:1100px;margin:32px auto;padding:0 20px}
+
+.back-btn{display:inline-flex;align-items:center;gap:6px;color:#94a3b8;font-size:.83rem;font-weight:600;text-decoration:none;padding:6px 12px;border-radius:8px;transition:.15s}
+.back-btn:hover{background:#1e293b;color:#fff}
+.del-btn{display:inline-flex;align-items:center;gap:6px;padding:7px 16px;background:#fee2e2;color:#991b1b;border:1.5px solid #fca5a5;border-radius:8px;font-size:.82rem;font-weight:600;font-family:inherit;cursor:pointer;transition:.15s}
+.del-btn:hover{background:#dc2626;color:#fff;border-color:#dc2626}
+
+.page-header{margin-bottom:24px}
+.page-header h1{font-family:'Raleway',sans-serif;font-weight:900;font-size:1.7rem;color:#fff}
+.page-header .meta{color:#94a3b8;font-size:.85rem;margin-top:4px}
+
+/* ── Cards ── */
+.card{background:#fff;border-radius:16px;padding:22px 26px;margin-bottom:18px;box-shadow:0 4px 24px rgba(0,0,0,.4)}
+.card-title{font-family:'Raleway',sans-serif;font-weight:900;font-size:.85rem;color:var(--navy);text-transform:uppercase;letter-spacing:1px;margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid var(--light)}
+
+/* ── Info grid ── */
+.info-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px}
+.info-item .lbl{font-size:.7rem;font-weight:600;color:var(--slate);text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px}
+.info-item .val{font-size:.9rem;font-weight:600;color:var(--dark)}
+
+/* ── Totals ── */
+.totals-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.total-item{background:var(--light);border-radius:10px;padding:12px 16px;text-align:center}
+.total-item .tv{font-family:'Raleway',sans-serif;font-weight:900;font-size:1rem;color:var(--navy)}
+.total-item .tl{font-size:.68rem;font-weight:600;color:var(--slate);text-transform:uppercase;letter-spacing:.6px;margin-top:2px}
+.total-item.highlight{background:var(--navy)}
+.total-item.highlight .tv{color:var(--white);font-size:1.15rem}
+.total-item.highlight .tl{color:#a5c4f0}
+
+/* ── Recon badge ── */
+.recon-row{display:flex;align-items:center;gap:12px;margin-top:14px;padding:12px 16px;border-radius:10px}
+.recon-row.match{background:#dcfce7;border:1.5px solid #86efac}
+.recon-row.mismatch{background:#fee2e2;border:1.5px solid #fca5a5}
+.recon-row .icon{font-size:1.2rem}
+.recon-row .text{font-size:.85rem;font-weight:600}
+.recon-row.match .text{color:#166534}
+.recon-row.mismatch .text{color:#991b1b}
+
+/* ── Category tabs ── */
+.cat-tabs{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
+.cat-tab{padding:6px 16px;border:1.5px solid #e0e7f0;border-radius:20px;font-size:.8rem;font-weight:700;color:var(--slate);cursor:pointer;transition:.15s;background:#f8faff}
+.cat-tab.active{background:var(--navy);border-color:var(--navy);color:#fff}
+.cat-panel{display:none}
+.cat-panel.active{display:block}
+.mat-rate{display:inline-flex;align-items:center;gap:6px;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:6px 12px;font-size:.8rem;font-weight:600;color:var(--orange);margin-bottom:12px}
+
+/* ── Tables ── */
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+thead tr{background:var(--navy)}
+thead th{color:#fff;font-size:.74rem;font-weight:700;padding:9px 12px;text-align:left;white-space:nowrap}
+tbody tr:nth-child(even){background:#f8faff}
+tbody tr:hover{background:#eef3ff}
+tbody td{padding:9px 12px;font-size:.82rem;color:var(--dark);white-space:nowrap}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.badge{display:inline-block;padding:2px 7px;border-radius:20px;font-size:.69rem;font-weight:700}
+.badge-m{background:#dbeafe;color:#1e40af}
+.badge-f{background:#fce7f3;color:#9d174d}
+.badge-emp{background:#dcfce7;color:#166534}
+.badge-dep{background:#f3e8ff;color:#6b21a8}
+</style>
+</head>
+<body>
+
+<nav class="top-nav">
+  <span class="nav-brand">Wellx Labs</span>
+  <div class="nav-links">
+    <a href="/">Calculator</a>
+    <a href="/policies" class="active">Policies</a>
+    <a href="/dashboard">Dashboard</a>
+  </div>
+</nav>
+
+<div class="page">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+    <a href="/policies" class="back-btn" style="margin-bottom:0">← Back to Policies</a>
+    <button class="del-btn" onclick="deletePolicy()">🗑 Delete Policy</button>
+  </div>
+
+  <div class="page-header">
+    <h1 id="phCompany">Loading…</h1>
+    <div class="meta" id="phMeta"></div>
+  </div>
+
+  <!-- Policy Header -->
+  <div class="card">
+    <div class="card-title">Policy Details</div>
+    <div class="info-grid" id="infoGrid"></div>
+  </div>
+
+  <!-- Commission -->
+  <div class="card">
+    <div class="card-title">Commission Structure</div>
+    <div class="info-grid" id="commGrid"></div>
+  </div>
+
+  <!-- Premium Totals -->
+  <div class="card">
+    <div class="card-title">Premium Totals</div>
+    <div class="totals-grid" id="totalsGrid"></div>
+    <div id="reconRow"></div>
+  </div>
+
+  <!-- Category Rates -->
+  <div class="card">
+    <div class="card-title">Category Rate Tables</div>
+    <div class="cat-tabs" id="catTabs"></div>
+    <div id="catPanels"></div>
+  </div>
+
+  <!-- Member List -->
+  <div class="card">
+    <div class="card-title">Member List (<span id="memCount">0</span> members)</div>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th><th>Name</th><th>DOB</th><th>Gender</th>
+            <th>Category</th><th>Relation</th><th>Age</th><th>Bracket</th>
+            <th class="num">Base Premium</th><th class="num">Maternity</th>
+            <th class="num">Loading</th><th class="num">Final Premium</th>
+          </tr>
+        </thead>
+        <tbody id="memberBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+const PID = {{ policy_id }};
+
+async function loadDetail() {
+  const res  = await fetch(`/api/policies/${PID}`);
+  const data = await res.json();
+  if (data.error) { document.querySelector('.page-header h1').textContent = 'Policy not found'; return; }
+
+  const p = data.policy;
+
+  // Header
+  document.getElementById('phCompany').textContent = p.company_name || '—';
+  document.getElementById('phMeta').textContent =
+    `Policy #${p.id} · Saved ${fmtDate(p.created_at)} · ${p.plan || ''} ${p.plan_type || ''}`;
+
+  // Info grid
+  const info = [
+    ['Broker',            p.broker],
+    ['RM / Account Exec', p.rm_person],
+    ['Plan',              p.plan],
+    ['Plan Type',         p.plan_type],
+    ['Start Date',        fmtDateShort(p.start_date)],
+    ['Prepared by',       p.underwriter],
+    ['Inception Payment', p.inception_payment],
+    ['Endorsement Freq',  p.endorsement_freq],
+    ['LSB Members',       p.has_lsb ? 'Yes' : 'No'],
+  ];
+  document.getElementById('infoGrid').innerHTML = info.map(([l, v]) => `
+    <div class="info-item"><div class="lbl">${l}</div><div class="val">${v || '—'}</div></div>
+  `).join('');
+
+  // Commission
+  const insLabel = (p.plan || '').toLowerCase() === 'openx' ? 'DNI' : 'QIC';
+  const comm = [
+    ['Broker', fmt1(p.rm_broker) + '%'],
+    [insLabel,  fmt1(p.rm_insurer) + '%'],
+    ['Wellx',  fmt1(p.rm_wellx) + '%'],
+    ['TPA (NAS)', fmt1(p.rm_tpa) + '%'],
+    ['Insurance Levy', fmt1(p.rm_insurance_tax) + '%'],
+  ];
+  const totalComm = [p.rm_broker, p.rm_insurer, p.rm_wellx, p.rm_tpa, p.rm_insurance_tax]
+    .reduce((a,b) => a + (parseFloat(b) || 0), 0);
+  comm.push(['Total Commission', fmt1(totalComm) + '%']);
+  document.getElementById('commGrid').innerHTML = comm.map(([l, v]) => `
+    <div class="info-item"><div class="lbl">${l}</div><div class="val">${v}</div></div>
+  `).join('');
+
+  // Totals
+  const totals = [
+    ['Net Premium',       p.total_net,       false],
+    ['Maternity',         p.total_maternity, false],
+    ['BASMAH Fees',       p.total_basmah,    false],
+    ['Subtotal',          p.subtotal,        false],
+    ['VAT (5%)',          p.vat,             false],
+    ['Grand Total (AED)', p.grand_total,     true],
+  ];
+  document.getElementById('totalsGrid').innerHTML = totals.map(([l, v, hi]) => `
+    <div class="total-item ${hi ? 'highlight' : ''}">
+      <div class="tv">AED ${fmtNum(v)}</div>
+      <div class="tl">${l}</div>
+    </div>
+  `).join('');
+
+  // Reconciliation
+  const diff = parseFloat(p.recon_difference) || 0;
+  const match = p.recon_match;
+  const confirmedQuote = parseFloat(p.confirmed_quote) || 0;
+  const calcPrem = parseFloat(p.total_net) + parseFloat(p.total_maternity);
+  if (confirmedQuote > 0) {
+    document.getElementById('reconRow').innerHTML = `
+      <div class="recon-row ${match ? 'match' : 'mismatch'}">
+        <span class="icon">${match ? '✅' : '❌'}</span>
+        <span class="text">
+          ${match
+            ? `Calculated AED ${fmtNum(calcPrem)} matches confirmed quote AED ${fmtNum(confirmedQuote)}`
+            : `Variance AED ${fmtNum(Math.abs(diff))} — Confirmed quote AED ${fmtNum(confirmedQuote)} vs Calculated AED ${fmtNum(calcPrem)}`}
+        </span>
+      </div>`;
+  }
+
+  // Categories
+  const tabs  = document.getElementById('catTabs');
+  const panels = document.getElementById('catPanels');
+  data.categories.forEach((cat, i) => {
+    const brackets = cat.brackets || [];
+    const tab = document.createElement('div');
+    tab.className = 'cat-tab' + (i === 0 ? ' active' : '');
+    tab.textContent = `Cat ${cat.category}`;
+    tab.onclick = () => {
+      document.querySelectorAll('.cat-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.cat-panel').forEach(p => p.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById(`panel-${cat.category}`).classList.add('active');
+    };
+    tabs.appendChild(tab);
+
+    const panel = document.createElement('div');
+    panel.className = 'cat-panel' + (i === 0 ? ' active' : '');
+    panel.id = `panel-${cat.category}`;
+    panel.innerHTML = `
+      ${parseFloat(cat.maternity_rate) > 0
+        ? `<div class="mat-rate">🤱 Maternity Rate: AED ${fmtNum(cat.maternity_rate)} / year</div>` : ''}
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Age Range</th><th class="num">Male Rate (AED/yr)</th><th class="num">Female Rate (AED/yr)</th></tr></thead>
+          <tbody>
+            ${brackets.map(b => `
+              <tr>
+                <td>${b.label}</td>
+                <td class="num">${fmtNum(b.male_rate)}</td>
+                <td class="num">${fmtNum(b.female_rate)}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`;
+    panels.appendChild(panel);
+  });
+
+  // Members
+  document.getElementById('memCount').textContent = data.members.length;
+  document.getElementById('memberBody').innerHTML = data.members.map(m => `
+    <tr>
+      <td>${m.member_no ?? ''}</td>
+      <td><strong>${m.name || '—'}</strong></td>
+      <td>${fmtDateShort(m.dob)}</td>
+      <td><span class="badge ${m.gender === 'Female' ? 'badge-f' : 'badge-m'}">${m.gender || '—'}</span></td>
+      <td>${m.category || '—'}</td>
+      <td><span class="badge ${m.relation === 'Employee' ? 'badge-emp' : 'badge-dep'}">${m.relation || '—'}</span></td>
+      <td class="num">${m.age_alb ?? '—'}</td>
+      <td>${m.age_bracket || '—'}</td>
+      <td class="num">${fmtNum(m.base_premium)}</td>
+      <td class="num">${parseFloat(m.maternity_premium) > 0 ? fmtNum(m.maternity_premium) : '—'}</td>
+      <td class="num">${parseFloat(m.gross_loading) > 0 ? fmtNum(m.gross_loading) : '—'}</td>
+      <td class="num"><strong>${fmtNum(m.final_premium)}</strong></td>
+    </tr>
+  `).join('');
+}
+
+function fmtDate(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+}
+function fmtDateShort(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+}
+function fmtNum(n) {
+  return Number(n || 0).toLocaleString('en-AE', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
+function fmt1(n) {
+  return Number(n || 0).toFixed(1).replace(/\.0$/, '');
+}
+
+async function deletePolicy() {
+  const name = document.getElementById('phCompany').textContent;
+  if (!confirm(`Delete policy #${PID} — "${name}"?\n\nThis permanently removes all member data and rate tables. This cannot be undone.`)) return;
+  const res  = await fetch(`/api/policies/${PID}`, { method: 'DELETE' });
+  const data = await res.json();
+  if (data.ok) {
+    alert('Policy deleted.');
+    location.href = '/policies';
+  } else {
+    alert('Delete failed: ' + (data.error || 'Unknown error'));
+  }
+}
+
+loadDetail();
+</script>
+</body>
+</html>

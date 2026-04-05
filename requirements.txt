@@ -5,3 +5,4 @@ openpyxl
 anthropic
 xlrd
 msoffcrypto-tool
+psycopg2-binary

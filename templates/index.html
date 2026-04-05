@@ -1223,6 +1223,7 @@ async function calculatePremium() {
     const rec = data.reconciliation;
 
     // Stats
+    const isOpenX = (document.getElementById('planName').value || '').toLowerCase() === 'openx';
     document.getElementById('stMembers').textContent  = data.member_count;
     document.getElementById('stNet').textContent      = fmtAED(t.total_net);
     document.getElementById('stMat').textContent      = fmtAED(t.total_maternity);
@@ -1230,6 +1231,8 @@ async function calculatePremium() {
     document.getElementById('stSubtotal').textContent = fmtAED(t.subtotal);
     document.getElementById('stVat').textContent      = fmtAED(t.vat);
     document.getElementById('stGrand').textContent    = fmtAED(t.grand_total);
+    // Hide maternity card for OpenX (no maternity benefit)
+    document.getElementById('stMat').closest('.stat-card').style.display = isOpenX ? 'none' : '';
 
     // Reconciliation banner
     const banner = document.getElementById('reconBanner');
@@ -1257,11 +1260,13 @@ async function calculatePremium() {
       rec.items.forEach(item => {
         const diff = item.diff;
         const cls  = diff > 0 ? 'pos' : (diff < 0 ? 'neg' : '');
+        const fmtCell = (v) => item.is_count ? v : (typeof v === 'number' && v > 100 ? 'AED ' + fmtAED(v) : v);
+        const fmtDiff = (d) => item.is_count ? (d > 0 ? '+' : '') + d : (d > 0 ? '+' : '') + (typeof d === 'number' && Math.abs(d) > 10 ? 'AED ' + fmtAED(d) : d);
         tbody.innerHTML += `<tr>
           <td>${item.label}</td>
-          <td>${typeof item.quote === 'number' && item.quote > 100 ? 'AED ' + fmtAED(item.quote) : item.quote}</td>
-          <td>${typeof item.calc === 'number' && item.calc > 100 ? 'AED ' + fmtAED(item.calc) : item.calc}</td>
-          <td class="${cls}">${diff > 0 ? '+' : ''}${typeof diff === 'number' && Math.abs(diff) > 10 ? 'AED ' + fmtAED(diff) : diff}</td>
+          <td>${fmtCell(item.quote)}</td>
+          <td>${fmtCell(item.calc)}</td>
+          <td class="${cls}">${fmtDiff(diff)}</td>
         </tr>`;
       });
     }

@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard — Wellx Labs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Raleway:wght@700;900&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --navy:   #003780;
+  --mid:    #1a5ba0;
+  --orange: #e65100;
+  --slate:  #64748b;
+  --dark:   #1a2332;
+  --light:  #f0f4ff;
+  --white:  #ffffff;
+  --green:  #16a34a;
+  --red:    #dc2626;
+  --grad:   linear-gradient(135deg,#003780,#8431cb,#35c5fc);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',system-ui,sans-serif;background:#0a0a0a;min-height:100vh;color:#1a2332;padding:0 0 80px}
+
+.top-nav{background:#000;border-bottom:3px solid transparent;border-image:var(--grad) 1;display:flex;align-items:center;justify-content:space-between;padding:14px 32px}
+.nav-brand{font-family:'Raleway',sans-serif;font-weight:900;font-size:.7rem;letter-spacing:3px;text-transform:uppercase;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.nav-links{display:flex;gap:6px}
+.nav-links a{color:#94a3b8;font-size:.8rem;font-weight:600;text-decoration:none;padding:6px 14px;border-radius:8px;transition:.15s}
+.nav-links a:hover{background:#1e293b;color:#fff}
+.nav-links a.active{background:var(--navy);color:#fff}
+
+.page{max-width:1200px;margin:32px auto;padding:0 20px}
+h1{font-family:'Raleway',sans-serif;font-weight:900;font-size:1.6rem;color:#fff;margin-bottom:6px}
+.sub{color:#94a3b8;font-size:.85rem;margin-bottom:28px}
+
+/* ── KPI row ── */
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px;margin-bottom:24px}
+.kpi{background:#fff;border-radius:14px;padding:16px 20px;box-shadow:0 4px 20px rgba(0,0,0,.4)}
+.kpi .kv{font-family:'Raleway',sans-serif;font-weight:900;font-size:1.4rem;color:var(--navy)}
+.kpi .kl{font-size:.7rem;font-weight:600;color:var(--slate);text-transform:uppercase;letter-spacing:.7px;margin-top:3px}
+
+/* ── Section ── */
+.section{background:#fff;border-radius:16px;padding:22px 26px;margin-bottom:22px;box-shadow:0 4px 24px rgba(0,0,0,.4)}
+.section-title{font-family:'Raleway',sans-serif;font-weight:900;font-size:.85rem;color:var(--navy);text-transform:uppercase;letter-spacing:1px;margin-bottom:18px;padding-bottom:10px;border-bottom:2px solid var(--light)}
+.chart-wrap{position:relative;height:280px;margin-bottom:18px}
+
+/* ── Tables ── */
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+thead tr{background:var(--navy)}
+thead th{color:#fff;font-size:.74rem;font-weight:700;padding:9px 14px;text-align:left;white-space:nowrap}
+tbody tr:nth-child(even){background:#f8faff}
+tbody tr:hover{background:#eef3ff}
+tbody td{padding:9px 14px;font-size:.83rem;color:var(--dark)}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+tfoot tr{background:#e8f0fe}
+tfoot td{padding:9px 14px;font-size:.83rem;font-weight:700;color:var(--navy)}
+
+/* ── RM table ── */
+.pct{font-size:.75rem;font-weight:600;padding:2px 7px;border-radius:10px}
+.pct-good{background:#dcfce7;color:#166534}
+.pct-warn{background:#fef9c3;color:#854d0e}
+.pct-bad{background:#fee2e2;color:#991b1b}
+.target-input{border:1.5px solid #e0e7f0;border-radius:6px;padding:4px 8px;font-size:.82rem;font-family:inherit;width:110px;text-align:right;outline:none;transition:.15s}
+.target-input:focus{border-color:var(--navy)}
+.save-btn{padding:4px 10px;background:var(--navy);color:#fff;border:none;border-radius:6px;font-size:.75rem;font-weight:600;cursor:pointer;transition:.15s}
+.save-btn:hover{background:var(--mid)}
+
+/* ── Month/Year selector for RM ── */
+.rm-controls{display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.rm-controls select{border:1.5px solid #e0e7f0;border-radius:8px;padding:6px 10px;font-size:.83rem;font-family:inherit;color:var(--dark);background:#f8faff;outline:none}
+.rm-controls select:focus{border-color:var(--navy)}
+</style>
+</head>
+<body>
+
+<nav class="top-nav">
+  <span class="nav-brand">Wellx Labs</span>
+  <div class="nav-links">
+    <a href="/">Calculator</a>
+    <a href="/policies">Policies</a>
+    <a href="/dashboard" class="active">Dashboard</a>
+  </div>
+</nav>
+
+<div class="page">
+  <h1>Management Dashboard</h1>
+  <p class="sub">Sales performance, broker activity, and RM targets — last 12 months.</p>
+
+  <!-- KPIs -->
+  <div class="kpi-row" id="kpiRow">
+    <div class="kpi"><div class="kv" id="kTotal">—</div><div class="kl">Total Policies</div></div>
+    <div class="kpi"><div class="kv" id="kPremium">—</div><div class="kl">Total Premium (AED)</div></div>
+    <div class="kpi"><div class="kv" id="kMembers">—</div><div class="kl">Total Members</div></div>
+    <div class="kpi"><div class="kv" id="kAvg">—</div><div class="kl">Avg Policy Size (AED)</div></div>
+  </div>
+
+  <!-- Monthly Sales -->
+  <div class="section">
+    <div class="section-title">Monthly Sales — Last 12 Months</div>
+    <div class="chart-wrap"><canvas id="monthChart"></canvas></div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Month</th><th class="num">Policies</th><th class="num">Members</th><th class="num">Net Premium (AED)</th><th class="num">Grand Total (AED)</th></tr></thead>
+        <tbody id="monthBody"></tbody>
+        <tfoot><tr><td>TOTAL</td><td class="num" id="mfCount">—</td><td class="num" id="mfMembers">—</td><td class="num" id="mfNet">—</td><td class="num" id="mfGrand">—</td></tr></tfoot>
+      </table>
+    </div>
+  </div>
+
+  <!-- Broker Report -->
+  <div class="section">
+    <div class="section-title">Broker Performance Report</div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Broker</th><th class="num">Policies</th><th class="num">Members</th><th class="num">Net Premium (AED)</th><th class="num">Grand Total (AED)</th><th class="num">Avg Policy (AED)</th></tr></thead>
+        <tbody id="brokerBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- RM vs Targets -->
+  <div class="section">
+    <div class="section-title">RM Sales vs Targets</div>
+    <div class="rm-controls">
+      <label style="font-size:.8rem;font-weight:600;color:var(--slate)">View Month:</label>
+      <select id="rmYear"></select>
+      <select id="rmMonth">
+        <option value="1">January</option><option value="2">February</option>
+        <option value="3">March</option><option value="4">April</option>
+        <option value="5">May</option><option value="6">June</option>
+        <option value="7">July</option><option value="8">August</option>
+        <option value="9">September</option><option value="10">October</option>
+        <option value="11">November</option><option value="12">December</option>
+      </select>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>RM</th><th class="num">Policies</th><th class="num">Actual (AED)</th><th class="num">Target (AED)</th><th class="num">Variance</th><th class="num">% of Target</th></tr></thead>
+        <tbody id="rmBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+let monthlyData = [], brokersData = [], rmData = {actuals: [], targets: []};
+let monthChart = null;
+
+// ── Populate year selector ─────────────────────────────────────────────────
+const now = new Date();
+const yearSel = document.getElementById('rmYear');
+for (let y = now.getFullYear(); y >= now.getFullYear() - 2; y--) {
+  yearSel.innerHTML += `<option value="${y}" ${y === now.getFullYear() ? 'selected' : ''}>${y}</option>`;
+}
+document.getElementById('rmMonth').value = now.getMonth() + 1;
+
+// ── Load all data ──────────────────────────────────────────────────────────
+async function loadAll() {
+  const [mRes, bRes, rRes] = await Promise.all([
+    fetch('/api/dashboard/monthly'),
+    fetch('/api/dashboard/brokers'),
+    fetch('/api/dashboard/rm'),
+  ]);
+  monthlyData  = await mRes.json();
+  brokersData  = await bRes.json();
+  rmData       = await rRes.json();
+
+  renderKPIs();
+  renderMonthly();
+  renderBrokers();
+  renderRM();
+}
+
+function renderKPIs() {
+  const totalPolicies  = monthlyData.reduce((s,r) => s + parseInt(r.policy_count), 0);
+  const totalPremium   = monthlyData.reduce((s,r) => s + parseFloat(r.total_premium || 0), 0);
+  const totalMembers   = monthlyData.reduce((s,r) => s + parseInt(r.member_count || 0), 0);
+  const avgSize        = totalPolicies ? totalPremium / totalPolicies : 0;
+  document.getElementById('kTotal').textContent   = totalPolicies.toLocaleString();
+  document.getElementById('kPremium').textContent = fmtNum(totalPremium);
+  document.getElementById('kMembers').textContent = totalMembers.toLocaleString();
+  document.getElementById('kAvg').textContent     = fmtNum(avgSize);
+}
+
+function renderMonthly() {
+  const labels = monthlyData.map(r => fmtMonth(r.month));
+  const grands  = monthlyData.map(r => parseFloat(r.total_premium) || 0);
+  const nets    = monthlyData.map(r => parseFloat(r.net_premium) || 0);
+
+  if (monthChart) monthChart.destroy();
+  monthChart = new Chart(document.getElementById('monthChart'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Grand Total (AED)', data: grands, backgroundColor: '#003780cc', borderRadius: 6 },
+        { label: 'Net Premium (AED)', data: nets,   backgroundColor: '#e6510099', borderRadius: 6 },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'top' } },
+      scales: {
+        y: { ticks: { callback: v => 'AED ' + fmtNum(v) } }
+      }
+    }
+  });
+
+  const tbody = document.getElementById('monthBody');
+  let sumC=0, sumM=0, sumN=0, sumG=0;
+  tbody.innerHTML = monthlyData.map(r => {
+    sumC += parseInt(r.policy_count); sumM += parseInt(r.member_count || 0);
+    sumN += parseFloat(r.net_premium || 0); sumG += parseFloat(r.total_premium || 0);
+    return `<tr>
+      <td>${fmtMonth(r.month)}</td>
+      <td class="num">${r.policy_count}</td>
+      <td class="num">${parseInt(r.member_count || 0).toLocaleString()}</td>
+      <td class="num">AED ${fmtNum(r.net_premium)}</td>
+      <td class="num">AED ${fmtNum(r.total_premium)}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:20px">No data yet</td></tr>';
+
+  document.getElementById('mfCount').textContent   = sumC;
+  document.getElementById('mfMembers').textContent = sumM.toLocaleString();
+  document.getElementById('mfNet').textContent     = 'AED ' + fmtNum(sumN);
+  document.getElementById('mfGrand').textContent   = 'AED ' + fmtNum(sumG);
+}
+
+function renderBrokers() {
+  document.getElementById('brokerBody').innerHTML =
+    brokersData.map(r => `
+      <tr>
+        <td><strong>${r.broker}</strong></td>
+        <td class="num">${r.policy_count}</td>
+        <td class="num">${parseInt(r.total_members || 0).toLocaleString()}</td>
+        <td class="num">AED ${fmtNum(r.total_net)}</td>
+        <td class="num">AED ${fmtNum(r.total_grand)}</td>
+        <td class="num">AED ${fmtNum(r.avg_policy_size)}</td>
+      </tr>`).join('') ||
+    '<tr><td colspan="6" style="text-align:center;color:#94a3b8;padding:20px">No data yet</td></tr>';
+}
+
+function renderRM() {
+  const year  = parseInt(document.getElementById('rmYear').value);
+  const month = parseInt(document.getElementById('rmMonth').value);
+
+  // Build actuals map for selected year/month
+  const actualMap = {};
+  (rmData.actuals || []).forEach(a => {
+    if (a.year === year && a.month === month)
+      actualMap[a.rm_name] = { count: a.policy_count, amount: parseFloat(a.actual_amount || 0) };
+  });
+
+  // Build target map
+  const targetMap = {};
+  (rmData.targets || []).forEach(t => {
+    if (t.year === year && t.month === month)
+      targetMap[t.rm_name] = parseFloat(t.target_amount || 0);
+  });
+
+  // All RM names (union of actuals + targets)
+  const allRMs = [...new Set([
+    ...Object.keys(actualMap),
+    ...Object.keys(targetMap),
+    ...(rmData.actuals || []).map(a => a.rm_name)
+  ])].filter(Boolean).sort();
+
+  if (!allRMs.length) {
+    document.getElementById('rmBody').innerHTML =
+      '<tr><td colspan="6" style="text-align:center;color:#94a3b8;padding:20px">No RM data yet</td></tr>';
+    return;
+  }
+
+  document.getElementById('rmBody').innerHTML = allRMs.map(rm => {
+    const actual  = (actualMap[rm]?.amount) || 0;
+    const count   = (actualMap[rm]?.count)  || 0;
+    const target  = targetMap[rm] || 0;
+    const variance = actual - target;
+    const pct      = target > 0 ? (actual / target * 100) : null;
+    const pctClass = pct === null ? '' : pct >= 100 ? 'pct-good' : pct >= 70 ? 'pct-warn' : 'pct-bad';
+    const pctLabel = pct === null ? '—' : `<span class="pct ${pctClass}">${pct.toFixed(0)}%</span>`;
+
+    return `<tr>
+      <td><strong>${rm}</strong></td>
+      <td class="num">${count}</td>
+      <td class="num">AED ${fmtNum(actual)}</td>
+      <td class="num">
+        <input class="target-input" type="number" min="0" step="1000"
+               value="${target || ''}" placeholder="Set target"
+               id="ti-${rm.replace(/\s+/g,'_')}" />
+        <button class="save-btn" onclick="saveTarget('${rm.replace(/'/g,"\\'")}')">Save</button>
+      </td>
+      <td class="num" style="color:${variance >= 0 ? '#16a34a' : '#dc2626'};font-weight:600">
+        ${variance >= 0 ? '+' : ''}AED ${fmtNum(variance)}
+      </td>
+      <td class="num">${pctLabel}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function saveTarget(rmName) {
+  const year  = parseInt(document.getElementById('rmYear').value);
+  const month = parseInt(document.getElementById('rmMonth').value);
+  const key   = rmName.replace(/\s+/g, '_');
+  const val   = parseFloat(document.getElementById(`ti-${key}`).value) || 0;
+
+  const res  = await fetch('/api/dashboard/rm_targets', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ rm_name: rmName, year, month, target_amount: val }),
+  });
+  const data = await res.json();
+  if (data.ok) {
+    // Update local target map and re-render
+    const existing = rmData.targets.find(t => t.rm_name === rmName && t.year === year && t.month === month);
+    if (existing) existing.target_amount = val;
+    else rmData.targets.push({ rm_name: rmName, year, month, target_amount: val });
+    renderRM();
+  }
+}
+
+function fmtMonth(monthStr) {
+  if (!monthStr) return '—';
+  // monthStr is 'YYYY-MM'
+  const [y, m] = monthStr.split('-');
+  return new Date(y, parseInt(m) - 1, 1).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
+}
+function fmtNum(n) {
+  return Number(n || 0).toLocaleString('en-AE', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
+
+document.getElementById('rmYear').addEventListener('change', renderRM);
+document.getElementById('rmMonth').addEventListener('change', renderRM);
+
+loadAll();
+</script>
+</body>
+</html>
