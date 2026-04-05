@@ -1562,6 +1562,10 @@ def get_db():
            os.environ.get('POSTGRES_URL_NON_POOLING') or '')
     if not url:
         return None
+    # Ensure sslmode=require is present (required by Supabase on Vercel)
+    if 'sslmode' not in url:
+        sep = '&' if '?' in url else '?'
+        url = url + sep + 'sslmode=require'
     try:
         conn = psycopg2.connect(url)
         return conn
