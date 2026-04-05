@@ -2245,6 +2245,31 @@ def api_upsert_rm_target():
         conn.close()
 
 
+# ── DB diagnostics ───────────────────────────────────────────────────────────
+
+@app.route('/api/db_check')
+def api_db_check():
+    url_val = os.environ.get('SUPABASE_DB_URL') or os.environ.get('POSTGRES_URL_NON_POOLING') or ''
+    conn = get_db()
+    connected = False
+    if conn:
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SELECT 1")
+            connected = True
+        except Exception:
+            pass
+        finally:
+            conn.close()
+    return jsonify({
+        'psycopg2_available':            _DB_AVAILABLE,
+        'SUPABASE_DB_URL_set':           bool(os.environ.get('SUPABASE_DB_URL')),
+        'POSTGRES_URL_NON_POOLING_set':  bool(os.environ.get('POSTGRES_URL_NON_POOLING')),
+        'url_prefix':                    url_val[:30] + '...' if url_val else 'NOT SET',
+        'connected':                     connected,
+    })
+
+
 # ── Filter options for policies page ─────────────────────────────────────────
 
 @app.route('/api/policies/meta')
