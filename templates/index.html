@@ -211,8 +211,8 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0a0a0a;min-height:100v
 .info-box{background:#f0f4ff;border:1.5px solid #c8d8f8;border-radius:9px;padding:12px 16px;font-size:.82rem;color:#374151;line-height:1.55;margin-bottom:18px}
 .info-box strong{color:var(--navy)}
 
-.form-footer{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:20px;font-size:.72rem;color:#1a2332;font-family:'Inter',sans-serif}
-.footer-logo-img{width:28px;height:28px;object-fit:contain;display:block}
+.form-footer{display:flex;align-items:center;justify-content:center;margin-top:20px;background:transparent}
+.footer-logo-img{height:189px;object-fit:contain;display:block}
 
 /* LSB toggle */
 .lsb-toggle{display:flex;align-items:center;gap:10px;padding:12px 16px;background:#f0f4ff;border:1.5px solid #c8d8f8;border-radius:9px;margin-top:14px}
@@ -439,7 +439,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0a0a0a;min-height:100v
         <button type="button" class="btn-secondary" id="clearBtn">Clear</button>
       </div>
 
-      <div class="form-footer"><img class="footer-logo-img" src="/brand-logo" alt="Wellx logo"><span>Powered by Wellx Labs</span></div>
+      <div class="form-footer"><img class="footer-logo-img" src="/brand-logo" alt="Powered by Wellx Labs"></div>
     </form>
   </div>
 
@@ -502,7 +502,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0a0a0a;min-height:100v
       </button>
       <button class="btn-secondary" onclick="goToStep(1)">← Back</button>
     </div>
-    <div class="form-footer"><img class="footer-logo-img" src="/brand-logo" alt="Wellx logo"><span>Powered by Wellx Labs</span></div>
+    <div class="form-footer"><img class="footer-logo-img" src="/brand-logo" alt="Powered by Wellx Labs"></div>
   </div>
 
   <!-- ═══════════════════════════════════════════════════════════════════
@@ -597,14 +597,14 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0a0a0a;min-height:100v
       <button class="btn-secondary" onclick="resetAll()">Restart Calculation</button>
       <button class="btn-secondary" onclick="goToStep(2)">← Go Back</button>
     </div>
-    <div class="form-footer"><img class="footer-logo-img" src="/brand-logo" alt="Wellx logo"><span>Powered by Wellx Labs</span></div>
+    <div class="form-footer"><img class="footer-logo-img" src="/brand-logo" alt="Powered by Wellx Labs"></div>
   </div>
 
 </div><!-- /card -->
 
 <script>
 // ── Dropdown data ─────────────────────────────────────────────────────────────
-const BROKERS = ["ADIB","AES Middle East (AES International)","Insurance Market","Al Sayegh","Al Manarah","Al Nabooda","Aon Middle East","Associated Insurance Brokers-AUH","Beneple","Berns Brett Masaood","Burns & Wilcox","Compass","Cedar","Continental","Cosmos","Cross Road","Doo","Fidelity Insurance Services","FISCO","Green Shield","Gargash","Gateway","Genesis","Howden","Indemnity","Interactive","Joie de Vivre International","Kaizzen Plus","Links","Lockton - Dubai","Lockton - Abu Dhabi","Lifecare International Broker","Malakut","Marsh","Newtech","Northern","Nasco Emirates - Abu Dhabi","Nasco M.E. - Dubai","New Shield","Nexus","Omega","Pearl","Phillip Middle East","Prominent","PWS Gulf","Pacific Prime","Platinum","Direct Sale","R2S","RMS","Seven","The Brokerage Firm","Unitrust","Viva","Wayyak","Wehbe Insurance Services","Other"];
+const BROKERS = ["ADIB","AES International","Insurance Market","Al Sayegh","Al Manarah","Al Nabooda","Aon Middle East","Associated Insurance Brokers-AUH","Beneple","Berns Brett Masaood","Burns & Wilcox","Compass","Cedar","Continental","Cosmos","Cross Road","Doo","Earnest","Fidelity Insurance Services","FISCO","Green Shield","Gargash","Gateway","Genesis","Howden","Indemnity","Interactive","Joie de Vivre International","Kaizzen Plus","Links","Lockton - Dubai","Lockton - Abu Dhabi","Lifecare International Broker","Malakut","Marsh","Newtech","Northern","Nasco Emirates - Abu Dhabi","Nasco M.E. - Dubai","New Shield","Nexus","Omega","Pearl","Phillip Middle East","Prominent","PWS Gulf","Pacific Prime","Platinum","Direct Sale","R2S","RMS","Seven","The Brokerage Firm","Unitrust","Viva","Wayyak","Wehbe Insurance Services","Other"];
 const UNDERWRITERS = ["Jasper","Mabel","Joseph","Angela"];
 const RMS = ["Sujith","Heston","Mark"];
 const DEFAULT_BRACKETS = ["0-10","11-17","18-25","26-30","31-35","36-40","41-45","46-50","51-55","56-59","60-64","65-99"];

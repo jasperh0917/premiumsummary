@@ -22,7 +22,7 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
 _ROOT = os.path.dirname(os.path.abspath(__file__))
-BRAND_LOGO_PATH = "/Users/jasperhealthx/.cursor/projects/Users-jasperhealthx-Desktop-AI-Projects-Premium-Summary/assets/Wellxinvertedsymbolforlightbackgrounds-01_5c95fcab-62ee60a8-af11-4678-90dc-a8942cbefa09.png"
+BRAND_LOGO_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Style', 'Powered by Wellx Labs no background.png')
 app = Flask(__name__,
             root_path=_ROOT,
             template_folder=os.path.join(_ROOT, 'templates'),
@@ -872,7 +872,7 @@ def make_combined_excel(form_data, members_data, verified_rates, maternity_rates
         cv(12, 7, pct_val(insurer_l), halign='center', size=9.5, num_fmt='0.00%')
 
     # Row 13
-    info_label(13, 1, 'Underwriter'); info_val(13, 2, underwriter)
+    info_label(13, 1, 'Prepared by'); info_val(13, 2, underwriter)
     cv(13, 5, f'{admin_name} (Admin)', bold=True, color=DARK, size=9.5)
     cv(13, 6, pct_val(admin_h), halign='center', size=9.5, num_fmt='0.00%')
     if has_lsb:
@@ -907,6 +907,16 @@ def make_combined_excel(form_data, members_data, verified_rates, maternity_rates
     # Row heights for info block
     for r in range(3, 17):
         ws.row_dimensions[r].height = 18
+
+    # ── Thin gray borders on info ranges ──────────────────────────────────────
+    def _gray_border():
+        s = Side(style='thin', color='BBBBBB')
+        return Border(left=s, right=s, top=s, bottom=s)
+
+    for rng in ('A3:B8', 'A10:B11', 'A13:B13', 'E4:F7', 'E11:E16', 'F10:G16'):
+        for row_cells in ws[rng]:
+            for cell in row_cells:
+                cell.border = _gray_border()
 
     # ── Premium Table Header (row 19) ──────────────────────────────────────────
     hdr_cols = ['Category', 'Age Band', 'GROSS PREMIUM\n(MALE)', 'GROSS PREMIUM\n(FEMALE)',
@@ -1034,6 +1044,7 @@ def make_combined_excel(form_data, members_data, verified_rates, maternity_rates
             ws.cell(row=row, column=4).number_format = '#,##0.00'
             ws.cell(row=row, column=7).value = 'additional maternity premium'
             ws.cell(row=row, column=7).font  = Font(name='Inter', size=8.5, color='888888', italic=True)
+            ws.cell(row=row, column=7).alignment = Alignment(horizontal='left', vertical='center')
             ws.row_dimensions[row].height = 16
             row += 1
 
@@ -1373,13 +1384,7 @@ def index():
 
 @app.route('/brand-logo')
 def brand_logo():
-    if os.path.isfile(BRAND_LOGO_PATH):
-        return send_file(BRAND_LOGO_PATH, mimetype='image/png')
-    # Fallback logo for cloud deploys where local asset path is unavailable.
-    svg = """<svg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 48 48'>
-<path fill='#111' d='M5 29c4-5 10-4 14 1 3 4 6 5 9 0 5-10 12-13 17-5 5 8 2 18-6 20-7 2-12-1-16-7-1-2-2-2-3 0-4 7-12 8-17 1-3-4-2-8 2-10z'/>
-</svg>"""
-    return Response(svg, mimetype='image/svg+xml')
+    return send_file(BRAND_LOGO_PATH, mimetype='image/png')
 
 @app.route('/api/upload', methods=['POST'])
 def api_upload():
