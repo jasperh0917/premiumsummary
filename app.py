@@ -596,7 +596,6 @@ def parse_census(file_bytes, filename, start_date_str, age_method='alb'):
 
     start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
     members = []
-    blank_emirate_rows = []
 
     for row_vals in all_rows[data_start:]:
         dob_raw = row_vals[col_map['dob']] if col_map['dob'] < len(row_vals) else None
@@ -666,10 +665,9 @@ def parse_census(file_bytes, filename, start_date_str, age_method='alb'):
 
         emirate_raw = get_val('emirate', '')
         if not emirate_raw or emirate_raw.lower() in ('nan', 'none', ''):
-            blank_emirate_rows.append(name or f"Row {len(members) + data_start + 1}")
-            continue
-
-        emirate = emirate_raw.strip()
+            emirate = 'Dubai'  # default when blank or formula result not cached
+        else:
+            emirate = emirate_raw.strip()
 
         age_fn = calculate_anb if age_method == 'anb' else calculate_alb
         members.append({
@@ -682,14 +680,6 @@ def parse_census(file_bytes, filename, start_date_str, age_method='alb'):
             'age_alb':        age_fn(dob, start_date),
             'emirate':        emirate,
         })
-
-    if blank_emirate_rows:
-        names_list = ', '.join(blank_emirate_rows[:5])
-        extra = f' and {len(blank_emirate_rows) - 5} more' if len(blank_emirate_rows) > 5 else ''
-        raise ValueError(
-            f"Emirates of Visa Issuance is blank for {len(blank_emirate_rows)} member(s): "
-            f"{names_list}{extra}. Please complete the census before proceeding."
-        )
 
     return members
 
