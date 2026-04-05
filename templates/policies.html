@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Policy Database — Wellx Labs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Raleway:wght@700;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --navy:   #003780;
+  --mid:    #1a5ba0;
+  --orange: #e65100;
+  --slate:  #64748b;
+  --dark:   #1a2332;
+  --light:  #f0f4ff;
+  --white:  #ffffff;
+  --green:  #16a34a;
+  --red:    #dc2626;
+  --grad:   linear-gradient(135deg,#003780,#8431cb,#35c5fc);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',system-ui,sans-serif;background:#0a0a0a;min-height:100vh;color:#1a2332;padding:0 0 60px}
+
+/* ── Nav ── */
+.top-nav{background:#000;border-bottom:3px solid transparent;border-image:var(--grad) 1;display:flex;align-items:center;justify-content:space-between;padding:14px 32px}
+.nav-brand{font-family:'Raleway',sans-serif;font-weight:900;font-size:.7rem;letter-spacing:3px;text-transform:uppercase;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.nav-links{display:flex;gap:6px}
+.nav-links a{color:#94a3b8;font-size:.8rem;font-weight:600;text-decoration:none;padding:6px 14px;border-radius:8px;transition:.15s}
+.nav-links a:hover{background:#1e293b;color:#fff}
+.nav-links a.active{background:var(--navy);color:#fff}
+
+/* ── Page wrapper ── */
+.page{max-width:1200px;margin:32px auto;padding:0 20px}
+h1{font-family:'Raleway',sans-serif;font-weight:900;font-size:1.6rem;color:#fff;margin-bottom:6px}
+.sub{color:#94a3b8;font-size:.85rem;margin-bottom:28px}
+
+/* ── Filter card ── */
+.filter-card{background:#fff;border-radius:16px;padding:20px 24px;margin-bottom:20px;box-shadow:0 4px 24px rgba(0,0,0,.4)}
+.filter-row{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}
+.filter-group{display:flex;flex-direction:column;gap:4px}
+.filter-group label{font-size:.72rem;font-weight:600;color:var(--slate);text-transform:uppercase;letter-spacing:.6px}
+.filter-group input,.filter-group select{border:1.5px solid #e0e7f0;border-radius:8px;padding:7px 12px;font-size:.85rem;font-family:inherit;color:var(--dark);background:#f8faff;outline:none;transition:.15s;min-width:160px}
+.filter-group input:focus,.filter-group select:focus{border-color:var(--navy);background:#fff}
+.filter-group input[type=search]{min-width:220px}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 18px;border:none;border-radius:8px;font-size:.83rem;font-weight:600;font-family:inherit;cursor:pointer;transition:.15s}
+.btn-primary{background:var(--navy);color:#fff}
+.btn-primary:hover{background:var(--mid)}
+.btn-ghost{background:#f0f4ff;color:var(--navy)}
+.btn-ghost:hover{background:#e0eaff}
+
+/* ── Stats bar ── */
+.stats-bar{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+.stat-chip{background:#fff;border-radius:10px;padding:12px 18px;display:flex;flex-direction:column;gap:2px;box-shadow:0 2px 12px rgba(0,0,0,.35);min-width:120px}
+.stat-chip .sv{font-family:'Raleway',sans-serif;font-weight:900;font-size:1.2rem;color:var(--navy)}
+.stat-chip .sl{font-size:.68rem;font-weight:600;color:var(--slate);text-transform:uppercase;letter-spacing:.7px}
+
+/* ── Table ── */
+.table-card{background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.4)}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+thead tr{background:var(--navy)}
+thead th{color:#fff;font-size:.75rem;font-weight:700;padding:11px 14px;text-align:left;white-space:nowrap;letter-spacing:.4px}
+tbody tr{border-bottom:1px solid #f0f4ff;cursor:pointer;transition:.1s}
+tbody tr:hover{background:#f0f6ff}
+tbody tr:last-child{border-bottom:none}
+tbody td{padding:11px 14px;font-size:.83rem;color:var(--dark);white-space:nowrap}
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:.7rem;font-weight:700;letter-spacing:.3px}
+.badge-green{background:#dcfce7;color:#166534}
+.badge-red{background:#fee2e2;color:#991b1b}
+.badge-blue{background:#dbeafe;color:#1e40af}
+.badge-orange{background:#fff7ed;color:#c2410c}
+.empty-state{text-align:center;padding:60px 20px;color:var(--slate)}
+.empty-state .icon{font-size:3rem;margin-bottom:10px;opacity:.4}
+
+/* ── Pagination ── */
+.pagination{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;background:#f8faff;border-top:1px solid #e8eef8}
+.page-info{font-size:.8rem;color:var(--slate)}
+.page-btns{display:flex;gap:6px}
+.page-btn{padding:5px 12px;border:1.5px solid #e0e7f0;border-radius:6px;background:#fff;font-size:.8rem;font-weight:600;color:var(--navy);cursor:pointer;transition:.15s}
+.page-btn:hover:not(:disabled){background:var(--navy);color:#fff;border-color:var(--navy)}
+.page-btn:disabled{opacity:.4;cursor:default}
+.page-btn.active{background:var(--navy);color:#fff;border-color:var(--navy)}
+</style>
+</head>
+<body>
+
+<nav class="top-nav">
+  <span class="nav-brand">Wellx Labs</span>
+  <div class="nav-links">
+    <a href="/">Calculator</a>
+    <a href="/policies" class="active">Policies</a>
+    <a href="/dashboard">Dashboard</a>
+  </div>
+</nav>
+
+<div class="page">
+  <h1>Policy Database</h1>
+  <p class="sub">All finalized premium summaries saved after download.</p>
+
+  <!-- Filters -->
+  <div class="filter-card">
+    <div class="filter-row">
+      <div class="filter-group">
+        <label>Search Company</label>
+        <input type="search" id="fSearch" placeholder="Company name…">
+      </div>
+      <div class="filter-group">
+        <label>Broker</label>
+        <select id="fBroker"><option value="">All Brokers</option></select>
+      </div>
+      <div class="filter-group">
+        <label>RM</label>
+        <select id="fRm"><option value="">All RMs</option></select>
+      </div>
+      <div class="filter-group">
+        <label>Plan</label>
+        <select id="fPlan"><option value="">All Plans</option></select>
+      </div>
+      <div class="filter-group">
+        <label>Type</label>
+        <select id="fType"><option value="">New &amp; Renewal</option></select>
+      </div>
+      <div class="filter-group">
+        <label>Start From</label>
+        <input type="date" id="fFrom">
+      </div>
+      <div class="filter-group">
+        <label>Start To</label>
+        <input type="date" id="fTo">
+      </div>
+      <button class="btn btn-primary" onclick="load(1)">Search</button>
+      <button class="btn btn-ghost" onclick="clearFilters()">Clear</button>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-bar" id="statsBar">
+    <div class="stat-chip"><div class="sv" id="sTotal">—</div><div class="sl">Total Policies</div></div>
+    <div class="stat-chip"><div class="sv" id="sPage">—</div><div class="sl">Showing</div></div>
+  </div>
+
+  <!-- Table -->
+  <div class="table-card">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Date Saved</th>
+            <th>Company</th>
+            <th>Broker</th>
+            <th>RM</th>
+            <th>Plan</th>
+            <th>Type</th>
+            <th>Members</th>
+            <th>Grand Total (AED)</th>
+            <th>Match</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody">
+          <tr><td colspan="10"><div class="empty-state"><div class="icon">📋</div><div>Loading…</div></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="pagination" id="pagination" style="display:none">
+      <span class="page-info" id="pageInfo"></span>
+      <div class="page-btns" id="pageBtns"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+let currentPage = 1;
+const PER_PAGE = 20;
+
+async function loadMeta() {
+  try {
+    const res = await fetch('/api/policies/meta');
+    const d   = await res.json();
+    fill('fBroker', d.brokers, 'All Brokers');
+    fill('fRm',     d.rms,     'All RMs');
+    fill('fPlan',   d.plans,   'All Plans');
+    fill('fType',   d.plan_types, 'New & Renewal');
+  } catch(e) {}
+}
+
+function fill(id, items, placeholder) {
+  const sel = document.getElementById(id);
+  sel.innerHTML = `<option value="">${placeholder}</option>` +
+    items.map(v => `<option value="${v}">${v}</option>`).join('');
+}
+
+async function load(page = 1) {
+  currentPage = page;
+  const params = new URLSearchParams({
+    search:    document.getElementById('fSearch').value,
+    broker:    document.getElementById('fBroker').value,
+    rm:        document.getElementById('fRm').value,
+    plan:      document.getElementById('fPlan').value,
+    plan_type: document.getElementById('fType').value,
+    date_from: document.getElementById('fFrom').value,
+    date_to:   document.getElementById('fTo').value,
+    page,
+  });
+  const res  = await fetch(`/api/policies?${params}`);
+  const data = await res.json();
+  renderTable(data);
+}
+
+function renderTable({ rows, total, page, per_page }) {
+  document.getElementById('sTotal').textContent = total.toLocaleString();
+  const start = (page - 1) * per_page + 1;
+  const end   = Math.min(page * per_page, total);
+  document.getElementById('sPage').textContent = total ? `${start}–${end}` : '0';
+
+  const tbody = document.getElementById('tableBody');
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="10"><div class="empty-state"><div class="icon">📋</div><div>No policies found</div></div></td></tr>`;
+    document.getElementById('pagination').style.display = 'none';
+    return;
+  }
+
+  tbody.innerHTML = rows.map(r => `
+    <tr onclick="location.href='/policies/${r.id}'">
+      <td><strong>${r.id}</strong></td>
+      <td>${fmtDate(r.created_at)}</td>
+      <td><strong>${r.company_name}</strong></td>
+      <td>${r.broker || '—'}</td>
+      <td>${r.rm_person || '—'}</td>
+      <td><span class="badge badge-blue">${r.plan || '—'}</span></td>
+      <td><span class="badge ${r.plan_type === 'Renewal' ? 'badge-orange' : 'badge-blue'}">${r.plan_type || '—'}</span></td>
+      <td>${r.member_count ?? '—'}</td>
+      <td>${r.grand_total != null ? 'AED ' + fmtNum(r.grand_total) : '—'}</td>
+      <td>${r.recon_match === true ? '<span class="badge badge-green">✅ Match</span>' : r.recon_match === false ? '<span class="badge badge-red">❌ Mismatch</span>' : '—'}</td>
+    </tr>
+  `).join('');
+
+  // Pagination
+  const totalPages = Math.ceil(total / per_page);
+  const pag = document.getElementById('pagination');
+  pag.style.display = 'flex';
+  document.getElementById('pageInfo').textContent = `Page ${page} of ${totalPages} · ${total} records`;
+  const btns = document.getElementById('pageBtns');
+  btns.innerHTML = '';
+  const addBtn = (label, p, disabled, active) => {
+    const b = document.createElement('button');
+    b.className = 'page-btn' + (active ? ' active' : '');
+    b.textContent = label;
+    b.disabled = disabled;
+    b.onclick = () => load(p);
+    btns.appendChild(b);
+  };
+  addBtn('‹', page - 1, page === 1);
+  const lo = Math.max(1, page - 2), hi = Math.min(totalPages, page + 2);
+  for (let p = lo; p <= hi; p++) addBtn(p, p, false, p === page);
+  addBtn('›', page + 1, page === totalPages);
+}
+
+function clearFilters() {
+  ['fSearch','fBroker','fRm','fPlan','fType','fFrom','fTo'].forEach(id => {
+    const el = document.getElementById(id);
+    el.value = '';
+  });
+  load(1);
+}
+
+function fmtDate(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+}
+function fmtNum(n) {
+  return Number(n).toLocaleString('en-AE', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
+
+// Trigger search on Enter in search box
+document.getElementById('fSearch').addEventListener('keydown', e => {
+  if (e.key === 'Enter') load(1);
+});
+
+loadMeta();
+load(1);
+</script>
+</body>
+</html>

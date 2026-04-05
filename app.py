@@ -1,6 +1,11 @@
 import os, io, uuid, re, base64, json
 from datetime import datetime, date
 from flask import Flask, request, jsonify, render_template, send_file, Response
+try:
+    import psycopg2, psycopg2.extras
+    _DB_AVAILABLE = True
+except ImportError:
+    _DB_AVAILABLE = False
 import fitz  # PyMuPDF
 import pandas as pd
 import openpyxl
@@ -1267,21 +1272,26 @@ def make_combined_excel(form_data, members_data, verified_rates, maternity_rates
     # ══════════════════════════════════════════════════════════════════════════
     ws = ws2
 
-    # Column widths (A–Q)
-    mem_widths = [5, 34, 14, 9, 9, 14, 14, 14, 9, 14, 14, 14, 14, 22, 22, 22, 22]
+    # Column widths (A–Q normal / A–P OpenX — no maternity col)
+    if is_openx:
+        mem_widths = [5, 34, 14, 9, 9, 14, 14, 14, 9, 14, 14, 14, 22, 22, 22, 22]  # 16 cols
+    else:
+        mem_widths = [5, 34, 14, 9, 9, 14, 14, 14, 9, 14, 14, 14, 14, 22, 22, 22, 22]  # 17 cols
     for i, w in enumerate(mem_widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = w
 
+    last_col_letter = 'P' if is_openx else 'Q'
+
     # Title
     ws.row_dimensions[1].height = 42
-    ws.merge_cells('A1:Q1')
+    ws.merge_cells(f'A1:{last_col_letter}1')
     t1m = ws.cell(row=1, column=1, value='PREMIUM PER MEMBER')
     t1m.font      = Font(name='Raleway', bold=True, size=16, color=WHITE)
     t1m.fill      = PatternFill('solid', fgColor=PRI)
     t1m.alignment = Alignment(horizontal='center', vertical='center')
 
     ws.row_dimensions[2].height = 22
-    ws.merge_cells('A2:Q2')
+    ws.merge_cells(f'A2:{last_col_letter}2')
     t2m = ws.cell(row=2, column=1, value=company.upper())
     t2m.font      = Font(name='Raleway', bold=True, size=11, color=ORANGE)
     t2m.fill      = PatternFill('solid', fgColor=PRI)
@@ -1292,16 +1302,25 @@ def make_combined_excel(form_data, members_data, verified_rates, maternity_rates
     summary_row = 3
     final_premium_with_loading = totals['total_net'] + totals['total_maternity'] + total_gross_load
 
-    summary_items = [
-        ('Total Members',      False, PRI),
-        ('Net Premium',        True,  PRI),
-        ('Total Maternity',    True,  MID),
-        ('Gross Loading',      True,  PRI),
-        ('Final Premium',      True,  ORANGE),
-    ]
+    if is_openx:
+        summary_items = [
+            ('Total Members',  False, PRI),
+            ('Net Premium',    True,  PRI),
+            ('Gross Loading',  True,  PRI),
+            ('Final Premium',  True,  ORANGE),
+        ]
+    else:
+        summary_items = [
+            ('Total Members',      False, PRI),
+            ('Net Premium',        True,  PRI),
+            ('Total Maternity',    True,  MID),
+            ('Gross Loading',      True,  PRI),
+            ('Final Premium',      True,  ORANGE),
+        ]
+    max_summary_col = len(summary_items) * 2
     for i, (label, is_aed, color) in enumerate(summary_items):
         col = (i * 2) + 1
-        if col + 1 <= 10:
+        if col + 1 <= max_summary_col:
             lc = ws.cell(row=summary_row, column=col, value=label)
             lc.font      = Font(name='Inter', bold=True, size=8, color=WHITE)
             lc.fill      = PatternFill('solid', fgColor=color)
@@ -1317,10 +1336,16 @@ def make_combined_excel(form_data, members_data, verified_rates, maternity_rates
 
     # Column headers (row 4)
     age_col_label = 'Age (ANB)' if is_healthx else 'Age (ALB)'
-    hdrs2 = ['No.', 'Full Name', 'Date of Birth', 'Gender', 'Category',
-             'Relationship', 'Marital Status', 'Emirate (Visa)', age_col_label, 'Age Bracket',
-             'Premium', 'Maternity Premium', 'Gross Loading', 'Final Premium (incl. loading)',
-             'Notes', 'Diagnosis', 'Loading Notes']
+    if is_openx:
+        hdrs2 = ['No.', 'Full Name', 'Date of Birth', 'Gender', 'Category',
+                 'Relationship', 'Marital Status', 'Emirate (Visa)', age_col_label, 'Age Bracket',
+                 'Premium', 'Gross Loading', 'Final Premium (incl. loading)',
+                 'Notes', 'Diagnosis', 'Loading Notes']
+    else:
+        hdrs2 = ['No.', 'Full Name', 'Date of Birth', 'Gender', 'Category',
+                 'Relationship', 'Marital Status', 'Emirate (Visa)', age_col_label, 'Age Bracket',
+                 'Premium', 'Maternity Premium', 'Gross Loading', 'Final Premium (incl. loading)',
+                 'Notes', 'Diagnosis', 'Loading Notes']
     for c, h in enumerate(hdrs2, 1):
         cell = ws.cell(row=mem_row, column=c, value=h)
         cell.font      = Font(name='Inter', bold=True, size=9, color=WHITE)
@@ -1387,7 +1412,11 @@ def make_combined_excel(form_data, members_data, verified_rates, maternity_rates
             else:
                 cell.alignment = Alignment(horizontal='center', vertical='center')
 
-        for c, v in zip((11, 12, 13), (m['base_premium'], m['maternity_premium'], gross_loading)):
+        if is_openx:
+            prem_cols = zip((11, 12), (m['base_premium'], gross_loading))
+        else:
+            prem_cols = zip((11, 12, 13), (m['base_premium'], m['maternity_premium'], gross_loading))
+        for c, v in prem_cols:
             cell = ws.cell(row=r, column=c, value=v)
             cell.font          = Font(name='Inter', size=9)
             cell.fill          = PatternFill('solid', fgColor=bg)
@@ -1395,14 +1424,17 @@ def make_combined_excel(form_data, members_data, verified_rates, maternity_rates
             cell.number_format = '#,##0.00'
             cell.alignment     = Alignment(horizontal='right', vertical='center')
 
-        fin = ws.cell(row=r, column=14, value=f'=SUM(K{r}:M{r})')
+        fin_col   = 13 if is_openx else 14
+        fin_range = f'K{r}:L{r}' if is_openx else f'K{r}:M{r}'
+        fin = ws.cell(row=r, column=fin_col, value=f'=SUM({fin_range})')
         fin.font          = Font(name='Inter', size=9)
         fin.fill          = PatternFill('solid', fgColor=bg)
         fin.border        = thin_border()
         fin.number_format = '#,##0.00'
         fin.alignment     = Alignment(horizontal='right', vertical='center')
 
-        for c, v in zip((15, 16, 17), (notes,
+        notes_start = 14 if is_openx else 15
+        for c, v in zip((notes_start, notes_start+1, notes_start+2), (notes,
                                        lm_data.get('diagnosis', '') if has_load else None,
                                        lm_data.get('notes', '') if has_load else None)):
             cell = ws.cell(row=r, column=c, value=v)
@@ -1417,37 +1449,53 @@ def make_combined_excel(form_data, members_data, verified_rates, maternity_rates
 
     # Totals row (SUM formulas — audit trail)
     totals_row = mem_row
-    for c, v in enumerate(['', 'TOTALS', '', '', '', '', '', '', '', '', None, None, None, None, '', '', ''], 1):
+    if is_openx:
+        totals_placeholder = ['', 'TOTALS', '', '', '', '', '', '', '', '', None, None, None, '', '', '']
+        num_cols_set = (11, 12, 13)
+    else:
+        totals_placeholder = ['', 'TOTALS', '', '', '', '', '', '', '', '', None, None, None, None, '', '', '']
+        num_cols_set = (11, 12, 13, 14)
+    for c, v in enumerate(totals_placeholder, 1):
         cell = ws.cell(row=totals_row, column=c, value=v)
         cell.font      = Font(name='Raleway', bold=True, size=10, color=WHITE)
         cell.fill      = PatternFill('solid', fgColor=PRI)
         cell.border    = thin_border(WHITE)
-        cell.alignment = Alignment(horizontal='right' if c in (11, 12, 13, 14) else 'left', vertical='center')
-        if c in (11, 12, 13, 14):
+        cell.alignment = Alignment(horizontal='right' if c in num_cols_set else 'left', vertical='center')
+        if c in num_cols_set:
             cell.number_format = '#,##0.00'
     if last_member_row >= first_data_row:
         ws.cell(row=totals_row, column=11, value=f'=SUM(K{first_data_row}:K{last_member_row})')
-        ws.cell(row=totals_row, column=12, value=f'=SUM(L{first_data_row}:L{last_member_row})')
-        ws.cell(row=totals_row, column=13, value=f'=SUM(M{first_data_row}:M{last_member_row})')
-        ws.cell(row=totals_row, column=14, value=f'=SUM(N{first_data_row}:N{last_member_row})')
+        if is_openx:
+            ws.cell(row=totals_row, column=12, value=f'=SUM(L{first_data_row}:L{last_member_row})')
+            ws.cell(row=totals_row, column=13, value=f'=SUM(M{first_data_row}:M{last_member_row})')
+        else:
+            ws.cell(row=totals_row, column=12, value=f'=SUM(L{first_data_row}:L{last_member_row})')
+            ws.cell(row=totals_row, column=13, value=f'=SUM(M{first_data_row}:M{last_member_row})')
+            ws.cell(row=totals_row, column=14, value=f'=SUM(N{first_data_row}:N{last_member_row})')
     else:
-        for col in (11, 12, 13, 14):
+        for col in num_cols_set:
             ws.cell(row=totals_row, column=col, value=0)
     mem_row += 1
 
     # Top summary bar formulas (reference member data rows only, not the TOTALS row)
     if last_member_row >= first_data_row:
-        ws.cell(row=summary_row, column=2,  value=f'=COUNTA(B{first_data_row}:B{last_member_row})')
-        ws.cell(row=summary_row, column=4,  value=f'=SUM(K{first_data_row}:K{last_member_row})')
-        ws.cell(row=summary_row, column=6,  value=f'=SUM(L{first_data_row}:L{last_member_row})')
-        ws.cell(row=summary_row, column=8,  value=f'=SUM(M{first_data_row}:M{last_member_row})')
-        ws.cell(row=summary_row, column=10, value=f'=SUM(N{first_data_row}:N{last_member_row})')
+        ws.cell(row=summary_row, column=2, value=f'=COUNTA(B{first_data_row}:B{last_member_row})')
+        ws.cell(row=summary_row, column=4, value=f'=SUM(K{first_data_row}:K{last_member_row})')
+        if is_openx:
+            # No maternity col — Gross Loading at col 6, Final Premium at col 8
+            ws.cell(row=summary_row, column=6, value=f'=SUM(L{first_data_row}:L{last_member_row})')
+            ws.cell(row=summary_row, column=8, value=f'=SUM(M{first_data_row}:M{last_member_row})')
+        else:
+            ws.cell(row=summary_row, column=6,  value=f'=SUM(L{first_data_row}:L{last_member_row})')
+            ws.cell(row=summary_row, column=8,  value=f'=SUM(M{first_data_row}:M{last_member_row})')
+            ws.cell(row=summary_row, column=10, value=f'=SUM(N{first_data_row}:N{last_member_row})')
     else:
-        ws.cell(row=summary_row, column=2,  value=0)
-        ws.cell(row=summary_row, column=4,  value=0)
-        ws.cell(row=summary_row, column=6,  value=0)
-        ws.cell(row=summary_row, column=8,  value=0)
-        ws.cell(row=summary_row, column=10, value=0)
+        ws.cell(row=summary_row, column=2, value=0)
+        ws.cell(row=summary_row, column=4, value=0)
+        ws.cell(row=summary_row, column=6, value=0)
+        ws.cell(row=summary_row, column=8, value=0)
+        if not is_openx:
+            ws.cell(row=summary_row, column=10, value=0)
 
     # ── Summary block (Fix 10) ─────────────────────────────────────────────────
     mem_row += 2
@@ -1480,7 +1528,8 @@ def make_combined_excel(form_data, members_data, verified_rates, maternity_rates
 
         ws.merge_cells(f'B{mem_row}:E{mem_row}')
         if label == 'Final Premium (incl. loading)':
-            val_cell = ws.cell(row=mem_row, column=2, value='="AED "&TEXT(J3,"#,##0.00")')
+            final_ref = 'H3' if is_openx else 'J3'
+            val_cell = ws.cell(row=mem_row, column=2, value=f'="AED "&TEXT({final_ref},"#,##0.00")')
         else:
             val_cell = ws.cell(row=mem_row, column=2, value=value)
         val_cell.font      = Font(name='Inter', size=9.5, color=DARK)
@@ -1500,6 +1549,168 @@ def make_combined_excel(form_data, members_data, verified_rates, maternity_rates
     apply_borders(ws2)
 
     return wb
+
+
+# ── Database ──────────────────────────────────────────────────────────────────
+
+def get_db():
+    """Return a psycopg2 connection to Supabase, or None if not configured."""
+    if not _DB_AVAILABLE:
+        return None
+    # SUPABASE_DB_URL (local .env) or POSTGRES_URL_NON_POOLING (Vercel Supabase integration)
+    url = (os.environ.get('SUPABASE_DB_URL') or
+           os.environ.get('POSTGRES_URL_NON_POOLING') or '')
+    if not url:
+        return None
+    try:
+        conn = psycopg2.connect(url)
+        return conn
+    except Exception as e:
+        print(f'[DB] Connection error: {e}')
+        return None
+
+
+def _parse_dob(dob_str):
+    """Parse a dob string to a date object (handles DD-MMM-YYYY and YYYY-MM-DD)."""
+    if not dob_str or dob_str == 'None':
+        return None
+    for fmt in ('%d-%b-%Y', '%Y-%m-%d', '%d/%m/%Y'):
+        try:
+            return datetime.strptime(str(dob_str), fmt).date()
+        except ValueError:
+            continue
+    return None
+
+
+def save_policy(fd, members_data, verified_rates, maternity_rates,
+                loading_members, totals, quote_totals):
+    """
+    Persist a finalized premium summary to Supabase.
+    Returns the new policy_id, or None on failure / DB not configured.
+    """
+    conn = get_db()
+    if not conn:
+        return None
+    try:
+        # Build loading lookup
+        loading_map = {lm.get('name', '').strip().lower(): lm
+                       for lm in (loading_members or [])}
+
+        q_premium   = float(quote_totals.get('total_premium', 0) or 0)
+        c_premium   = totals['total_net'] + totals['total_maternity']
+        recon_diff  = c_premium - q_premium
+        recon_match = abs(recon_diff) < 20.0
+
+        with conn:
+            with conn.cursor() as cur:
+                # ── policies ──────────────────────────────────────────────────
+                cur.execute("""
+                    INSERT INTO policies (
+                        company_name, broker, underwriter, rm_person,
+                        plan, plan_type, start_date,
+                        inception_payment, endorsement_freq, has_lsb,
+                        rm_broker, rm_insurer, rm_wellx, rm_tpa, rm_insurance_tax,
+                        confirmed_quote, quoted_members, quote_grand_total,
+                        member_count, total_net, total_maternity, total_basmah,
+                        subtotal, vat, grand_total,
+                        recon_match, recon_difference
+                    ) VALUES (
+                        %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
+                        %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
+                        %s,%s,%s,%s,%s,%s,%s
+                    ) RETURNING id
+                """, (
+                    fd.get('company_name', ''),
+                    fd.get('broker', ''),
+                    fd.get('underwriter', ''),
+                    fd.get('rm_person', ''),
+                    fd.get('plan', ''),
+                    fd.get('plan_type', ''),
+                    fd.get('start_date') or None,
+                    fd.get('inception_payment', ''),
+                    fd.get('endorsement_freq', ''),
+                    bool(fd.get('has_lsb', False)),
+                    float(fd.get('rm_broker', 0) or 0),
+                    float(fd.get('rm_insurer', 0) or 0),
+                    float(fd.get('rm_wellx', 0) or 0),
+                    float(fd.get('rm_tpa', 0) or 0),
+                    float(fd.get('rm_insurance_tax', 0) or 0),
+                    float(quote_totals.get('total_premium', 0) or 0),
+                    int(quote_totals.get('members', 0) or 0),
+                    float(quote_totals.get('grand_total', 0) or 0),
+                    totals.get('member_count', len(members_data)),
+                    totals['total_net'],
+                    totals['total_maternity'],
+                    totals['total_basmah'],
+                    totals['subtotal'],
+                    totals['vat'],
+                    totals['grand_total'],
+                    recon_match,
+                    recon_diff,
+                ))
+                policy_id = cur.fetchone()[0]
+
+                # ── policy_members ────────────────────────────────────────────
+                mem_rows = []
+                for m in members_data:
+                    lm_data     = loading_map.get(m['name'].strip().lower())
+                    gross_load  = float(lm_data.get('gross_loading', 0) or 0) if lm_data else 0.0
+                    final_prem  = m['base_premium'] + m['maternity_premium'] + gross_load
+                    mem_rows.append((
+                        policy_id,
+                        m.get('no'),
+                        m.get('name', ''),
+                        _parse_dob(str(m.get('dob', ''))),
+                        m.get('gender', ''),
+                        m.get('marital_status', ''),
+                        m.get('relation', ''),
+                        m.get('category', ''),
+                        m.get('age_alb'),
+                        m.get('emirate', ''),
+                        m.get('age_bracket', ''),
+                        m['base_premium'],
+                        m['maternity_premium'],
+                        gross_load,
+                        final_prem,
+                    ))
+                psycopg2.extras.execute_values(cur, """
+                    INSERT INTO policy_members (
+                        policy_id, member_no, name, dob, gender, marital_status,
+                        relation, category, age_alb, emirate, age_bracket,
+                        base_premium, maternity_premium, gross_loading, final_premium
+                    ) VALUES %s
+                """, mem_rows)
+
+                # ── policy_categories + policy_brackets ───────────────────────
+                for cat_letter, brackets in (verified_rates or {}).items():
+                    mat_rate = float((maternity_rates or {}).get(cat_letter, 0) or 0)
+                    cur.execute("""
+                        INSERT INTO policy_categories (policy_id, category, maternity_rate)
+                        VALUES (%s, %s, %s) RETURNING id
+                    """, (policy_id, cat_letter.upper(), mat_rate))
+                    cat_id = cur.fetchone()[0]
+
+                    bracket_rows = [(
+                        cat_id,
+                        b.get('label', ''),
+                        b.get('age_lo'),
+                        b.get('age_hi'),
+                        float(b.get('male', 0) or 0),
+                        float(b.get('female', 0) or 0),
+                    ) for b in brackets]
+                    if bracket_rows:
+                        psycopg2.extras.execute_values(cur, """
+                            INSERT INTO policy_brackets
+                                (category_id, label, age_lo, age_hi, male_rate, female_rate)
+                            VALUES %s
+                        """, bracket_rows)
+
+        return policy_id
+    except Exception as e:
+        print(f'[DB] save_policy error: {e}')
+        return None
+    finally:
+        conn.close()
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
@@ -1685,7 +1896,7 @@ def api_calculate():
         diff_items.append({'label': 'Net Premium', 'quote': q_premium, 'calc': c_premium, 'diff': diff})
     if q_members and q_members != len(members_data):
         diff_items.append({'label': 'Member Count', 'quote': q_members, 'calc': len(members_data),
-                           'diff': len(members_data) - q_members})
+                           'diff': len(members_data) - q_members, 'is_count': True})
 
     return jsonify({
         'success':      True,
@@ -1755,7 +1966,19 @@ def api_finalize_summary():
         'prd_bytes':    buf.getvalue(),
         'company_name': stored.get('company_name', 'Company'),
     }
-    return jsonify({'prd_token': prd_token})
+
+    # ── Persist to Supabase ───────────────────────────────────────────────────
+    policy_id = save_policy(
+        fd,
+        stored['members_data'],
+        stored['verified_rates'],
+        stored['maternity_rates'],
+        loading_members,
+        totals,
+        quote_totals,
+    )
+
+    return jsonify({'prd_token': prd_token, 'policy_id': policy_id})
 
 
 @app.route('/download/<token>/<file_type>')
@@ -1770,6 +1993,282 @@ def download(token, file_type):
         return "Unknown file type", 400
     return send_file(io.BytesIO(data), as_attachment=True, download_name=filename,
                      mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+# ── Policy Database Pages ─────────────────────────────────────────────────────
+
+@app.route('/policies')
+def policies_page():
+    return render_template('policies.html')
+
+
+@app.route('/policies/<int:pid>')
+def policy_detail_page(pid):
+    return render_template('policy_detail.html', policy_id=pid)
+
+
+@app.route('/dashboard')
+def dashboard_page():
+    return render_template('dashboard.html')
+
+
+# ── Policy Database API ───────────────────────────────────────────────────────
+
+@app.route('/api/policies')
+def api_policies():
+    conn = get_db()
+    if not conn:
+        return jsonify({'error': 'Database not configured'}), 503
+    try:
+        search  = request.args.get('search', '').strip()
+        broker  = request.args.get('broker', '').strip()
+        rm      = request.args.get('rm', '').strip()
+        plan    = request.args.get('plan', '').strip()
+        ptype   = request.args.get('plan_type', '').strip()
+        date_from = request.args.get('date_from', '').strip()
+        date_to   = request.args.get('date_to', '').strip()
+        page    = max(1, int(request.args.get('page', 1)))
+        per_page = 20
+        offset  = (page - 1) * per_page
+
+        conditions, params = [], []
+        if search:
+            conditions.append("company_name ILIKE %s")
+            params.append(f'%{search}%')
+        if broker:
+            conditions.append("broker = %s")
+            params.append(broker)
+        if rm:
+            conditions.append("rm_person = %s")
+            params.append(rm)
+        if plan:
+            conditions.append("plan = %s")
+            params.append(plan)
+        if ptype:
+            conditions.append("plan_type = %s")
+            params.append(ptype)
+        if date_from:
+            conditions.append("start_date >= %s")
+            params.append(date_from)
+        if date_to:
+            conditions.append("start_date <= %s")
+            params.append(date_to)
+
+        where = ('WHERE ' + ' AND '.join(conditions)) if conditions else ''
+
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(f"SELECT COUNT(*) AS total FROM policies {where}", params)
+            total = cur.fetchone()['total']
+
+            cur.execute(f"""
+                SELECT id, created_at, company_name, broker, rm_person, plan,
+                       plan_type, start_date, member_count, grand_total, recon_match
+                FROM policies {where}
+                ORDER BY created_at DESC
+                LIMIT %s OFFSET %s
+            """, params + [per_page, offset])
+            rows = [dict(r) for r in cur.fetchall()]
+
+        # Serialise datetime / date
+        for r in rows:
+            for k, v in r.items():
+                if hasattr(v, 'isoformat'):
+                    r[k] = v.isoformat()
+
+        return jsonify({'rows': rows, 'total': total, 'page': page, 'per_page': per_page})
+    finally:
+        conn.close()
+
+
+@app.route('/api/policies/<int:pid>', methods=['DELETE'])
+def api_policy_delete(pid):
+    conn = get_db()
+    if not conn:
+        return jsonify({'error': 'Database not configured'}), 503
+    try:
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM policies WHERE id = %s RETURNING id", (pid,))
+                row = cur.fetchone()
+        if not row:
+            return jsonify({'error': 'Not found'}), 404
+        return jsonify({'ok': True})
+    finally:
+        conn.close()
+
+
+@app.route('/api/policies/<int:pid>')
+def api_policy_detail(pid):
+    conn = get_db()
+    if not conn:
+        return jsonify({'error': 'Database not configured'}), 503
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("SELECT * FROM policies WHERE id = %s", (pid,))
+            pol = cur.fetchone()
+            if not pol:
+                return jsonify({'error': 'Not found'}), 404
+            pol = dict(pol)
+
+            cur.execute("""
+                SELECT * FROM policy_members WHERE policy_id = %s ORDER BY member_no
+            """, (pid,))
+            members = [dict(r) for r in cur.fetchall()]
+
+            cur.execute("""
+                SELECT pc.id, pc.category, pc.maternity_rate,
+                       json_agg(pb.* ORDER BY pb.age_lo) AS brackets
+                FROM policy_categories pc
+                LEFT JOIN policy_brackets pb ON pb.category_id = pc.id
+                WHERE pc.policy_id = %s
+                GROUP BY pc.id, pc.category, pc.maternity_rate
+                ORDER BY pc.category
+            """, (pid,))
+            categories = [dict(r) for r in cur.fetchall()]
+
+        # Serialise
+        for obj in [pol] + members + categories:
+            for k, v in obj.items():
+                if hasattr(v, 'isoformat'):
+                    obj[k] = v.isoformat()
+
+        return jsonify({'policy': pol, 'members': members, 'categories': categories})
+    finally:
+        conn.close()
+
+
+@app.route('/api/dashboard/monthly')
+def api_dashboard_monthly():
+    conn = get_db()
+    if not conn:
+        return jsonify({'error': 'Database not configured'}), 503
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("""
+                SELECT
+                    TO_CHAR(created_at AT TIME ZONE 'Asia/Dubai', 'YYYY-MM') AS month,
+                    COUNT(*) AS policy_count,
+                    ROUND(SUM(grand_total)::numeric, 2)  AS total_premium,
+                    ROUND(SUM(total_net)::numeric, 2)    AS net_premium,
+                    SUM(member_count) AS member_count
+                FROM policies
+                WHERE created_at >= NOW() - INTERVAL '12 months'
+                GROUP BY 1
+                ORDER BY 1
+            """)
+            rows = [dict(r) for r in cur.fetchall()]
+        return jsonify(rows)
+    finally:
+        conn.close()
+
+
+@app.route('/api/dashboard/brokers')
+def api_dashboard_brokers():
+    conn = get_db()
+    if not conn:
+        return jsonify({'error': 'Database not configured'}), 503
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("""
+                SELECT
+                    COALESCE(broker, 'Unknown') AS broker,
+                    COUNT(*) AS policy_count,
+                    SUM(member_count) AS total_members,
+                    ROUND(SUM(total_net)::numeric, 2)    AS total_net,
+                    ROUND(SUM(grand_total)::numeric, 2)  AS total_grand,
+                    ROUND(AVG(grand_total)::numeric, 2)  AS avg_policy_size
+                FROM policies
+                GROUP BY 1
+                ORDER BY total_grand DESC
+            """)
+            rows = [dict(r) for r in cur.fetchall()]
+        return jsonify(rows)
+    finally:
+        conn.close()
+
+
+@app.route('/api/dashboard/rm')
+def api_dashboard_rm():
+    conn = get_db()
+    if not conn:
+        return jsonify({'error': 'Database not configured'}), 503
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            # Actuals by RM by month
+            cur.execute("""
+                SELECT
+                    COALESCE(rm_person, 'Unassigned') AS rm_name,
+                    EXTRACT(YEAR  FROM created_at AT TIME ZONE 'Asia/Dubai')::int AS year,
+                    EXTRACT(MONTH FROM created_at AT TIME ZONE 'Asia/Dubai')::int AS month,
+                    COUNT(*) AS policy_count,
+                    ROUND(SUM(grand_total)::numeric, 2) AS actual_amount
+                FROM policies
+                WHERE created_at >= NOW() - INTERVAL '12 months'
+                GROUP BY 1, 2, 3
+                ORDER BY 1, 2, 3
+            """)
+            actuals = [dict(r) for r in cur.fetchall()]
+
+            # Targets
+            cur.execute("SELECT * FROM rm_targets ORDER BY rm_name, year, month")
+            targets = [dict(r) for r in cur.fetchall()]
+
+        return jsonify({'actuals': actuals, 'targets': targets})
+    finally:
+        conn.close()
+
+
+@app.route('/api/dashboard/rm_targets', methods=['POST'])
+def api_upsert_rm_target():
+    conn = get_db()
+    if not conn:
+        return jsonify({'error': 'Database not configured'}), 503
+    body = request.json or {}
+    rm_name       = body.get('rm_name', '').strip()
+    year          = int(body.get('year', 0))
+    month         = int(body.get('month', 0))
+    target_amount = float(body.get('target_amount', 0) or 0)
+    if not rm_name or not year or not month:
+        return jsonify({'error': 'rm_name, year, month are required'}), 400
+    try:
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO rm_targets (rm_name, year, month, target_amount)
+                    VALUES (%s, %s, %s, %s)
+                    ON CONFLICT (rm_name, year, month)
+                    DO UPDATE SET target_amount = EXCLUDED.target_amount
+                    RETURNING id
+                """, (rm_name, year, month, target_amount))
+                rid = cur.fetchone()[0]
+        return jsonify({'ok': True, 'id': rid})
+    finally:
+        conn.close()
+
+
+# ── Filter options for policies page ─────────────────────────────────────────
+
+@app.route('/api/policies/meta')
+def api_policies_meta():
+    """Return distinct broker, rm, plan, plan_type values for filter dropdowns."""
+    conn = get_db()
+    if not conn:
+        return jsonify({'brokers': [], 'rms': [], 'plans': [], 'plan_types': []})
+    try:
+        with conn.cursor() as cur:
+            def distinct(col):
+                cur.execute(
+                    f"SELECT DISTINCT {col} FROM policies WHERE {col} IS NOT NULL AND {col} <> '' ORDER BY {col}"
+                )
+                return [r[0] for r in cur.fetchall()]
+            return jsonify({
+                'brokers':    distinct('broker'),
+                'rms':        distinct('rm_person'),
+                'plans':      distinct('plan'),
+                'plan_types': distinct('plan_type'),
+            })
+    finally:
+        conn.close()
+
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5050))
