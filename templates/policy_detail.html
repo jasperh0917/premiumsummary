@@ -97,6 +97,13 @@ tbody td{padding:9px 12px;font-size:.82rem;color:var(--dark);white-space:nowrap}
 .mat-input{width:110px}
 .rates-saving{display:none;font-size:.8rem;font-weight:600;color:var(--slate);align-items:center;gap:6px}
 
+/* ── Member row actions ── */
+.mem-edit-btn,.mem-del-btn{padding:3px 9px;border:none;border-radius:5px;font-size:.72rem;font-weight:600;cursor:pointer;transition:.15s;font-family:inherit}
+.mem-edit-btn{background:#eff6ff;color:#1d4ed8}
+.mem-edit-btn:hover{background:#1d4ed8;color:#fff}
+.mem-del-btn{background:#fee2e2;color:#991b1b;margin-left:4px}
+.mem-del-btn:hover{background:#dc2626;color:#fff}
+
 /* ── Census upload ── */
 .census-bar{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
 .census-status{font-size:.8rem;font-weight:600;color:var(--slate)}
@@ -205,6 +212,7 @@ tbody td{padding:9px 12px;font-size:.82rem;color:var(--dark);white-space:nowrap}
         <div class="progress-bar-wrap" id="censusProgress"><div class="progress-bar" id="censusBar"></div></div>
         <button class="edit-btn" onclick="triggerCensusUpload()">📤 Replace Census</button>
         <input type="file" id="censusFileInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="uploadCensus(this)"/>
+        <button class="edit-btn" onclick="openMemberModal(null)" style="background:#dcfce7;color:#166534;border-color:#86efac">+ Add Member</button>
       </div>
     </div>
     <div class="tbl-wrap">
@@ -215,6 +223,7 @@ tbody td{padding:9px 12px;font-size:.82rem;color:var(--dark);white-space:nowrap}
             <th>Category</th><th>Relation</th><th>Age</th><th>Bracket</th>
             <th class="num">Base Premium</th><th class="num">Maternity</th>
             <th class="num">Loading</th><th class="num">Final Premium</th>
+            <th></th>
           </tr>
         </thead>
         <tbody id="memberBody"></tbody>
@@ -222,6 +231,78 @@ tbody td{padding:9px 12px;font-size:.82rem;color:var(--dark);white-space:nowrap}
     </div>
   </div>
 </div><!-- /page -->
+
+<!-- ── Member Modal ───────────────────────────────────────────────────────── -->
+<div class="modal-bg" id="memberModal" onclick="if(event.target===this)closeMemberModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="memberModalTitle">Add Member</h2>
+      <button class="modal-close" onclick="closeMemberModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group full">
+        <label>Full Name</label>
+        <input type="text" id="mName" placeholder="As in passport"/>
+      </div>
+      <div class="form-group">
+        <label>Date of Birth</label>
+        <input type="date" id="mDob"/>
+      </div>
+      <div class="form-group">
+        <label>Gender</label>
+        <select id="mGender">
+          <option value="Male">Male</option>
+          <option value="Female">Female</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Marital Status</label>
+        <select id="mMarital">
+          <option value="Single">Single</option>
+          <option value="Married">Married</option>
+          <option value="Divorced">Divorced</option>
+          <option value="Widowed">Widowed</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Relation</label>
+        <select id="mRelation">
+          <option value="Employee">Employee</option>
+          <option value="Spouse">Spouse</option>
+          <option value="Child">Child</option>
+          <option value="Parent">Parent</option>
+          <option value="Domestic Worker">Domestic Worker</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Category</label>
+        <select id="mCategory"></select>
+      </div>
+      <div class="form-group">
+        <label>Emirate of Visa</label>
+        <select id="mEmirate">
+          <option value="Dubai">Dubai</option>
+          <option value="Abu Dhabi">Abu Dhabi</option>
+          <option value="Sharjah">Sharjah</option>
+          <option value="Ajman">Ajman</option>
+          <option value="Ras Al Khaimah">Ras Al Khaimah</option>
+          <option value="Fujairah">Fujairah</option>
+          <option value="Umm Al Quwain">Umm Al Quwain</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Extra Loading (AED)</label>
+        <input type="number" id="mLoading" value="0" min="0" step="0.01"/>
+        <span class="hint">Manual gross loading on top of base rate</span>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeMemberModal()">Cancel</button>
+      <button class="btn-save" id="mSaveBtn" onclick="saveMember()">Save Member</button>
+    </div>
+  </div>
+</div>
 
 <!-- ── Edit Modal ─────────────────────────────────────────────────────────── -->
 <div class="modal-bg" id="editModal" onclick="if(event.target===this)closeEdit()">
@@ -611,8 +692,14 @@ async function loadDetail() {
 
   // Members
   document.getElementById('memCount').textContent = data.members.length;
-  document.getElementById('memberBody').innerHTML = data.members.map(m => `
-    <tr>
+  // Store members for the modal
+  _membersCache = data.members;
+  // Build available categories list from this policy
+  _policyCategories = (data.categories || []).map(c => c.category);
+
+  document.getElementById('memberBody').innerHTML = data.members.map(m => {
+    const mj = encodeURIComponent(JSON.stringify(m));
+    return `<tr>
       <td>${m.member_no ?? ''}</td>
       <td><strong>${m.name || '—'}</strong></td>
       <td>${fmtDateShort(m.dob)}</td>
@@ -625,8 +712,123 @@ async function loadDetail() {
       <td class="num">${parseFloat(m.maternity_premium) > 0 ? fmtNum(m.maternity_premium) : '—'}</td>
       <td class="num">${parseFloat(m.gross_loading) > 0 ? fmtNum(m.gross_loading) : '—'}</td>
       <td class="num"><strong>${fmtNum(m.final_premium)}</strong></td>
-    </tr>
-  `).join('');
+      <td style="white-space:nowrap">
+        <button class="mem-edit-btn" onclick="openMemberModal(${m.id})">Edit</button>
+        <button class="mem-del-btn"  onclick="deleteMember(${m.id},'${(m.name||'').replace(/'/g,"\\'")}')">Del</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Member CRUD ────────────────────────────────────────────────────────────────
+let _membersCache    = [];
+let _policyCategories = [];
+let _editMemberId    = null;   // null = adding, int = editing
+
+function openMemberModal(memberId) {
+  _editMemberId = memberId;
+  const modal = document.getElementById('memberModal');
+
+  // Populate category dropdown from this policy's categories
+  const catSel = document.getElementById('mCategory');
+  catSel.innerHTML = _policyCategories.map(c => `<option value="${c}">${c}</option>`).join('');
+
+  if (memberId) {
+    // Edit — pre-fill from cached member data
+    document.getElementById('memberModalTitle').textContent = 'Edit Member';
+    document.getElementById('mSaveBtn').textContent = 'Save Changes';
+    const m = _membersCache.find(x => x.id === memberId);
+    if (m) {
+      document.getElementById('mName').value    = m.name || '';
+      document.getElementById('mDob').value     = (m.dob || '').slice(0, 10);
+      document.getElementById('mGender').value  = m.gender || 'Male';
+      document.getElementById('mMarital').value = m.marital_status || 'Single';
+      document.getElementById('mRelation').value = m.relation || 'Employee';
+      document.getElementById('mCategory').value = m.category || '';
+      document.getElementById('mEmirate').value  = m.emirate || 'Dubai';
+      document.getElementById('mLoading').value  = m.gross_loading || 0;
+    }
+  } else {
+    // Add — clear form
+    document.getElementById('memberModalTitle').textContent = 'Add Member';
+    document.getElementById('mSaveBtn').textContent = 'Add Member';
+    document.getElementById('mName').value     = '';
+    document.getElementById('mDob').value      = '';
+    document.getElementById('mGender').value   = 'Male';
+    document.getElementById('mMarital').value  = 'Single';
+    document.getElementById('mRelation').value = 'Employee';
+    document.getElementById('mCategory').value = _policyCategories[0] || '';
+    document.getElementById('mEmirate').value  = 'Dubai';
+    document.getElementById('mLoading').value  = 0;
+  }
+
+  modal.classList.add('open');
+  document.getElementById('mName').focus();
+}
+
+function closeMemberModal() {
+  document.getElementById('memberModal').classList.remove('open');
+}
+
+async function saveMember() {
+  const btn = document.getElementById('mSaveBtn');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+
+  const payload = {
+    name:           document.getElementById('mName').value.trim(),
+    dob:            document.getElementById('mDob').value,
+    gender:         document.getElementById('mGender').value,
+    marital_status: document.getElementById('mMarital').value,
+    relation:       document.getElementById('mRelation').value,
+    category:       document.getElementById('mCategory').value,
+    emirate:        document.getElementById('mEmirate').value,
+    gross_loading:  parseFloat(document.getElementById('mLoading').value) || 0,
+  };
+
+  if (!payload.name) { toast('Name is required', 'err'); btn.disabled = false; btn.textContent = _editMemberId ? 'Save Changes' : 'Add Member'; return; }
+  if (!payload.dob)  { toast('Date of birth is required', 'err'); btn.disabled = false; btn.textContent = _editMemberId ? 'Save Changes' : 'Add Member'; return; }
+
+  const url    = _editMemberId
+    ? `/api/policies/${PID}/members/${_editMemberId}`
+    : `/api/policies/${PID}/members`;
+  const method = _editMemberId ? 'PUT' : 'POST';
+
+  try {
+    const res  = await fetch(url, {
+      method, headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      toast(data.error || 'Save failed', 'err');
+    } else {
+      closeMemberModal();
+      toast(_editMemberId ? 'Member updated ✓' : 'Member added ✓');
+      loadDetail();
+    }
+  } catch(e) {
+    toast('Network error', 'err');
+  } finally {
+    btn.disabled    = false;
+    btn.textContent = _editMemberId ? 'Save Changes' : 'Add Member';
+  }
+}
+
+async function deleteMember(mid, name) {
+  if (!confirm(`Remove "${name}" from this policy?\n\nPremium totals will be updated automatically.`)) return;
+  try {
+    const res  = await fetch(`/api/policies/${PID}/members/${mid}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (!res.ok) {
+      toast(data.error || 'Delete failed', 'err');
+    } else {
+      toast('Member removed ✓');
+      loadDetail();
+    }
+  } catch(e) {
+    toast('Network error', 'err');
+  }
 }
 
 // ── Edit Rates ─────────────────────────────────────────────────────────────────

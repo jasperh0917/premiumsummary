@@ -2206,8 +2206,8 @@ def api_policy_census_replace(pid):
                 'maternity_rate': float(cat.get('maternity_rate') or 0),
             }
 
-        # Calculate premiums using stored rates
-        members_calc = calculate_premiums(members_raw, categories_data)
+        # Calculate premiums using stored rates — returns (members_list, totals_dict)
+        members_calc, _ = calculate_premiums(members_raw, categories_data)
 
         # Delete old members
         supa.table('policy_members').delete().eq('policy_id', pid).execute()
@@ -2255,6 +2255,195 @@ def api_policy_census_replace(pid):
         }).eq('id', pid).execute()
 
         return jsonify({'ok': True, 'member_count': len(members_calc)})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# ── Shared: resync policy totals from current member rows ─────────────────────
+
+def _resync_policy_totals(supa, policy_id):
+    """Sum existing member premiums and update the policy record totals."""
+    mem_res    = supa.table('policy_members').select(
+        'base_premium,maternity_premium,gross_loading'
+    ).eq('policy_id', policy_id).execute()
+    members    = mem_res.data or []
+    total_net  = sum(float(m.get('base_premium')      or 0) for m in members)
+    total_mat  = sum(float(m.get('maternity_premium') or 0) for m in members)
+    bas_total  = BASMAH_FEE * len(members)
+    subtotal   = total_net + total_mat + bas_total
+    vat        = subtotal * VAT_RATE
+    supa.table('policies').update({
+        'member_count':    len(members),
+        'total_net':       total_net,
+        'total_maternity': total_mat,
+        'total_basmah':    bas_total,
+        'subtotal':        subtotal,
+        'vat':             vat,
+        'grand_total':     subtotal + vat,
+    }).eq('id', policy_id).execute()
+
+
+# ── Shared: calculate one member's premium from stored rates ──────────────────
+
+def _calc_member_prem(member_data, supa, policy_id):
+    """
+    Given a member dict (name, dob, gender, marital_status, relation,
+    category, emirate, age_alb), return (base_premium, maternity_premium,
+    age_bracket) using this policy's stored bracket rates.
+    """
+    cat_res = supa.table('policy_categories').select('*').eq('policy_id', policy_id).execute()
+    categories_data = {}
+    for cat in (cat_res.data or []):
+        br_res = supa.table('policy_brackets').select('*') \
+                     .eq('category_id', cat['id']).order('age_lo').execute()
+        categories_data[cat['category'].upper()] = {
+            'brackets': [
+                {'age_lo': b['age_lo'], 'age_hi': b['age_hi'],
+                 'male': b['male_rate'], 'female': b['female_rate'], 'label': b['label']}
+                for b in (br_res.data or [])
+            ],
+            'maternity_rate': float(cat.get('maternity_rate') or 0),
+        }
+
+    rate, bracket_label, _ = get_member_rate(member_data, categories_data)
+    cat_key     = (member_data.get('category') or '').upper()
+    mat_rate    = categories_data.get(cat_key, {}).get('maternity_rate', 0)
+    emirate     = member_data.get('emirate') or 'Dubai'
+    mat_age_max = MAT_AGE_MAX_AUH if 'abu dhabi' in emirate.lower() else MAT_AGE_MAX_DXB
+    gender      = (member_data.get('gender') or '').lower()
+    marital     = (member_data.get('marital_status') or '').lower()
+    age         = member_data.get('age_alb') or 0
+    maternity   = float(mat_rate or 0) if (
+        gender.startswith('f') and marital.startswith('m')
+        and MAT_AGE_MIN <= age <= mat_age_max
+    ) else 0.0
+    return float(rate), maternity, bracket_label or ''
+
+
+# ── Member CRUD ───────────────────────────────────────────────────────────────
+
+def _member_from_body(body, supa, policy_id, start_date, plan_lower):
+    """Parse request body into a member dict with calculated age & premiums."""
+    dob_str = (body.get('dob') or '').strip()
+    if not dob_str:
+        raise ValueError('Date of birth is required')
+
+    # Parse DOB → date object
+    dob_date = None
+    for fmt in ('%Y-%m-%d', '%d-%m-%Y', '%d/%m/%Y', '%d-%b-%Y'):
+        try:
+            dob_date = datetime.strptime(dob_str, fmt).date()
+            break
+        except ValueError:
+            continue
+    if not dob_date:
+        raise ValueError(f'Cannot parse date of birth: {dob_str}')
+
+    # Calculate age
+    age_method = 'anb' if plan_lower in ('healthx', 'healthxclusive') else 'alb'
+    age_fn     = calculate_anb if age_method == 'anb' else calculate_alb
+    try:
+        sd = datetime.strptime(str(start_date), '%Y-%m-%d').date()
+    except Exception:
+        sd = date.today()
+    age_alb = age_fn(dob_date, sd)
+
+    member = {
+        'name':           (body.get('name') or '').strip(),
+        'dob':            dob_date,
+        'gender':         body.get('gender', 'Male'),
+        'marital_status': body.get('marital_status', 'Single'),
+        'relation':       body.get('relation', 'Employee'),
+        'category':       (body.get('category') or 'A').upper(),
+        'emirate':        body.get('emirate', 'Dubai'),
+        'age_alb':        age_alb,
+    }
+
+    base_prem, mat_prem, bracket_label = _calc_member_prem(member, supa, policy_id)
+    gross_load  = float(body.get('gross_loading') or 0)
+    final_prem  = base_prem + mat_prem + gross_load
+
+    return {
+        **member,
+        'dob':              dob_date.strftime('%Y-%m-%d'),
+        'age_bracket':      bracket_label,
+        'base_premium':     base_prem,
+        'maternity_premium': mat_prem,
+        'gross_loading':    gross_load,
+        'final_premium':    final_prem,
+    }
+
+
+@app.route('/api/policies/<int:pid>/members', methods=['POST'])
+def api_member_add(pid):
+    supa = get_supa()
+    if not supa:
+        return jsonify({'error': 'Database not configured'}), 503
+    try:
+        pol_res = supa.table('policies').select('start_date,plan').eq('id', pid).execute()
+        if not pol_res.data:
+            return jsonify({'error': 'Policy not found'}), 404
+        pol        = pol_res.data[0]
+        start_date = str(pol.get('start_date') or '')
+        plan_lower = (pol.get('plan') or '').lower()
+
+        body   = request.get_json(force=True) or {}
+        member = _member_from_body(body, supa, pid, start_date, plan_lower)
+
+        # Get next member_no
+        cnt_res  = supa.table('policy_members').select('member_no') \
+                       .eq('policy_id', pid).order('member_no', desc=True).limit(1).execute()
+        next_no  = (cnt_res.data[0]['member_no'] + 1) if cnt_res.data else 1
+        member['policy_id']  = pid
+        member['member_no']  = next_no
+
+        res = supa.table('policy_members').insert(member).execute()
+        _resync_policy_totals(supa, pid)
+        return jsonify({'ok': True, 'member': res.data[0] if res.data else {}}), 201
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/policies/<int:pid>/members/<int:mid>', methods=['PUT'])
+def api_member_edit(pid, mid):
+    supa = get_supa()
+    if not supa:
+        return jsonify({'error': 'Database not configured'}), 503
+    try:
+        pol_res = supa.table('policies').select('start_date,plan').eq('id', pid).execute()
+        if not pol_res.data:
+            return jsonify({'error': 'Policy not found'}), 404
+        pol        = pol_res.data[0]
+        start_date = str(pol.get('start_date') or '')
+        plan_lower = (pol.get('plan') or '').lower()
+
+        body   = request.get_json(force=True) or {}
+        member = _member_from_body(body, supa, pid, start_date, plan_lower)
+
+        res = supa.table('policy_members').update(member).eq('id', mid).eq('policy_id', pid).execute()
+        if not res.data:
+            return jsonify({'error': 'Member not found'}), 404
+        _resync_policy_totals(supa, pid)
+        return jsonify({'ok': True, 'member': res.data[0]})
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/policies/<int:pid>/members/<int:mid>', methods=['DELETE'])
+def api_member_delete(pid, mid):
+    supa = get_supa()
+    if not supa:
+        return jsonify({'error': 'Database not configured'}), 503
+    try:
+        res = supa.table('policy_members').delete().eq('id', mid).eq('policy_id', pid).execute()
+        if not res.data:
+            return jsonify({'error': 'Member not found'}), 404
+        _resync_policy_totals(supa, pid)
+        return jsonify({'ok': True})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
