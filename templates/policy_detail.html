@@ -89,6 +89,38 @@ tbody td{padding:9px 12px;font-size:.82rem;color:var(--dark);white-space:nowrap}
 .badge-f{background:#fce7f3;color:#9d174d}
 .badge-emp{background:#dcfce7;color:#166534}
 .badge-dep{background:#f3e8ff;color:#6b21a8}
+
+/* ── Edit button ── */
+.edit-btn{display:inline-flex;align-items:center;gap:6px;padding:7px 16px;background:#eff6ff;color:#1d4ed8;border:1.5px solid #bfdbfe;border-radius:8px;font-size:.82rem;font-weight:600;font-family:inherit;cursor:pointer;transition:.15s}
+.edit-btn:hover{background:#1d4ed8;color:#fff;border-color:#1d4ed8}
+
+/* ── Modal overlay ── */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;align-items:center;justify-content:center;padding:20px}
+.modal-bg.open{display:flex}
+.modal{background:#fff;border-radius:16px;width:100%;max-width:640px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.modal-header{display:flex;align-items:center;justify-content:space-between;padding:20px 24px 0}
+.modal-header h2{font-family:'Raleway',sans-serif;font-weight:900;font-size:1.1rem;color:var(--dark)}
+.modal-close{background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--slate);line-height:1;padding:2px 6px;border-radius:4px}
+.modal-close:hover{background:#f3f4f6;color:var(--dark)}
+.modal-body{padding:20px 24px;display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.modal-body .full{grid-column:1/-1}
+.form-group{display:flex;flex-direction:column;gap:5px}
+.form-group label{font-size:.7rem;font-weight:600;color:var(--slate);text-transform:uppercase;letter-spacing:.6px}
+.form-group input,.form-group select{border:1.5px solid #e0e7f0;border-radius:8px;padding:8px 11px;font-size:.85rem;font-family:inherit;color:var(--dark);background:#f8faff;outline:none;transition:.15s}
+.form-group input:focus,.form-group select:focus{border-color:var(--navy);background:#fff;box-shadow:0 0 0 3px rgba(0,55,128,.08)}
+.form-group .hint{font-size:.68rem;color:var(--slate)}
+.modal-footer{display:flex;justify-content:flex-end;gap:10px;padding:16px 24px;border-top:1px solid #f3f4f6}
+.btn-save{padding:9px 22px;background:var(--navy);color:#fff;border:none;border-radius:8px;font-size:.85rem;font-weight:700;font-family:inherit;cursor:pointer;transition:.15s}
+.btn-save:hover{background:var(--mid)}
+.btn-save:disabled{background:#93c5fd;cursor:default}
+.btn-cancel{padding:9px 18px;background:#f3f4f6;color:#374151;border:1px solid #d1d5db;border-radius:8px;font-size:.85rem;font-weight:600;font-family:inherit;cursor:pointer;transition:.15s}
+.btn-cancel:hover{background:#e5e7eb}
+
+/* ── Toast ── */
+#toast{position:fixed;bottom:28px;right:28px;padding:12px 20px;border-radius:9px;font-size:13px;font-weight:600;color:#fff;z-index:9999;transition:opacity .3s;pointer-events:none;opacity:0}
+#toast.show{opacity:1}
+#toast.ok{background:#16a34a}
+#toast.err{background:#dc2626}
 </style>
 </head>
 <body>
@@ -99,13 +131,17 @@ tbody td{padding:9px 12px;font-size:.82rem;color:var(--dark);white-space:nowrap}
     <a href="/">Calculator</a>
     <a href="/policies" class="active">Policies</a>
     <a href="/dashboard">Dashboard</a>
+    <a href="/settings">Settings</a>
   </div>
 </nav>
 
 <div class="page">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
     <a href="/policies" class="back-btn" style="margin-bottom:0">← Back to Policies</a>
-    <button class="del-btn" onclick="deletePolicy()">🗑 Delete Policy</button>
+    <div style="display:flex;gap:8px">
+      <button class="edit-btn" onclick="openEdit()">✏️ Edit Policy</button>
+      <button class="del-btn" onclick="deletePolicy()">🗑 Delete Policy</button>
+    </div>
   </div>
 
   <div class="page-header">
@@ -156,15 +192,261 @@ tbody td{padding:9px 12px;font-size:.82rem;color:var(--dark);white-space:nowrap}
       </table>
     </div>
   </div>
+</div><!-- /page -->
+
+<!-- ── Edit Modal ─────────────────────────────────────────────────────────── -->
+<div class="modal-bg" id="editModal" onclick="if(event.target===this)closeEdit()">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>✏️ Edit Policy</h2>
+      <button class="modal-close" onclick="closeEdit()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group full">
+        <label>Company Name</label>
+        <input type="text" id="eCompany" placeholder="Company name"/>
+      </div>
+      <div class="form-group">
+        <label>Plan</label>
+        <select id="ePlan">
+          <option value="Healthx">Healthx</option>
+          <option value="Healthxclusive">Healthxclusive</option>
+          <option value="Openx">Openx</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Plan Type</label>
+        <select id="ePlanType">
+          <option value="New">New</option>
+          <option value="Renewal">Renewal</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Broker</label>
+        <select id="eBroker"></select>
+      </div>
+      <div class="form-group">
+        <label>RM / Account Exec</label>
+        <select id="eRm"></select>
+      </div>
+      <div class="form-group">
+        <label>Underwriter / Prepared by</label>
+        <select id="eUnderwriter"></select>
+      </div>
+      <div class="form-group">
+        <label>Start Date</label>
+        <input type="date" id="eStartDate"/>
+      </div>
+      <div class="form-group">
+        <label>Inception Payment</label>
+        <select id="eInception">
+          <option value="Annual">Annual</option>
+          <option value="Quarterly">Quarterly</option>
+          <option value="Monthly">Monthly</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Endorsement Frequency</label>
+        <select id="eEndorsement">
+          <option value="Monthly">Monthly</option>
+          <option value="Quarterly">Quarterly</option>
+          <option value="Annual">Annual</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>LSB Members</label>
+        <select id="eLsb">
+          <option value="false">No</option>
+          <option value="true">Yes</option>
+        </select>
+      </div>
+      <!-- Commission -->
+      <div class="form-group full" style="margin-top:4px">
+        <label style="font-size:.72rem;color:#003780;border-bottom:1px solid #e0e7f0;padding-bottom:4px">Commission Rates (%)</label>
+      </div>
+      <div class="form-group">
+        <label>Broker %</label>
+        <input type="number" id="eRmBroker" step="0.01" min="0" max="100"/>
+      </div>
+      <div class="form-group">
+        <label>Insurer (QIC/DNI) %</label>
+        <input type="number" id="eRmInsurer" step="0.01" min="0" max="100"/>
+      </div>
+      <div class="form-group">
+        <label>Wellx %</label>
+        <input type="number" id="eRmWellx" step="0.01" min="0" max="100"/>
+      </div>
+      <div class="form-group">
+        <label>TPA (NAS) %</label>
+        <input type="number" id="eRmTpa" step="0.01" min="0" max="100"/>
+      </div>
+      <div class="form-group">
+        <label>Insurance Levy %</label>
+        <input type="number" id="eRmTax" step="0.01" min="0" max="100"/>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeEdit()">Cancel</button>
+      <button class="btn-save" id="eSaveBtn" onclick="saveEdit()">Save Changes</button>
+    </div>
+  </div>
 </div>
+
+<div id="toast"></div>
 
 <script>
 const PID = {{ policy_id }};
 
+function fmtDate(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+}
+function fmtDateShort(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+}
+function fmtNum(n) {
+  return Number(n || 0).toLocaleString('en-AE', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
+function fmt1(n) {
+  return Number(n || 0).toFixed(1).replace(/\.0$/, '');
+}
+
+async function deletePolicy() {
+  const name = document.getElementById('phCompany').textContent;
+  if (!confirm(`Delete policy #${PID} — "${name}"?\n\nThis permanently removes all member data and rate tables. This cannot be undone.`)) return;
+  const res  = await fetch(`/api/policies/${PID}`, { method: 'DELETE' });
+  const data = await res.json();
+  if (data.ok) {
+    alert('Policy deleted.');
+    location.href = '/policies';
+  } else {
+    alert('Delete failed: ' + (data.error || 'Unknown error'));
+  }
+}
+
+// ── Toast ──────────────────────────────────────────────────────────────────────
+function toast(msg, type = 'ok') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'show ' + type;
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.className = '', 2800);
+}
+
+// ── Edit modal ─────────────────────────────────────────────────────────────────
+let _policyCache = null;
+
+async function openEdit() {
+  // Load settings dropdowns (broker, RM, underwriter)
+  try {
+    const [bRes, uRes, rRes] = await Promise.all([
+      fetch('/api/settings/brokers'),
+      fetch('/api/settings/underwriters'),
+      fetch('/api/settings/rm_persons'),
+    ]);
+    const brokers      = (await bRes.json()).map(r => r.name);
+    const underwriters = (await uRes.json()).map(r => r.name);
+    const rms          = (await rRes.json()).map(r => r.name);
+    fillSelect('eBroker',      brokers,      true);
+    fillSelect('eUnderwriter', underwriters, true);
+    fillSelect('eRm',          rms,          true);
+  } catch(e) { /* dropdowns stay blank */ }
+
+  // Pre-fill from cached policy data
+  if (_policyCache) {
+    const p = _policyCache;
+    setVal('eCompany',     p.company_name    || '');
+    setVal('ePlan',        p.plan            || '');
+    setVal('ePlanType',    p.plan_type       || '');
+    setVal('eBroker',      p.broker          || '');
+    setVal('eRm',          p.rm_person       || '');
+    setVal('eUnderwriter', p.underwriter     || '');
+    setVal('eStartDate',   p.start_date      ? p.start_date.slice(0, 10) : '');
+    setVal('eInception',   p.inception_payment || '');
+    setVal('eEndorsement', p.endorsement_freq  || '');
+    setVal('eLsb',         p.has_lsb ? 'true' : 'false');
+    setVal('eRmBroker',    p.rm_broker   ?? '');
+    setVal('eRmInsurer',   p.rm_insurer  ?? '');
+    setVal('eRmWellx',     p.rm_wellx    ?? '');
+    setVal('eRmTpa',       p.rm_tpa      ?? '');
+    setVal('eRmTax',       p.rm_insurance_tax ?? '');
+  }
+
+  document.getElementById('editModal').classList.add('open');
+  document.getElementById('eCompany').focus();
+}
+
+function closeEdit() {
+  document.getElementById('editModal').classList.remove('open');
+}
+
+async function saveEdit() {
+  const btn = document.getElementById('eSaveBtn');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+
+  const payload = {
+    company_name:       document.getElementById('eCompany').value.trim(),
+    plan:               document.getElementById('ePlan').value,
+    plan_type:          document.getElementById('ePlanType').value,
+    broker:             document.getElementById('eBroker').value,
+    rm_person:          document.getElementById('eRm').value,
+    underwriter:        document.getElementById('eUnderwriter').value,
+    start_date:         document.getElementById('eStartDate').value || null,
+    inception_payment:  document.getElementById('eInception').value,
+    endorsement_freq:   document.getElementById('eEndorsement').value,
+    has_lsb:            document.getElementById('eLsb').value === 'true',
+    rm_broker:          parseFloat(document.getElementById('eRmBroker').value)  || 0,
+    rm_insurer:         parseFloat(document.getElementById('eRmInsurer').value) || 0,
+    rm_wellx:           parseFloat(document.getElementById('eRmWellx').value)   || 0,
+    rm_tpa:             parseFloat(document.getElementById('eRmTpa').value)     || 0,
+    rm_insurance_tax:   parseFloat(document.getElementById('eRmTax').value)     || 0,
+  };
+
+  try {
+    const res  = await fetch(`/api/policies/${PID}`, {
+      method:  'PUT',
+      headers: {'Content-Type': 'application/json'},
+      body:    JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      toast(data.error || 'Save failed', 'err');
+    } else {
+      closeEdit();
+      toast('Policy updated ✓');
+      loadDetail();   // refresh the page display
+    }
+  } catch(e) {
+    toast('Network error', 'err');
+  } finally {
+    btn.disabled    = false;
+    btn.textContent = 'Save Changes';
+  }
+}
+
+function fillSelect(id, items, allowBlank = false) {
+  const sel = document.getElementById(id);
+  const cur = sel.value;
+  sel.innerHTML = (allowBlank ? '<option value="">—</option>' : '') +
+    items.map(v => `<option value="${v}">${v}</option>`).join('');
+  if (cur) sel.value = cur;
+}
+
+function setVal(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.value = val;
+}
+
+// Patch loadDetail to cache policy data
+const _origLoadDetail = loadDetail;
 async function loadDetail() {
   const res  = await fetch(`/api/policies/${PID}`);
   const data = await res.json();
   if (data.error) { document.querySelector('.page-header h1').textContent = 'Policy not found'; return; }
+
+  _policyCache = data.policy;  // cache for edit modal
 
   const p = data.policy;
 
@@ -238,9 +520,10 @@ async function loadDetail() {
       </div>`;
   }
 
-  // Categories
+  // Categories (clear first to avoid duplication on reload)
   const tabs  = document.getElementById('catTabs');
   const panels = document.getElementById('catPanels');
+  tabs.innerHTML = ''; panels.innerHTML = '';
   data.categories.forEach((cat, i) => {
     const brackets = cat.brackets || [];
     const tab = document.createElement('div');
@@ -294,34 +577,6 @@ async function loadDetail() {
       <td class="num"><strong>${fmtNum(m.final_premium)}</strong></td>
     </tr>
   `).join('');
-}
-
-function fmtDate(iso) {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
-}
-function fmtDateShort(iso) {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
-}
-function fmtNum(n) {
-  return Number(n || 0).toLocaleString('en-AE', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-}
-function fmt1(n) {
-  return Number(n || 0).toFixed(1).replace(/\.0$/, '');
-}
-
-async function deletePolicy() {
-  const name = document.getElementById('phCompany').textContent;
-  if (!confirm(`Delete policy #${PID} — "${name}"?\n\nThis permanently removes all member data and rate tables. This cannot be undone.`)) return;
-  const res  = await fetch(`/api/policies/${PID}`, { method: 'DELETE' });
-  const data = await res.json();
-  if (data.ok) {
-    alert('Policy deleted.');
-    location.href = '/policies';
-  } else {
-    alert('Delete failed: ' + (data.error || 'Unknown error'));
-  }
 }
 
 loadDetail();

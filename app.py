@@ -2066,6 +2066,40 @@ def api_policies():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/policies/<int:pid>', methods=['PUT'])
+def api_policy_edit(pid):
+    supa = get_supa()
+    if not supa:
+        return jsonify({'error': 'Database not configured'}), 503
+    data = request.get_json(force=True) or {}
+    # Whitelist of editable fields
+    allowed = {
+        'company_name', 'broker', 'rm_person', 'underwriter',
+        'plan', 'plan_type', 'start_date',
+        'inception_payment', 'endorsement_freq', 'has_lsb',
+        'rm_broker', 'rm_insurer', 'rm_wellx', 'rm_tpa', 'rm_insurance_tax',
+    }
+    update = {k: v for k, v in data.items() if k in allowed}
+    if not update:
+        return jsonify({'error': 'No valid fields to update'}), 400
+    # Coerce types
+    for f in ('rm_broker', 'rm_insurer', 'rm_wellx', 'rm_tpa', 'rm_insurance_tax'):
+        if f in update:
+            try:
+                update[f] = float(update[f])
+            except (TypeError, ValueError):
+                update[f] = None
+    if 'has_lsb' in update:
+        update['has_lsb'] = bool(update['has_lsb'])
+    try:
+        res = supa.table('policies').update(update).eq('id', pid).execute()
+        if not res.data:
+            return jsonify({'error': 'Not found'}), 404
+        return jsonify({'ok': True, 'policy': res.data[0]})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/policies/<int:pid>', methods=['DELETE'])
 def api_policy_delete(pid):
     supa = get_supa()
