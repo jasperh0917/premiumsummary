@@ -2262,6 +2262,132 @@ def api_policy_census_replace(pid):
         return jsonify({'error': str(e)}), 500
 
 
+# ── Regenerate / Export premium summary Excel ────────────────────────────────
+
+@app.route('/api/policies/<int:pid>/export')
+def api_policy_export(pid):
+    """Rebuild and stream the Premium Summary Excel from stored DB data."""
+    supa = get_supa()
+    if not supa:
+        return jsonify({'error': 'Database not configured'}), 503
+    try:
+        # ── 1. Fetch policy row ──────────────────────────────────────────────
+        pol_res = supa.table('policies').select('*').eq('id', pid).execute()
+        if not pol_res.data:
+            return jsonify({'error': 'Policy not found'}), 404
+        pol = pol_res.data[0]
+
+        # ── 2. Fetch members ─────────────────────────────────────────────────
+        mem_res = supa.table('policy_members').select('*') \
+                      .eq('policy_id', pid).order('member_no').execute()
+        members_db = mem_res.data or []
+
+        # ── 3. Fetch categories + brackets ──────────────────────────────────
+        cat_res = supa.table('policy_categories').select('*') \
+                      .eq('policy_id', pid).order('category').execute()
+        verified_rates  = {}
+        maternity_rates = {}
+        for cat in (cat_res.data or []):
+            br_res = supa.table('policy_brackets').select('*') \
+                         .eq('category_id', cat['id']).order('age_lo').execute()
+            cat_letter = cat['category'].upper()
+            verified_rates[cat_letter] = [
+                {
+                    'age_lo': b['age_lo'],
+                    'age_hi': b['age_hi'],
+                    'male':   float(b['male_rate']   or 0),
+                    'female': float(b['female_rate'] or 0),
+                    'label':  b['label'],
+                }
+                for b in (br_res.data or [])
+            ]
+            maternity_rates[cat_letter] = float(cat.get('maternity_rate') or 0)
+
+        # ── 4. Reconstruct form_data ─────────────────────────────────────────
+        form_data = {
+            'company_name':     pol.get('company_name', ''),
+            'broker':           pol.get('broker', ''),
+            'underwriter':      pol.get('underwriter', ''),
+            'rm_person':        pol.get('rm_person', ''),
+            'plan':             pol.get('plan', ''),
+            'plan_type':        pol.get('plan_type', ''),
+            'start_date':       str(pol.get('start_date') or ''),
+            'inception_payment': pol.get('inception_payment') or 'Annual',
+            'endorsement_freq': pol.get('endorsement_freq') or 'Monthly',
+            'has_lsb':          bool(pol.get('has_lsb', False)),
+            'rm_broker':        _f(pol.get('rm_broker')),
+            'rm_insurer':       _f(pol.get('rm_insurer')),
+            'rm_wellx':         _f(pol.get('rm_wellx')),
+            'rm_tpa':           _f(pol.get('rm_tpa')),
+            'rm_insurance_tax': _f(pol.get('rm_insurance_tax')),
+        }
+        has_lsb = form_data['has_lsb']
+
+        # ── 5. Reconstruct members_data + loading_members ────────────────────
+        members_data    = []
+        loading_members = []
+        for m in members_db:
+            members_data.append({
+                'no':               m.get('member_no') or 0,
+                'name':             m.get('name', ''),
+                'dob':              m.get('dob', '') or '',
+                'gender':           m.get('gender', ''),
+                'category':         m.get('category', ''),
+                'relation':         m.get('relation', ''),
+                'marital_status':   m.get('marital_status', ''),
+                'emirate':          m.get('emirate', ''),
+                'age_alb':          m.get('age_alb') or 0,
+                'age_bracket':      m.get('age_bracket', ''),
+                'base_premium':     float(m.get('base_premium')     or 0),
+                'maternity_premium': float(m.get('maternity_premium') or 0),
+                'error':            '',
+            })
+            gross_load = float(m.get('gross_loading') or 0)
+            if gross_load > 0:
+                loading_members.append({
+                    'name':         m.get('name', ''),
+                    'dob':          m.get('dob', '') or '',
+                    'gender':       m.get('gender', ''),
+                    'category':     m.get('category', ''),
+                    'relation':     m.get('relation', ''),
+                    'gross_loading': gross_load,
+                })
+
+        # ── 6. Reconstruct totals + quote_totals ─────────────────────────────
+        totals = {
+            'total_net':       _f(pol.get('total_net')),
+            'total_maternity': _f(pol.get('total_maternity')),
+            'total_basmah':    _f(pol.get('total_basmah')),
+            'subtotal':        _f(pol.get('subtotal')),
+            'vat':             _f(pol.get('vat')),
+            'grand_total':     _f(pol.get('grand_total')),
+            'member_count':    int(pol.get('member_count') or 0),
+        }
+        quote_totals = {
+            'total_premium': _f(pol.get('confirmed_quote')),
+            'members':       int(pol.get('quoted_members') or 0),
+            'grand_total':   _f(pol.get('quote_grand_total')),
+        }
+
+        # ── 7. Generate Excel ────────────────────────────────────────────────
+        wb = make_combined_excel(
+            form_data, members_data, verified_rates, maternity_rates,
+            loading_members, has_lsb, totals, quote_totals,
+        )
+        buf = io.BytesIO()
+        wb.save(buf)
+        buf.seek(0)
+
+        company  = re.sub(r'[^\w\s-]', '', pol.get('company_name', 'Company')).strip()
+        filename = f"Premium Summary - {company}.xlsx"
+        return send_file(
+            buf, as_attachment=True, download_name=filename,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        )
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 # ── Shared: resync policy totals from current member rows ─────────────────────
 
 def _resync_policy_totals(supa, policy_id):

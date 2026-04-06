@@ -73,6 +73,11 @@ tbody td{padding:11px 14px;font-size:.83rem;color:var(--dark);white-space:nowrap
 .empty-state{text-align:center;padding:60px 20px;color:var(--slate)}
 .empty-state .icon{font-size:3rem;margin-bottom:10px;opacity:.4}
 
+/* ── Download button ── */
+.dl-btn{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border:1.5px solid #bfdbfe;border-radius:6px;background:#eff6ff;color:#1d4ed8;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap;transition:.15s;font-family:inherit}
+.dl-btn:hover{background:#1d4ed8;color:#fff;border-color:#1d4ed8}
+.dl-btn.loading{background:#f1f5f9;color:#94a3b8;border-color:#e2e8f0;cursor:default;pointer-events:none}
+
 /* ── Pagination ── */
 .pagination{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;background:#f8faff;border-top:1px solid #e8eef8}
 .page-info{font-size:.8rem;color:var(--slate)}
@@ -157,10 +162,11 @@ tbody td{padding:11px 14px;font-size:.83rem;color:var(--dark);white-space:nowrap
             <th>Members</th>
             <th>Grand Total (AED)</th>
             <th>Match</th>
+            <th></th>
           </tr>
         </thead>
         <tbody id="tableBody">
-          <tr><td colspan="10"><div class="empty-state"><div class="icon">📋</div><div>Loading…</div></div></td></tr>
+          <tr><td colspan="11"><div class="empty-state"><div class="icon">📋</div><div>Loading…</div></div></td></tr>
         </tbody>
       </table>
     </div>
@@ -217,7 +223,7 @@ function renderTable({ rows, total, page, per_page }) {
 
   const tbody = document.getElementById('tableBody');
   if (!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="10"><div class="empty-state"><div class="icon">📋</div><div>No policies found</div></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="11"><div class="empty-state"><div class="icon">📋</div><div>No policies found</div></div></td></tr>`;
     document.getElementById('pagination').style.display = 'none';
     return;
   }
@@ -234,6 +240,9 @@ function renderTable({ rows, total, page, per_page }) {
       <td>${r.member_count ?? '—'}</td>
       <td>${r.grand_total != null ? 'AED ' + fmtNum(r.grand_total) : '—'}</td>
       <td>${r.recon_match === true ? '<span class="badge badge-green">✅ Match</span>' : r.recon_match === false ? '<span class="badge badge-red">❌ Mismatch</span>' : '—'}</td>
+      <td onclick="event.stopPropagation()">
+        <button class="dl-btn" id="dlbtn-${r.id}" onclick="downloadSummary(${r.id},this)">⬇ Download</button>
+      </td>
     </tr>
   `).join('');
 
@@ -272,6 +281,36 @@ function fmtDate(iso) {
 }
 function fmtNum(n) {
   return Number(n).toLocaleString('en-AE', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
+
+// ── Download Summary ───────────────────────────────────────────────────────────
+async function downloadSummary(pid, btn) {
+  btn.classList.add('loading');
+  btn.textContent = '⏳ Generating…';
+  try {
+    const res = await fetch(`/api/policies/${pid}/export`);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert('Export failed: ' + (err.error || res.statusText));
+      return;
+    }
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    const cd   = res.headers.get('Content-Disposition') || '';
+    const match = cd.match(/filename="?([^"]+)"?/);
+    a.download = match ? match[1] : `Premium Summary ${pid}.xlsx`;
+    a.href = url;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch(e) {
+    alert('Network error');
+  } finally {
+    btn.classList.remove('loading');
+    btn.textContent = '⬇ Download';
+  }
 }
 
 // Trigger search on Enter in search box

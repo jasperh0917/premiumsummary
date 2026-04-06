@@ -113,6 +113,10 @@ tbody td{padding:9px 12px;font-size:.82rem;color:var(--dark);white-space:nowrap}
 /* ── Edit button ── */
 .edit-btn{display:inline-flex;align-items:center;gap:6px;padding:7px 16px;background:#eff6ff;color:#1d4ed8;border:1.5px solid #bfdbfe;border-radius:8px;font-size:.82rem;font-weight:600;font-family:inherit;cursor:pointer;transition:.15s}
 .edit-btn:hover{background:#1d4ed8;color:#fff;border-color:#1d4ed8}
+/* ── Download button ── */
+.dl-btn{display:inline-flex;align-items:center;gap:6px;padding:7px 16px;background:#f0fdf4;color:#166534;border:1.5px solid #86efac;border-radius:8px;font-size:.82rem;font-weight:600;font-family:inherit;cursor:pointer;transition:.15s}
+.dl-btn:hover{background:#16a34a;color:#fff;border-color:#16a34a}
+.dl-btn:disabled{background:#f1f5f9;color:#94a3b8;border-color:#e2e8f0;cursor:default}
 
 /* ── Modal overlay ── */
 .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;align-items:center;justify-content:center;padding:20px}
@@ -159,6 +163,7 @@ tbody td{padding:9px 12px;font-size:.82rem;color:var(--dark);white-space:nowrap}
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
     <a href="/policies" class="back-btn" style="margin-bottom:0">← Back to Policies</a>
     <div style="display:flex;gap:8px">
+      <button class="dl-btn" id="detailDlBtn" onclick="downloadSummary()">⬇ Download Summary</button>
       <button class="edit-btn" onclick="openEdit()">✏️ Edit Policy</button>
       <button class="del-btn" onclick="deletePolicy()">🗑 Delete Policy</button>
     </div>
@@ -952,6 +957,39 @@ async function uploadCensus(input) {
   } catch(e) {
     toast('Network error', 'err');
     statusEl.textContent = ''; progressWr.style.display = 'none';
+  }
+}
+
+// ── Download / Regenerate Premium Summary ─────────────────────────────────────
+async function downloadSummary() {
+  const btn = document.getElementById('detailDlBtn');
+  btn.disabled    = true;
+  btn.textContent = '⏳ Generating…';
+  try {
+    const res = await fetch(`/api/policies/${PID}/export`);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      toast('Export failed: ' + (err.error || res.statusText), 'err');
+      return;
+    }
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    const cd   = res.headers.get('Content-Disposition') || '';
+    const match = cd.match(/filename="?([^"]+)"?/);
+    const company = (document.getElementById('phCompany').textContent || 'Policy').trim();
+    a.download = match ? match[1] : `Premium Summary - ${company}.xlsx`;
+    a.href = url;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast('Summary downloaded ✓');
+  } catch(e) {
+    toast('Network error', 'err');
+  } finally {
+    btn.disabled    = false;
+    btn.textContent = '⬇ Download Summary';
   }
 }
 
