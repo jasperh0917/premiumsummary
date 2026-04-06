@@ -2131,17 +2131,41 @@ def api_dashboard_monthly():
         return jsonify({'error': 'Database not configured'}), 503
     try:
         from collections import defaultdict
-        q = supa.table('policies').select('created_at,grand_total,total_net,member_count')
+        q = supa.table('policies').select(
+            'created_at,plan,plan_type,total_net,total_maternity,grand_total,member_count'
+        )
         q = _dash_filter(q, request.args)
         rows = q.execute().data or []
-        buckets = defaultdict(lambda: {'policy_count': 0, 'total_premium': 0.0, 'net_premium': 0.0, 'member_count': 0})
+
+        # Per-month summary (for the table)
+        monthly = defaultdict(lambda: {'policy_count': 0, 'gross_premium': 0.0, 'grand_total': 0.0, 'member_count': 0})
+        # Per-month + plan + plan_type breakdown (for the chart)
+        breakdown = defaultdict(lambda: {'policy_count': 0, 'gross_premium': 0.0})
+
         for r in rows:
-            m = (r.get('created_at') or '')[:7]  # YYYY-MM
-            buckets[m]['policy_count']  += 1
-            buckets[m]['total_premium'] += float(r.get('grand_total') or 0)
-            buckets[m]['net_premium']   += float(r.get('total_net') or 0)
-            buckets[m]['member_count']  += int(r.get('member_count') or 0)
-        return jsonify([{'month': k, **v} for k, v in sorted(buckets.items())])
+            m     = (r.get('created_at') or '')[:7]   # YYYY-MM
+            plan  = r.get('plan')      or 'Unknown'
+            ptype = r.get('plan_type') or 'Unknown'
+            gross = float(r.get('total_net') or 0) + float(r.get('total_maternity') or 0)
+            grand = float(r.get('grand_total') or 0)
+            mems  = int(r.get('member_count') or 0)
+
+            monthly[m]['policy_count']  += 1
+            monthly[m]['gross_premium'] += gross
+            monthly[m]['grand_total']   += grand
+            monthly[m]['member_count']  += mems
+
+            key = f'{m}|{plan}|{ptype}'
+            breakdown[key]['policy_count']  += 1
+            breakdown[key]['gross_premium'] += gross
+
+        return jsonify({
+            'monthly': [{'month': k, **v} for k, v in sorted(monthly.items())],
+            'breakdown': [
+                {'month': k.split('|')[0], 'plan': k.split('|')[1], 'plan_type': k.split('|')[2], **v}
+                for k, v in sorted(breakdown.items())
+            ],
+        })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -2153,15 +2177,15 @@ def api_dashboard_brokers():
         return jsonify({'error': 'Database not configured'}), 503
     try:
         from collections import defaultdict
-        q = supa.table('policies').select('broker,member_count,total_net,grand_total')
+        q = supa.table('policies').select('broker,member_count,total_net,total_maternity,grand_total')
         q = _dash_filter(q, request.args)
         rows = q.execute().data or []
-        buckets = defaultdict(lambda: {'policy_count': 0, 'total_members': 0, 'total_net': 0.0, 'total_grand': 0.0})
+        buckets = defaultdict(lambda: {'policy_count': 0, 'total_members': 0, 'gross_premium': 0.0, 'total_grand': 0.0})
         for r in rows:
             b = r.get('broker') or 'Unknown'
             buckets[b]['policy_count']  += 1
             buckets[b]['total_members'] += int(r.get('member_count') or 0)
-            buckets[b]['total_net']     += float(r.get('total_net') or 0)
+            buckets[b]['gross_premium'] += float(r.get('total_net') or 0) + float(r.get('total_maternity') or 0)
             buckets[b]['total_grand']   += float(r.get('grand_total') or 0)
         result = []
         for k, v in buckets.items():

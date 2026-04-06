@@ -55,7 +55,12 @@ h1{font-family:'Raleway',sans-serif;font-weight:900;font-size:1.6rem;color:#fff;
 /* ── Section ── */
 .section{background:#fff;border-radius:16px;padding:22px 26px;margin-bottom:22px;box-shadow:0 4px 24px rgba(0,0,0,.4)}
 .section-title{font-family:'Raleway',sans-serif;font-weight:900;font-size:.85rem;color:var(--navy);text-transform:uppercase;letter-spacing:1px;margin-bottom:18px;padding-bottom:10px;border-bottom:2px solid var(--light)}
-.chart-wrap{position:relative;height:280px;margin-bottom:18px}
+.chart-wrap{position:relative;height:320px;margin-bottom:18px}
+
+/* ── Legend ── */
+.chart-legend{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:14px;font-size:.78rem;font-weight:600;color:var(--dark)}
+.legend-item{display:flex;align-items:center;gap:5px}
+.legend-swatch{width:12px;height:12px;border-radius:3px;flex-shrink:0}
 
 /* ── Tables ── */
 .tbl-wrap{overflow-x:auto}
@@ -133,7 +138,7 @@ tfoot td{padding:9px 14px;font-size:.83rem;font-weight:700;color:var(--navy)}
   <!-- KPIs -->
   <div class="kpi-row">
     <div class="kpi"><div class="kv" id="kTotal">—</div><div class="kl">Total Policies</div></div>
-    <div class="kpi"><div class="kv" id="kPremium">—</div><div class="kl">Total Premium (AED)</div></div>
+    <div class="kpi"><div class="kv" id="kGross">—</div><div class="kl">Total Gross Premium (AED)</div></div>
     <div class="kpi"><div class="kv" id="kMembers">—</div><div class="kl">Total Members</div></div>
     <div class="kpi"><div class="kv" id="kAvg">—</div><div class="kl">Avg Policy Size (AED)</div></div>
   </div>
@@ -141,12 +146,35 @@ tfoot td{padding:9px 14px;font-size:.83rem;font-weight:700;color:var(--navy)}
   <!-- Monthly Sales -->
   <div class="section">
     <div class="section-title">Monthly Sales</div>
+
+    <!-- Custom legend -->
+    <div class="chart-legend">
+      <span class="legend-item"><span class="legend-swatch" style="background:#16a34a"></span>Healthx — New</span>
+      <span class="legend-item"><span class="legend-swatch" style="background:#4ade80"></span>Healthx — Renewal</span>
+      <span class="legend-item"><span class="legend-swatch" style="background:#7f1d1d"></span>Healthxclusive — New</span>
+      <span class="legend-item"><span class="legend-swatch" style="background:#f87171"></span>Healthxclusive — Renewal</span>
+      <span class="legend-item"><span class="legend-swatch" style="background:#1d4ed8"></span>Openx — New</span>
+      <span class="legend-item"><span class="legend-swatch" style="background:#93c5fd"></span>Openx — Renewal</span>
+    </div>
+
     <div class="chart-wrap"><canvas id="monthChart"></canvas></div>
     <div class="tbl-wrap">
       <table>
-        <thead><tr><th>Month</th><th class="num">Policies</th><th class="num">Members</th><th class="num">Net Premium (AED)</th><th class="num">Grand Total (AED)</th></tr></thead>
+        <thead><tr>
+          <th>Month</th>
+          <th class="num">Policies</th>
+          <th class="num">Members</th>
+          <th class="num">Gross Premium (AED)</th>
+          <th class="num">Grand Total (AED)</th>
+        </tr></thead>
         <tbody id="monthBody"></tbody>
-        <tfoot><tr><td>TOTAL</td><td class="num" id="mfCount">—</td><td class="num" id="mfMembers">—</td><td class="num" id="mfNet">—</td><td class="num" id="mfGrand">—</td></tr></tfoot>
+        <tfoot><tr>
+          <td>TOTAL</td>
+          <td class="num" id="mfCount">—</td>
+          <td class="num" id="mfMembers">—</td>
+          <td class="num" id="mfGross">—</td>
+          <td class="num" id="mfGrand">—</td>
+        </tr></tfoot>
       </table>
     </div>
   </div>
@@ -156,7 +184,14 @@ tfoot td{padding:9px 14px;font-size:.83rem;font-weight:700;color:var(--navy)}
     <div class="section-title">Broker Performance</div>
     <div class="tbl-wrap">
       <table>
-        <thead><tr><th>Broker</th><th class="num">Policies</th><th class="num">Members</th><th class="num">Net Premium (AED)</th><th class="num">Grand Total (AED)</th><th class="num">Avg Policy (AED)</th></tr></thead>
+        <thead><tr>
+          <th>Broker</th>
+          <th class="num">Policies</th>
+          <th class="num">Members</th>
+          <th class="num">Gross Premium (AED)</th>
+          <th class="num">Grand Total (AED)</th>
+          <th class="num">Avg Policy (AED)</th>
+        </tr></thead>
         <tbody id="brokerBody"></tbody>
       </table>
     </div>
@@ -179,7 +214,14 @@ tfoot td{padding:9px 14px;font-size:.83rem;font-weight:700;color:var(--navy)}
     </div>
     <div class="tbl-wrap">
       <table>
-        <thead><tr><th>RM</th><th class="num">Policies</th><th class="num">Actual (AED)</th><th class="num">Target (AED)</th><th class="num">Variance</th><th class="num">% of Target</th></tr></thead>
+        <thead><tr>
+          <th>RM</th>
+          <th class="num">Policies</th>
+          <th class="num">Actual (AED)</th>
+          <th class="num">Target (AED)</th>
+          <th class="num">Variance</th>
+          <th class="num">% of Target</th>
+        </tr></thead>
         <tbody id="rmBody"></tbody>
       </table>
     </div>
@@ -187,17 +229,27 @@ tfoot td{padding:9px 14px;font-size:.83rem;font-weight:700;color:var(--navy)}
 </div>
 
 <script>
-let monthlyData = [], brokersData = [], rmData = {actuals: [], targets: []};
-let monthChart  = null;
+// ── Plan colours ───────────────────────────────────────────────────────────────
+const PLAN_COLORS = {
+  'Healthx':        { New: '#16a34a', Renewal: '#4ade80' },
+  'Healthxclusive': { New: '#7f1d1d', Renewal: '#f87171' },
+  'Openx':          { New: '#1d4ed8', Renewal: '#93c5fd' },
+  'Unknown':        { New: '#94a3b8', Renewal: '#cbd5e1' },
+};
+const PLANS = ['Healthx', 'Healthxclusive', 'Openx'];
+const TYPES = ['New', 'Renewal'];
 
-// ── Year selector ──────────────────────────────────────────────────────────
+let monthlyRows = [], breakdownRows = [], brokersData = [], rmData = {actuals: [], targets: []};
+let monthChart = null;
+
+// ── Year selector ──────────────────────────────────────────────────────────────
 const now = new Date();
 const yearSel = document.getElementById('rmYear');
 for (let y = now.getFullYear(); y >= now.getFullYear() - 2; y--)
   yearSel.innerHTML += `<option value="${y}" ${y === now.getFullYear() ? 'selected' : ''}>${y}</option>`;
 document.getElementById('rmMonth').value = now.getMonth() + 1;
 
-// ── Populate broker/RM dropdowns from meta ─────────────────────────────────
+// ── Populate broker/RM dropdowns ───────────────────────────────────────────────
 async function loadMeta() {
   try {
     const res = await fetch('/api/policies/meta');
@@ -214,7 +266,7 @@ async function loadMeta() {
   } catch(e) {}
 }
 
-// ── Build query string from current filters ────────────────────────────────
+// ── Filters ────────────────────────────────────────────────────────────────────
 function filterParams() {
   const p = new URLSearchParams();
   const v = id => document.getElementById(id).value;
@@ -224,22 +276,28 @@ function filterParams() {
   if (v('fRm'))     p.set('rm',        v('fRm'));
   return p.toString() ? '?' + p.toString() : '';
 }
+function applyFilters() { loadAll(); }
+function clearFilters() {
+  ['fPlan','fType','fBroker','fRm'].forEach(id => document.getElementById(id).value = '');
+  loadAll();
+}
 
-// ── Load all data ──────────────────────────────────────────────────────────
+// ── Load all ───────────────────────────────────────────────────────────────────
 async function loadAll() {
   const qs = filterParams();
   const [mRes, bRes, rRes] = await Promise.all([
-    fetch('/api/dashboard/monthly'  + qs),
-    fetch('/api/dashboard/brokers'  + qs),
-    fetch('/api/dashboard/rm'       + qs),
+    fetch('/api/dashboard/monthly' + qs),
+    fetch('/api/dashboard/brokers' + qs),
+    fetch('/api/dashboard/rm'      + qs),
   ]);
   const mJson = await mRes.json();
   const bJson = await bRes.json();
   const rJson = await rRes.json();
 
-  monthlyData = Array.isArray(mJson) ? mJson : [];
-  brokersData = Array.isArray(bJson) ? bJson : [];
-  rmData      = (rJson && rJson.actuals) ? rJson : {actuals: [], targets: []};
+  monthlyRows   = Array.isArray(mJson?.monthly)   ? mJson.monthly   : [];
+  breakdownRows = Array.isArray(mJson?.breakdown)  ? mJson.breakdown : [];
+  brokersData   = Array.isArray(bJson)             ? bJson           : [];
+  rmData        = (rJson?.actuals)                 ? rJson           : {actuals: [], targets: []};
 
   renderKPIs();
   renderMonthly();
@@ -247,85 +305,144 @@ async function loadAll() {
   renderRM();
 }
 
-function applyFilters() { loadAll(); }
-function clearFilters() {
-  ['fPlan','fType','fBroker','fRm'].forEach(id => document.getElementById(id).value = '');
-  loadAll();
-}
-
-// ── KPIs ───────────────────────────────────────────────────────────────────
+// ── KPIs ───────────────────────────────────────────────────────────────────────
 function renderKPIs() {
-  const totalPolicies = monthlyData.reduce((s,r) => s + parseInt(r.policy_count||0), 0);
-  const totalPremium  = monthlyData.reduce((s,r) => s + parseFloat(r.total_premium||0), 0);
-  const totalMembers  = monthlyData.reduce((s,r) => s + parseInt(r.member_count||0), 0);
-  const avgSize       = totalPolicies ? totalPremium / totalPolicies : 0;
+  const totalPolicies = monthlyRows.reduce((s,r) => s + parseInt(r.policy_count||0), 0);
+  const totalGross    = monthlyRows.reduce((s,r) => s + parseFloat(r.gross_premium||0), 0);
+  const totalMembers  = monthlyRows.reduce((s,r) => s + parseInt(r.member_count||0), 0);
+  const avgSize       = totalPolicies ? totalGross / totalPolicies : 0;
   document.getElementById('kTotal').textContent   = totalPolicies.toLocaleString();
-  document.getElementById('kPremium').textContent = fmtNum(totalPremium);
+  document.getElementById('kGross').textContent   = fmtNum(totalGross);
   document.getElementById('kMembers').textContent = totalMembers.toLocaleString();
   document.getElementById('kAvg').textContent     = fmtNum(avgSize);
 }
 
-// ── Monthly ────────────────────────────────────────────────────────────────
+// ── Monthly chart + table ──────────────────────────────────────────────────────
 function renderMonthly() {
-  const labels = monthlyData.map(r => fmtMonth(r.month));
-  const grands = monthlyData.map(r => parseFloat(r.total_premium)||0);
-  const nets   = monthlyData.map(r => parseFloat(r.net_premium)||0);
+  // Collect all months in order
+  const months = [...new Set(breakdownRows.map(r => r.month))].sort();
+
+  // Build lookup: month+plan+type → gross_premium
+  const lookup = {};
+  breakdownRows.forEach(r => {
+    lookup[`${r.month}|${r.plan}|${r.plan_type}`] = parseFloat(r.gross_premium || 0);
+  });
+
+  // 6 datasets (plan × type), each uses its own stack group per type
+  const datasets = [];
+  TYPES.forEach(type => {
+    PLANS.forEach(plan => {
+      const color = (PLAN_COLORS[plan] || PLAN_COLORS['Unknown'])[type];
+      datasets.push({
+        label: `${plan} — ${type}`,
+        data:  months.map(m => lookup[`${m}|${plan}|${type}`] || 0),
+        backgroundColor: color,
+        stack: type,          // same stack = stacked; different = side-by-side
+        borderRadius: 4,
+        borderSkipped: false,
+      });
+    });
+  });
+
+  // Custom plugin: draw totals above each stacked bar group
+  const stackTotalsPlugin = {
+    id: 'stackTotals',
+    afterDatasetsDraw(chart) {
+      const ctx = chart.ctx;
+      ctx.save();
+      ctx.font = 'bold 10px Inter, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+
+      // Accumulate totals per stack+dataIndex and track highest bar top
+      const stacks = {};
+      chart.data.datasets.forEach((ds, dsIdx) => {
+        const meta = chart.getDatasetMeta(dsIdx);
+        if (meta.hidden) return;
+        meta.data.forEach((bar, idx) => {
+          const key = `${ds.stack}|${idx}`;
+          const val = Number(chart.data.datasets[dsIdx].data[idx]) || 0;
+          if (!stacks[key]) stacks[key] = { top: bar.y, total: 0, x: bar.x };
+          stacks[key].total += val;
+          if (bar.y < stacks[key].top) stacks[key].top = bar.y;
+        });
+      });
+
+      Object.values(stacks).forEach(({ top, total, x }) => {
+        if (total <= 0) return;
+        ctx.fillStyle = '#1a2332';
+        ctx.fillText('AED ' + fmtNum(total), x, top - 3);
+      });
+      ctx.restore();
+    }
+  };
 
   if (monthChart) monthChart.destroy();
   monthChart = new Chart(document.getElementById('monthChart'), {
     type: 'bar',
-    data: {
-      labels,
-      datasets: [
-        { label: 'Grand Total (AED)', data: grands, backgroundColor: '#003780cc', borderRadius: 6 },
-        { label: 'Net Premium (AED)', data: nets,   backgroundColor: '#e6510099', borderRadius: 6 },
-      ]
-    },
+    data: { labels: months.map(fmtMonth), datasets },
     options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { position: 'top' } },
-      scales: { y: { ticks: { callback: v => 'AED ' + fmtNum(v) } } }
-    }
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },   // using custom legend above
+        tooltip: {
+          callbacks: {
+            label: ctx => `${ctx.dataset.label}: AED ${fmtNum(ctx.raw)}`
+          }
+        }
+      },
+      scales: {
+        x: { ticks: { font: { size: 11 } } },
+        y: {
+          ticks: { callback: v => 'AED ' + fmtNum(v), font: { size: 11 } },
+          grid: { color: '#f0f4ff' }
+        }
+      },
+      layout: { padding: { top: 24 } }  // room for total labels
+    },
+    plugins: [stackTotalsPlugin]
   });
 
-  let sumC=0, sumM=0, sumN=0, sumG=0;
-  document.getElementById('monthBody').innerHTML = monthlyData.length
-    ? monthlyData.map(r => {
-        sumC += parseInt(r.policy_count||0);
-        sumM += parseInt(r.member_count||0);
-        sumN += parseFloat(r.net_premium||0);
-        sumG += parseFloat(r.total_premium||0);
+  // Table
+  let sumC=0, sumM=0, sumG=0, sumGrand=0;
+  document.getElementById('monthBody').innerHTML = monthlyRows.length
+    ? monthlyRows.map(r => {
+        sumC     += parseInt(r.policy_count||0);
+        sumM     += parseInt(r.member_count||0);
+        sumG     += parseFloat(r.gross_premium||0);
+        sumGrand += parseFloat(r.grand_total||0);
         return `<tr>
           <td>${fmtMonth(r.month)}</td>
           <td class="num">${r.policy_count}</td>
           <td class="num">${parseInt(r.member_count||0).toLocaleString()}</td>
-          <td class="num">AED ${fmtNum(r.net_premium)}</td>
-          <td class="num">AED ${fmtNum(r.total_premium)}</td>
+          <td class="num">AED ${fmtNum(r.gross_premium)}</td>
+          <td class="num">AED ${fmtNum(r.grand_total)}</td>
         </tr>`;
       }).join('')
     : '<tr class="empty-row"><td colspan="5">No data for selected filters</td></tr>';
 
   document.getElementById('mfCount').textContent   = sumC;
   document.getElementById('mfMembers').textContent = sumM.toLocaleString();
-  document.getElementById('mfNet').textContent     = 'AED ' + fmtNum(sumN);
-  document.getElementById('mfGrand').textContent   = 'AED ' + fmtNum(sumG);
+  document.getElementById('mfGross').textContent   = 'AED ' + fmtNum(sumG);
+  document.getElementById('mfGrand').textContent   = 'AED ' + fmtNum(sumGrand);
 }
 
-// ── Brokers ────────────────────────────────────────────────────────────────
+// ── Brokers ────────────────────────────────────────────────────────────────────
 function renderBrokers() {
   document.getElementById('brokerBody').innerHTML = brokersData.length
     ? brokersData.map(r => `<tr>
         <td><strong>${r.broker}</strong></td>
         <td class="num">${r.policy_count}</td>
         <td class="num">${parseInt(r.total_members||0).toLocaleString()}</td>
-        <td class="num">AED ${fmtNum(r.total_net)}</td>
+        <td class="num">AED ${fmtNum(r.gross_premium)}</td>
         <td class="num">AED ${fmtNum(r.total_grand)}</td>
         <td class="num">AED ${fmtNum(r.avg_policy_size)}</td>
       </tr>`).join('')
     : '<tr class="empty-row"><td colspan="6">No data for selected filters</td></tr>';
 }
 
-// ── RM vs Targets ──────────────────────────────────────────────────────────
+// ── RM vs Targets ──────────────────────────────────────────────────────────────
 function renderRM() {
   const year  = parseInt(document.getElementById('rmYear').value);
   const month = parseInt(document.getElementById('rmMonth').value);
@@ -395,10 +512,11 @@ async function saveTarget(rmName) {
   }
 }
 
+// ── Helpers ────────────────────────────────────────────────────────────────────
 function fmtMonth(s) {
   if (!s) return '—';
   const [y, m] = s.split('-');
-  return new Date(y, parseInt(m)-1, 1).toLocaleDateString('en-GB', {month:'short', year:'numeric'});
+  return new Date(y, parseInt(m)-1, 1).toLocaleDateString('en-GB', {month:'short', year:'2-digit'});
 }
 function fmtNum(n) {
   return Number(n||0).toLocaleString('en-AE', {minimumFractionDigits:0, maximumFractionDigits:0});
