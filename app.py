@@ -509,6 +509,32 @@ def detect_header_row(rows):
             return i
     return 0
 
+def _is_notes_row(rows, header_idx, dob_col):
+    """Return True if the row after the header is a notes/example row, not real data.
+    Some census templates include a sample row (e.g. 'DD/MM/YYYY', 'Male/Female')
+    immediately below the header. Others (like Yamaha) jump straight into data.
+    We check the DOB cell: if it can't be parsed as a real date it's a notes row."""
+    next_idx = header_idx + 1
+    if next_idx >= len(rows):
+        return False
+    row = rows[next_idx]
+    if dob_col >= len(row):
+        return True
+    val = row[dob_col]
+    if val is None:
+        return True
+    s = str(val).strip().lower()
+    if not s:
+        return True
+    placeholders = ('dd/', 'mm/', 'yyyy', 'date of birth', 'date', 'example', '(')
+    if any(p in s for p in placeholders):
+        return True
+    try:
+        pd.to_datetime(str(val))
+        return False   # parseable real date → this is real data, not a notes row
+    except Exception:
+        return True
+
 def detect_col_map(headers):
     h = [str(v).lower().strip() if v else '' for v in headers]
     col_map = {}
@@ -576,7 +602,8 @@ def parse_census(file_bytes, filename, start_date_str, age_method='alb'):
         df = pd.read_excel(io.BytesIO(file_bytes), sheet_name=0, header=None, engine='xlrd')
         all_rows   = df.values.tolist()
         header_idx = detect_header_row(all_rows)
-        data_start = header_idx + 2  # skip notes row
+        _dob_col   = detect_col_map(all_rows[header_idx]).get('dob', 999)
+        data_start = header_idx + 2 if _is_notes_row(all_rows, header_idx, _dob_col) else header_idx + 1
     else:
         try:
             xl = openpyxl.load_workbook(io.BytesIO(maybe_decrypt(file_bytes)), data_only=True)
@@ -585,13 +612,15 @@ def parse_census(file_bytes, filename, start_date_str, age_method='alb'):
             df = pd.read_excel(io.BytesIO(file_bytes), sheet_name=0, header=None, engine='xlrd')
             all_rows   = df.values.tolist()
             header_idx = detect_header_row(all_rows)
-            data_start = header_idx + 2
+            _dob_col   = detect_col_map(all_rows[header_idx]).get('dob', 999)
+            data_start = header_idx + 2 if _is_notes_row(all_rows, header_idx, _dob_col) else header_idx + 1
         else:
             sheet_name = next((s for s in xl.sheetnames if 'INCEP' in s.upper()), xl.sheetnames[0])
             ws = xl[sheet_name]
             all_rows  = [[cell.value for cell in row] for row in ws.iter_rows()]
             header_idx = detect_header_row(all_rows)
-            data_start = header_idx + 2  # skip notes row
+            _dob_col   = detect_col_map(all_rows[header_idx]).get('dob', 999)
+            data_start = header_idx + 2 if _is_notes_row(all_rows, header_idx, _dob_col) else header_idx + 1
 
     col_map = detect_col_map(all_rows[header_idx])
     if 'dob' not in col_map:
