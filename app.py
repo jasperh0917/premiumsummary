@@ -2,7 +2,7 @@ import os, io, uuid, re, base64, json
 from datetime import datetime, date
 from flask import Flask, request, jsonify, render_template, send_file, Response
 try:
-    import psycopg2, psycopg2.extras
+    from supabase import create_client, Client as SupabaseClient
     _DB_AVAILABLE = True
 except ImportError:
     _DB_AVAILABLE = False
@@ -1553,172 +1553,144 @@ def make_combined_excel(form_data, members_data, verified_rates, maternity_rates
 
 # ── Database ──────────────────────────────────────────────────────────────────
 
-def get_db():
-    """Return a psycopg2 connection to Supabase, or None if not configured."""
+def get_supa():
+    """Return a Supabase client or None if not configured."""
     if not _DB_AVAILABLE:
         return None
-    # Priority: SUPABASE_DB_URL (local) → POSTGRES_URL (Vercel pooler) → POSTGRES_URL_NON_POOLING
-    url = (os.environ.get('SUPABASE_DB_URL') or
-           os.environ.get('POSTGRES_URL') or
-           os.environ.get('POSTGRES_URL_NON_POOLING') or '')
-    if not url:
+    url  = os.environ.get('SUPABASE_URL', '')
+    # Service role key preferred (bypasses RLS); fall back to anon key
+    key  = (os.environ.get('SUPABASE_SERVICE_ROLE_KEY') or
+            os.environ.get('SUPABASE_ANON_KEY') or '')
+    if not url or not key:
         return None
-    # Ensure sslmode=require (Supabase requires SSL)
-    if 'sslmode' not in url:
-        sep = '&' if '?' in url else '?'
-        url = url + sep + 'sslmode=require'
     try:
-        conn = psycopg2.connect(url)
-        return conn
+        return create_client(url, key)
     except Exception as e:
-        print(f'[DB] Connection error: {e}')
+        print(f'[DB] Supabase client error: {e}')
         return None
-
-
-_last_db_error = ''
 
 
 def _parse_dob(dob_str):
-    """Parse a dob string to a date object (handles DD-MMM-YYYY and YYYY-MM-DD)."""
-    if not dob_str or dob_str == 'None':
+    """Parse a dob string to YYYY-MM-DD string for Supabase."""
+    if not dob_str or str(dob_str) == 'None':
         return None
     for fmt in ('%d-%b-%Y', '%Y-%m-%d', '%d/%m/%Y'):
         try:
-            return datetime.strptime(str(dob_str), fmt).date()
+            return datetime.strptime(str(dob_str), fmt).strftime('%Y-%m-%d')
         except ValueError:
             continue
     return None
 
 
+def _f(v, default=0.0):
+    try:
+        return float(v or default)
+    except (TypeError, ValueError):
+        return default
+
+
 def save_policy(fd, members_data, verified_rates, maternity_rates,
                 loading_members, totals, quote_totals):
     """
-    Persist a finalized premium summary to Supabase.
+    Persist a finalized premium summary to Supabase via REST API.
     Returns the new policy_id, or None on failure / DB not configured.
     """
-    conn = get_db()
-    if not conn:
+    supa = get_supa()
+    if not supa:
         return None
     try:
-        # Build loading lookup
         loading_map = {lm.get('name', '').strip().lower(): lm
                        for lm in (loading_members or [])}
 
-        q_premium   = float(quote_totals.get('total_premium', 0) or 0)
+        q_premium   = _f(quote_totals.get('total_premium'))
         c_premium   = totals['total_net'] + totals['total_maternity']
         recon_diff  = c_premium - q_premium
         recon_match = abs(recon_diff) < 20.0
 
-        with conn:
-            with conn.cursor() as cur:
-                # ── policies ──────────────────────────────────────────────────
-                cur.execute("""
-                    INSERT INTO policies (
-                        company_name, broker, underwriter, rm_person,
-                        plan, plan_type, start_date,
-                        inception_payment, endorsement_freq, has_lsb,
-                        rm_broker, rm_insurer, rm_wellx, rm_tpa, rm_insurance_tax,
-                        confirmed_quote, quoted_members, quote_grand_total,
-                        member_count, total_net, total_maternity, total_basmah,
-                        subtotal, vat, grand_total,
-                        recon_match, recon_difference
-                    ) VALUES (
-                        %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
-                        %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
-                        %s,%s,%s,%s,%s,%s,%s
-                    ) RETURNING id
-                """, (
-                    fd.get('company_name', ''),
-                    fd.get('broker', ''),
-                    fd.get('underwriter', ''),
-                    fd.get('rm_person', ''),
-                    fd.get('plan', ''),
-                    fd.get('plan_type', ''),
-                    fd.get('start_date') or None,
-                    fd.get('inception_payment', ''),
-                    fd.get('endorsement_freq', ''),
-                    bool(fd.get('has_lsb', False)),
-                    float(fd.get('rm_broker', 0) or 0),
-                    float(fd.get('rm_insurer', 0) or 0),
-                    float(fd.get('rm_wellx', 0) or 0),
-                    float(fd.get('rm_tpa', 0) or 0),
-                    float(fd.get('rm_insurance_tax', 0) or 0),
-                    float(quote_totals.get('total_premium', 0) or 0),
-                    int(quote_totals.get('members', 0) or 0),
-                    float(quote_totals.get('grand_total', 0) or 0),
-                    totals.get('member_count', len(members_data)),
-                    totals['total_net'],
-                    totals['total_maternity'],
-                    totals['total_basmah'],
-                    totals['subtotal'],
-                    totals['vat'],
-                    totals['grand_total'],
-                    recon_match,
-                    recon_diff,
-                ))
-                policy_id = cur.fetchone()[0]
+        # ── Insert policy ──────────────────────────────────────────────────
+        pol_res = supa.table('policies').insert({
+            'company_name':     fd.get('company_name', ''),
+            'broker':           fd.get('broker', ''),
+            'underwriter':      fd.get('underwriter', ''),
+            'rm_person':        fd.get('rm_person', ''),
+            'plan':             fd.get('plan', ''),
+            'plan_type':        fd.get('plan_type', ''),
+            'start_date':       fd.get('start_date') or None,
+            'inception_payment': fd.get('inception_payment', ''),
+            'endorsement_freq': fd.get('endorsement_freq', ''),
+            'has_lsb':          bool(fd.get('has_lsb', False)),
+            'rm_broker':        _f(fd.get('rm_broker')),
+            'rm_insurer':       _f(fd.get('rm_insurer')),
+            'rm_wellx':         _f(fd.get('rm_wellx')),
+            'rm_tpa':           _f(fd.get('rm_tpa')),
+            'rm_insurance_tax': _f(fd.get('rm_insurance_tax')),
+            'confirmed_quote':  _f(quote_totals.get('total_premium')),
+            'quoted_members':   int(quote_totals.get('members', 0) or 0),
+            'quote_grand_total': _f(quote_totals.get('grand_total')),
+            'member_count':     totals.get('member_count', len(members_data)),
+            'total_net':        totals['total_net'],
+            'total_maternity':  totals['total_maternity'],
+            'total_basmah':     totals['total_basmah'],
+            'subtotal':         totals['subtotal'],
+            'vat':              totals['vat'],
+            'grand_total':      totals['grand_total'],
+            'recon_match':      recon_match,
+            'recon_difference': recon_diff,
+        }).execute()
+        policy_id = pol_res.data[0]['id']
 
-                # ── policy_members ────────────────────────────────────────────
-                mem_rows = []
-                for m in members_data:
-                    lm_data     = loading_map.get(m['name'].strip().lower())
-                    gross_load  = float(lm_data.get('gross_loading', 0) or 0) if lm_data else 0.0
-                    final_prem  = m['base_premium'] + m['maternity_premium'] + gross_load
-                    mem_rows.append((
-                        policy_id,
-                        m.get('no'),
-                        m.get('name', ''),
-                        _parse_dob(str(m.get('dob', ''))),
-                        m.get('gender', ''),
-                        m.get('marital_status', ''),
-                        m.get('relation', ''),
-                        m.get('category', ''),
-                        m.get('age_alb'),
-                        m.get('emirate', ''),
-                        m.get('age_bracket', ''),
-                        m['base_premium'],
-                        m['maternity_premium'],
-                        gross_load,
-                        final_prem,
-                    ))
-                psycopg2.extras.execute_values(cur, """
-                    INSERT INTO policy_members (
-                        policy_id, member_no, name, dob, gender, marital_status,
-                        relation, category, age_alb, emirate, age_bracket,
-                        base_premium, maternity_premium, gross_loading, final_premium
-                    ) VALUES %s
-                """, mem_rows)
+        # ── Insert members ─────────────────────────────────────────────────
+        mem_rows = []
+        for m in members_data:
+            lm_data    = loading_map.get(m['name'].strip().lower())
+            gross_load = _f(lm_data.get('gross_loading')) if lm_data else 0.0
+            final_prem = m['base_premium'] + m['maternity_premium'] + gross_load
+            mem_rows.append({
+                'policy_id':        policy_id,
+                'member_no':        m.get('no'),
+                'name':             m.get('name', ''),
+                'dob':              _parse_dob(str(m.get('dob', ''))),
+                'gender':           m.get('gender', ''),
+                'marital_status':   m.get('marital_status', ''),
+                'relation':         m.get('relation', ''),
+                'category':         m.get('category', ''),
+                'age_alb':          m.get('age_alb'),
+                'emirate':          m.get('emirate', ''),
+                'age_bracket':      m.get('age_bracket', ''),
+                'base_premium':     m['base_premium'],
+                'maternity_premium': m['maternity_premium'],
+                'gross_loading':    gross_load,
+                'final_premium':    final_prem,
+            })
+        # Insert in batches of 500
+        for i in range(0, len(mem_rows), 500):
+            supa.table('policy_members').insert(mem_rows[i:i+500]).execute()
 
-                # ── policy_categories + policy_brackets ───────────────────────
-                for cat_letter, brackets in (verified_rates or {}).items():
-                    mat_rate = float((maternity_rates or {}).get(cat_letter, 0) or 0)
-                    cur.execute("""
-                        INSERT INTO policy_categories (policy_id, category, maternity_rate)
-                        VALUES (%s, %s, %s) RETURNING id
-                    """, (policy_id, cat_letter.upper(), mat_rate))
-                    cat_id = cur.fetchone()[0]
+        # ── Insert categories + brackets ───────────────────────────────────
+        for cat_letter, brackets in (verified_rates or {}).items():
+            mat_rate = _f((maternity_rates or {}).get(cat_letter))
+            cat_res = supa.table('policy_categories').insert({
+                'policy_id':     policy_id,
+                'category':      cat_letter.upper(),
+                'maternity_rate': mat_rate,
+            }).execute()
+            cat_id = cat_res.data[0]['id']
 
-                    bracket_rows = [(
-                        cat_id,
-                        b.get('label', ''),
-                        b.get('age_lo'),
-                        b.get('age_hi'),
-                        float(b.get('male', 0) or 0),
-                        float(b.get('female', 0) or 0),
-                    ) for b in brackets]
-                    if bracket_rows:
-                        psycopg2.extras.execute_values(cur, """
-                            INSERT INTO policy_brackets
-                                (category_id, label, age_lo, age_hi, male_rate, female_rate)
-                            VALUES %s
-                        """, bracket_rows)
+            bracket_rows = [{
+                'category_id': cat_id,
+                'label':       b.get('label', ''),
+                'age_lo':      b.get('age_lo'),
+                'age_hi':      b.get('age_hi'),
+                'male_rate':   _f(b.get('male')),
+                'female_rate': _f(b.get('female')),
+            } for b in brackets]
+            if bracket_rows:
+                supa.table('policy_brackets').insert(bracket_rows).execute()
 
         return policy_id
     except Exception as e:
         print(f'[DB] save_policy error: {e}')
         return None
-    finally:
-        conn.close()
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
@@ -2023,214 +1995,180 @@ def dashboard_page():
 
 @app.route('/api/policies')
 def api_policies():
-    conn = get_db()
-    if not conn:
+    supa = get_supa()
+    if not supa:
         return jsonify({'error': 'Database not configured'}), 503
+    search    = request.args.get('search', '').strip()
+    broker    = request.args.get('broker', '').strip()
+    rm        = request.args.get('rm', '').strip()
+    plan      = request.args.get('plan', '').strip()
+    ptype     = request.args.get('plan_type', '').strip()
+    date_from = request.args.get('date_from', '').strip()
+    date_to   = request.args.get('date_to', '').strip()
+    page      = max(1, int(request.args.get('page', 1)))
+    per_page  = 20
+    offset    = (page - 1) * per_page
+
     try:
-        search  = request.args.get('search', '').strip()
-        broker  = request.args.get('broker', '').strip()
-        rm      = request.args.get('rm', '').strip()
-        plan    = request.args.get('plan', '').strip()
-        ptype   = request.args.get('plan_type', '').strip()
-        date_from = request.args.get('date_from', '').strip()
-        date_to   = request.args.get('date_to', '').strip()
-        page    = max(1, int(request.args.get('page', 1)))
-        per_page = 20
-        offset  = (page - 1) * per_page
-
-        conditions, params = [], []
+        q = supa.table('policies').select(
+            'id,created_at,company_name,broker,rm_person,plan,plan_type,start_date,member_count,grand_total,recon_match',
+            count='exact'
+        )
         if search:
-            conditions.append("company_name ILIKE %s")
-            params.append(f'%{search}%')
+            q = q.ilike('company_name', f'%{search}%')
         if broker:
-            conditions.append("broker = %s")
-            params.append(broker)
+            q = q.eq('broker', broker)
         if rm:
-            conditions.append("rm_person = %s")
-            params.append(rm)
+            q = q.eq('rm_person', rm)
         if plan:
-            conditions.append("plan = %s")
-            params.append(plan)
+            q = q.eq('plan', plan)
         if ptype:
-            conditions.append("plan_type = %s")
-            params.append(ptype)
+            q = q.eq('plan_type', ptype)
         if date_from:
-            conditions.append("start_date >= %s")
-            params.append(date_from)
+            q = q.gte('start_date', date_from)
         if date_to:
-            conditions.append("start_date <= %s")
-            params.append(date_to)
-
-        where = ('WHERE ' + ' AND '.join(conditions)) if conditions else ''
-
-        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute(f"SELECT COUNT(*) AS total FROM policies {where}", params)
-            total = cur.fetchone()['total']
-
-            cur.execute(f"""
-                SELECT id, created_at, company_name, broker, rm_person, plan,
-                       plan_type, start_date, member_count, grand_total, recon_match
-                FROM policies {where}
-                ORDER BY created_at DESC
-                LIMIT %s OFFSET %s
-            """, params + [per_page, offset])
-            rows = [dict(r) for r in cur.fetchall()]
-
-        # Serialise datetime / date
-        for r in rows:
-            for k, v in r.items():
-                if hasattr(v, 'isoformat'):
-                    r[k] = v.isoformat()
-
+            q = q.lte('start_date', date_to)
+        q = q.order('created_at', desc=True).range(offset, offset + per_page - 1)
+        res   = q.execute()
+        rows  = res.data or []
+        total = res.count or 0
         return jsonify({'rows': rows, 'total': total, 'page': page, 'per_page': per_page})
-    finally:
-        conn.close()
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/api/policies/<int:pid>', methods=['DELETE'])
 def api_policy_delete(pid):
-    conn = get_db()
-    if not conn:
+    supa = get_supa()
+    if not supa:
         return jsonify({'error': 'Database not configured'}), 503
     try:
-        with conn:
-            with conn.cursor() as cur:
-                cur.execute("DELETE FROM policies WHERE id = %s RETURNING id", (pid,))
-                row = cur.fetchone()
-        if not row:
+        res = supa.table('policies').delete().eq('id', pid).execute()
+        if not res.data:
             return jsonify({'error': 'Not found'}), 404
         return jsonify({'ok': True})
-    finally:
-        conn.close()
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/api/policies/<int:pid>')
 def api_policy_detail(pid):
-    conn = get_db()
-    if not conn:
+    supa = get_supa()
+    if not supa:
         return jsonify({'error': 'Database not configured'}), 503
     try:
-        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute("SELECT * FROM policies WHERE id = %s", (pid,))
-            pol = cur.fetchone()
-            if not pol:
-                return jsonify({'error': 'Not found'}), 404
-            pol = dict(pol)
+        pol_res = supa.table('policies').select('*').eq('id', pid).execute()
+        if not pol_res.data:
+            return jsonify({'error': 'Not found'}), 404
+        pol = pol_res.data[0]
 
-            cur.execute("""
-                SELECT * FROM policy_members WHERE policy_id = %s ORDER BY member_no
-            """, (pid,))
-            members = [dict(r) for r in cur.fetchall()]
+        mem_res = supa.table('policy_members').select('*').eq('policy_id', pid).order('member_no').execute()
+        members = mem_res.data or []
 
-            cur.execute("""
-                SELECT pc.id, pc.category, pc.maternity_rate,
-                       json_agg(pb.* ORDER BY pb.age_lo) AS brackets
-                FROM policy_categories pc
-                LEFT JOIN policy_brackets pb ON pb.category_id = pc.id
-                WHERE pc.policy_id = %s
-                GROUP BY pc.id, pc.category, pc.maternity_rate
-                ORDER BY pc.category
-            """, (pid,))
-            categories = [dict(r) for r in cur.fetchall()]
-
-        # Serialise
-        for obj in [pol] + members + categories:
-            for k, v in obj.items():
-                if hasattr(v, 'isoformat'):
-                    obj[k] = v.isoformat()
+        cat_res = supa.table('policy_categories').select('*').eq('policy_id', pid).order('category').execute()
+        categories = []
+        for cat in (cat_res.data or []):
+            br_res = supa.table('policy_brackets').select('*').eq('category_id', cat['id']).order('age_lo').execute()
+            cat['brackets'] = br_res.data or []
+            categories.append(cat)
 
         return jsonify({'policy': pol, 'members': members, 'categories': categories})
-    finally:
-        conn.close()
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/api/dashboard/monthly')
 def api_dashboard_monthly():
-    conn = get_db()
-    if not conn:
+    supa = get_supa()
+    if not supa:
         return jsonify({'error': 'Database not configured'}), 503
     try:
-        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute("""
-                SELECT
-                    TO_CHAR(created_at AT TIME ZONE 'Asia/Dubai', 'YYYY-MM') AS month,
-                    COUNT(*) AS policy_count,
-                    ROUND(SUM(grand_total)::numeric, 2)  AS total_premium,
-                    ROUND(SUM(total_net)::numeric, 2)    AS net_premium,
-                    SUM(member_count) AS member_count
-                FROM policies
-                WHERE created_at >= NOW() - INTERVAL '12 months'
-                GROUP BY 1
-                ORDER BY 1
-            """)
-            rows = [dict(r) for r in cur.fetchall()]
-        return jsonify(rows)
-    finally:
-        conn.close()
+        from datetime import timezone
+        cutoff = (datetime.now(timezone.utc).replace(month=1, day=1) if False else None)
+        res = supa.rpc('monthly_sales_summary', {}).execute()
+        if res.data is not None:
+            return jsonify(res.data)
+        # Fallback: fetch all and aggregate in Python
+        res = supa.table('policies').select('created_at,grand_total,total_net,member_count').execute()
+        rows = res.data or []
+        from collections import defaultdict
+        buckets = defaultdict(lambda: {'policy_count': 0, 'total_premium': 0.0, 'net_premium': 0.0, 'member_count': 0})
+        for r in rows:
+            m = (r.get('created_at') or '')[:7]  # YYYY-MM
+            buckets[m]['policy_count']  += 1
+            buckets[m]['total_premium'] += float(r.get('grand_total') or 0)
+            buckets[m]['net_premium']   += float(r.get('total_net') or 0)
+            buckets[m]['member_count']  += int(r.get('member_count') or 0)
+        result = [{'month': k, **v} for k, v in sorted(buckets.items())]
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/api/dashboard/brokers')
 def api_dashboard_brokers():
-    conn = get_db()
-    if not conn:
+    supa = get_supa()
+    if not supa:
         return jsonify({'error': 'Database not configured'}), 503
     try:
-        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute("""
-                SELECT
-                    COALESCE(broker, 'Unknown') AS broker,
-                    COUNT(*) AS policy_count,
-                    SUM(member_count) AS total_members,
-                    ROUND(SUM(total_net)::numeric, 2)    AS total_net,
-                    ROUND(SUM(grand_total)::numeric, 2)  AS total_grand,
-                    ROUND(AVG(grand_total)::numeric, 2)  AS avg_policy_size
-                FROM policies
-                GROUP BY 1
-                ORDER BY total_grand DESC
-            """)
-            rows = [dict(r) for r in cur.fetchall()]
-        return jsonify(rows)
-    finally:
-        conn.close()
+        res = supa.table('policies').select('broker,member_count,total_net,grand_total').execute()
+        rows = res.data or []
+        from collections import defaultdict
+        buckets = defaultdict(lambda: {'policy_count': 0, 'total_members': 0, 'total_net': 0.0, 'total_grand': 0.0})
+        for r in rows:
+            b = r.get('broker') or 'Unknown'
+            buckets[b]['policy_count']  += 1
+            buckets[b]['total_members'] += int(r.get('member_count') or 0)
+            buckets[b]['total_net']     += float(r.get('total_net') or 0)
+            buckets[b]['total_grand']   += float(r.get('grand_total') or 0)
+        result = []
+        for k, v in buckets.items():
+            v['broker'] = k
+            v['avg_policy_size'] = round(v['total_grand'] / v['policy_count'], 2) if v['policy_count'] else 0
+            result.append(v)
+        result.sort(key=lambda x: x['total_grand'], reverse=True)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/api/dashboard/rm')
 def api_dashboard_rm():
-    conn = get_db()
-    if not conn:
+    supa = get_supa()
+    if not supa:
         return jsonify({'error': 'Database not configured'}), 503
     try:
-        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            # Actuals by RM by month
-            cur.execute("""
-                SELECT
-                    COALESCE(rm_person, 'Unassigned') AS rm_name,
-                    EXTRACT(YEAR  FROM created_at AT TIME ZONE 'Asia/Dubai')::int AS year,
-                    EXTRACT(MONTH FROM created_at AT TIME ZONE 'Asia/Dubai')::int AS month,
-                    COUNT(*) AS policy_count,
-                    ROUND(SUM(grand_total)::numeric, 2) AS actual_amount
-                FROM policies
-                WHERE created_at >= NOW() - INTERVAL '12 months'
-                GROUP BY 1, 2, 3
-                ORDER BY 1, 2, 3
-            """)
-            actuals = [dict(r) for r in cur.fetchall()]
+        res = supa.table('policies').select('rm_person,created_at,grand_total').execute()
+        rows = res.data or []
+        from collections import defaultdict
+        buckets = defaultdict(lambda: {'policy_count': 0, 'actual_amount': 0.0})
+        for r in rows:
+            rm_name = r.get('rm_person') or 'Unassigned'
+            dt = r.get('created_at', '')[:10]
+            try:
+                d = datetime.strptime(dt, '%Y-%m-%d')
+                key = (rm_name, d.year, d.month)
+            except Exception:
+                continue
+            buckets[key]['policy_count']  += 1
+            buckets[key]['actual_amount'] += float(r.get('grand_total') or 0)
+        actuals = [{'rm_name': k[0], 'year': k[1], 'month': k[2], **v} for k, v in buckets.items()]
+        actuals.sort(key=lambda x: (x['rm_name'], x['year'], x['month']))
 
-            # Targets
-            cur.execute("SELECT * FROM rm_targets ORDER BY rm_name, year, month")
-            targets = [dict(r) for r in cur.fetchall()]
+        tgt_res = supa.table('rm_targets').select('*').order('rm_name').execute()
+        targets = tgt_res.data or []
 
         return jsonify({'actuals': actuals, 'targets': targets})
-    finally:
-        conn.close()
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/api/dashboard/rm_targets', methods=['POST'])
 def api_upsert_rm_target():
-    conn = get_db()
-    if not conn:
+    supa = get_supa()
+    if not supa:
         return jsonify({'error': 'Database not configured'}), 503
-    body = request.json or {}
+    body          = request.json or {}
     rm_name       = body.get('rm_name', '').strip()
     year          = int(body.get('year', 0))
     month         = int(body.get('month', 0))
@@ -2238,52 +2176,33 @@ def api_upsert_rm_target():
     if not rm_name or not year or not month:
         return jsonify({'error': 'rm_name, year, month are required'}), 400
     try:
-        with conn:
-            with conn.cursor() as cur:
-                cur.execute("""
-                    INSERT INTO rm_targets (rm_name, year, month, target_amount)
-                    VALUES (%s, %s, %s, %s)
-                    ON CONFLICT (rm_name, year, month)
-                    DO UPDATE SET target_amount = EXCLUDED.target_amount
-                    RETURNING id
-                """, (rm_name, year, month, target_amount))
-                rid = cur.fetchone()[0]
-        return jsonify({'ok': True, 'id': rid})
-    finally:
-        conn.close()
+        res = supa.table('rm_targets').upsert({
+            'rm_name': rm_name, 'year': year, 'month': month, 'target_amount': target_amount
+        }, on_conflict='rm_name,year,month').execute()
+        return jsonify({'ok': True, 'id': res.data[0]['id'] if res.data else None})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
-# ── DB diagnostics ───────────────────────────────────────────────────────────
+# ── DB diagnostics ────────────────────────────────────────────────────────────
 
 @app.route('/api/db_check')
 def api_db_check():
-    url_val = (os.environ.get('SUPABASE_DB_URL') or
-               os.environ.get('POSTGRES_URL') or
-               os.environ.get('POSTGRES_URL_NON_POOLING') or '')
-    err = ''
+    supa = get_supa()
     connected = False
-    if _DB_AVAILABLE and url_val:
-        if 'sslmode' not in url_val:
-            sep = '&' if '?' in url_val else '?'
-            url_val_ssl = url_val + sep + 'sslmode=require'
-        else:
-            url_val_ssl = url_val
+    err = ''
+    if supa:
         try:
-            conn = psycopg2.connect(url_val_ssl)
-            with conn.cursor() as cur:
-                cur.execute("SELECT 1")
+            supa.table('policies').select('id').limit(1).execute()
             connected = True
-            conn.close()
         except Exception as e:
             err = str(e)
     return jsonify({
-        'psycopg2_available':           _DB_AVAILABLE,
-        'SUPABASE_DB_URL_set':          bool(os.environ.get('SUPABASE_DB_URL')),
-        'POSTGRES_URL_set':             bool(os.environ.get('POSTGRES_URL')),
-        'POSTGRES_URL_NON_POOLING_set': bool(os.environ.get('POSTGRES_URL_NON_POOLING')),
-        'url_prefix':                   url_val[:40] + '...' if url_val else 'NOT SET',
-        'connected':                    connected,
-        'error':                        err,
+        'supabase_available':    _DB_AVAILABLE,
+        'SUPABASE_URL_set':      bool(os.environ.get('SUPABASE_URL')),
+        'SUPABASE_ANON_KEY_set': bool(os.environ.get('SUPABASE_ANON_KEY')),
+        'connected':             connected,
+        'error':                 err,
     })
 
 
@@ -2291,25 +2210,20 @@ def api_db_check():
 
 @app.route('/api/policies/meta')
 def api_policies_meta():
-    """Return distinct broker, rm, plan, plan_type values for filter dropdowns."""
-    conn = get_db()
-    if not conn:
+    supa = get_supa()
+    if not supa:
         return jsonify({'brokers': [], 'rms': [], 'plans': [], 'plan_types': []})
     try:
-        with conn.cursor() as cur:
-            def distinct(col):
-                cur.execute(
-                    f"SELECT DISTINCT {col} FROM policies WHERE {col} IS NOT NULL AND {col} <> '' ORDER BY {col}"
-                )
-                return [r[0] for r in cur.fetchall()]
-            return jsonify({
-                'brokers':    distinct('broker'),
-                'rms':        distinct('rm_person'),
-                'plans':      distinct('plan'),
-                'plan_types': distinct('plan_type'),
-            })
-    finally:
-        conn.close()
+        res = supa.table('policies').select('broker,rm_person,plan,plan_type').execute()
+        rows = res.data or []
+        return jsonify({
+            'brokers':    sorted({r['broker']    for r in rows if r.get('broker')}),
+            'rms':        sorted({r['rm_person'] for r in rows if r.get('rm_person')}),
+            'plans':      sorted({r['plan']      for r in rows if r.get('plan')}),
+            'plan_types': sorted({r['plan_type'] for r in rows if r.get('plan_type')}),
+        })
+    except Exception as e:
+        return jsonify({'brokers': [], 'rms': [], 'plans': [], 'plan_types': []})
 
 
 if __name__ == '__main__':
