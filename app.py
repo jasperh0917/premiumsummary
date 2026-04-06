@@ -1557,12 +1557,13 @@ def get_db():
     """Return a psycopg2 connection to Supabase, or None if not configured."""
     if not _DB_AVAILABLE:
         return None
-    # SUPABASE_DB_URL (local .env) or POSTGRES_URL_NON_POOLING (Vercel Supabase integration)
+    # Priority: SUPABASE_DB_URL (local) → POSTGRES_URL (Vercel pooler) → POSTGRES_URL_NON_POOLING
     url = (os.environ.get('SUPABASE_DB_URL') or
+           os.environ.get('POSTGRES_URL') or
            os.environ.get('POSTGRES_URL_NON_POOLING') or '')
     if not url:
         return None
-    # Ensure sslmode=require is present (required by Supabase on Vercel)
+    # Ensure sslmode=require (Supabase requires SSL)
     if 'sslmode' not in url:
         sep = '&' if '?' in url else '?'
         url = url + sep + 'sslmode=require'
@@ -1572,6 +1573,9 @@ def get_db():
     except Exception as e:
         print(f'[DB] Connection error: {e}')
         return None
+
+
+_last_db_error = ''
 
 
 def _parse_dob(dob_str):
@@ -2253,24 +2257,33 @@ def api_upsert_rm_target():
 
 @app.route('/api/db_check')
 def api_db_check():
-    url_val = os.environ.get('SUPABASE_DB_URL') or os.environ.get('POSTGRES_URL_NON_POOLING') or ''
-    conn = get_db()
+    url_val = (os.environ.get('SUPABASE_DB_URL') or
+               os.environ.get('POSTGRES_URL') or
+               os.environ.get('POSTGRES_URL_NON_POOLING') or '')
+    err = ''
     connected = False
-    if conn:
+    if _DB_AVAILABLE and url_val:
+        if 'sslmode' not in url_val:
+            sep = '&' if '?' in url_val else '?'
+            url_val_ssl = url_val + sep + 'sslmode=require'
+        else:
+            url_val_ssl = url_val
         try:
+            conn = psycopg2.connect(url_val_ssl)
             with conn.cursor() as cur:
                 cur.execute("SELECT 1")
             connected = True
-        except Exception:
-            pass
-        finally:
             conn.close()
+        except Exception as e:
+            err = str(e)
     return jsonify({
-        'psycopg2_available':            _DB_AVAILABLE,
-        'SUPABASE_DB_URL_set':           bool(os.environ.get('SUPABASE_DB_URL')),
-        'POSTGRES_URL_NON_POOLING_set':  bool(os.environ.get('POSTGRES_URL_NON_POOLING')),
-        'url_prefix':                    url_val[:30] + '...' if url_val else 'NOT SET',
-        'connected':                     connected,
+        'psycopg2_available':           _DB_AVAILABLE,
+        'SUPABASE_DB_URL_set':          bool(os.environ.get('SUPABASE_DB_URL')),
+        'POSTGRES_URL_set':             bool(os.environ.get('POSTGRES_URL')),
+        'POSTGRES_URL_NON_POOLING_set': bool(os.environ.get('POSTGRES_URL_NON_POOLING')),
+        'url_prefix':                   url_val[:40] + '...' if url_val else 'NOT SET',
+        'connected':                    connected,
+        'error':                        err,
     })
 
 
