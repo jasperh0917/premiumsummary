@@ -2209,10 +2209,10 @@ def api_policy_census_replace(pid):
         # Calculate premiums using stored rates — returns (members_list, totals_dict)
         members_calc, _ = calculate_premiums(members_raw, categories_data)
 
-        # Delete old members
-        supa.table('policy_members').delete().eq('policy_id', pid).execute()
+        if not members_calc:
+            return jsonify({'error': 'No valid members found in census file'}), 400
 
-        # Insert new members in batches of 500
+        # Build ALL new rows FIRST — no DB writes yet (atomic swap safety)
         mem_rows = []
         for i, m in enumerate(members_calc):
             gross_load = float(m.get('gross_loading') or 0)
@@ -2233,6 +2233,9 @@ def api_policy_census_replace(pid):
                 'gross_loading':    gross_load,
                 'final_premium':    m['base_premium'] + m['maternity_premium'] + gross_load,
             })
+
+        # Only NOW do the destructive swap — existing members are safe until this point
+        supa.table('policy_members').delete().eq('policy_id', pid).execute()
         for i in range(0, len(mem_rows), 500):
             supa.table('policy_members').insert(mem_rows[i:i + 500]).execute()
 
