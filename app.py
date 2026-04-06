@@ -2077,21 +2077,34 @@ def api_policy_detail(pid):
         return jsonify({'error': str(e)}), 500
 
 
+def _dash_filter(q, args):
+    """Apply shared dashboard filters to a supabase query."""
+    from collections import defaultdict as _dd
+    plan      = args.get('plan', '').strip()
+    plan_type = args.get('plan_type', '').strip()
+    rm        = args.get('rm', '').strip()
+    broker    = args.get('broker', '').strip()
+    if plan:
+        q = q.eq('plan', plan)
+    if plan_type:
+        q = q.eq('plan_type', plan_type)
+    if rm:
+        q = q.eq('rm_person', rm)
+    if broker:
+        q = q.eq('broker', broker)
+    return q
+
+
 @app.route('/api/dashboard/monthly')
 def api_dashboard_monthly():
     supa = get_supa()
     if not supa:
         return jsonify({'error': 'Database not configured'}), 503
     try:
-        from datetime import timezone
-        cutoff = (datetime.now(timezone.utc).replace(month=1, day=1) if False else None)
-        res = supa.rpc('monthly_sales_summary', {}).execute()
-        if res.data is not None:
-            return jsonify(res.data)
-        # Fallback: fetch all and aggregate in Python
-        res = supa.table('policies').select('created_at,grand_total,total_net,member_count').execute()
-        rows = res.data or []
         from collections import defaultdict
+        q = supa.table('policies').select('created_at,grand_total,total_net,member_count')
+        q = _dash_filter(q, request.args)
+        rows = q.execute().data or []
         buckets = defaultdict(lambda: {'policy_count': 0, 'total_premium': 0.0, 'net_premium': 0.0, 'member_count': 0})
         for r in rows:
             m = (r.get('created_at') or '')[:7]  # YYYY-MM
@@ -2099,8 +2112,7 @@ def api_dashboard_monthly():
             buckets[m]['total_premium'] += float(r.get('grand_total') or 0)
             buckets[m]['net_premium']   += float(r.get('total_net') or 0)
             buckets[m]['member_count']  += int(r.get('member_count') or 0)
-        result = [{'month': k, **v} for k, v in sorted(buckets.items())]
-        return jsonify(result)
+        return jsonify([{'month': k, **v} for k, v in sorted(buckets.items())])
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -2111,9 +2123,10 @@ def api_dashboard_brokers():
     if not supa:
         return jsonify({'error': 'Database not configured'}), 503
     try:
-        res = supa.table('policies').select('broker,member_count,total_net,grand_total').execute()
-        rows = res.data or []
         from collections import defaultdict
+        q = supa.table('policies').select('broker,member_count,total_net,grand_total')
+        q = _dash_filter(q, request.args)
+        rows = q.execute().data or []
         buckets = defaultdict(lambda: {'policy_count': 0, 'total_members': 0, 'total_net': 0.0, 'total_grand': 0.0})
         for r in rows:
             b = r.get('broker') or 'Unknown'
@@ -2138,9 +2151,10 @@ def api_dashboard_rm():
     if not supa:
         return jsonify({'error': 'Database not configured'}), 503
     try:
-        res = supa.table('policies').select('rm_person,created_at,grand_total').execute()
-        rows = res.data or []
         from collections import defaultdict
+        q = supa.table('policies').select('rm_person,created_at,grand_total')
+        q = _dash_filter(q, request.args)
+        rows = q.execute().data or []
         buckets = defaultdict(lambda: {'policy_count': 0, 'actual_amount': 0.0})
         for r in rows:
             rm_name = r.get('rm_person') or 'Unassigned'
@@ -2154,11 +2168,8 @@ def api_dashboard_rm():
             buckets[key]['actual_amount'] += float(r.get('grand_total') or 0)
         actuals = [{'rm_name': k[0], 'year': k[1], 'month': k[2], **v} for k, v in buckets.items()]
         actuals.sort(key=lambda x: (x['rm_name'], x['year'], x['month']))
-
         tgt_res = supa.table('rm_targets').select('*').order('rm_name').execute()
-        targets = tgt_res.data or []
-
-        return jsonify({'actuals': actuals, 'targets': targets})
+        return jsonify({'actuals': actuals, 'targets': tgt_res.data or []})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

@@ -32,13 +32,25 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0a0a0a;min-height:100v
 
 .page{max-width:1200px;margin:32px auto;padding:0 20px}
 h1{font-family:'Raleway',sans-serif;font-weight:900;font-size:1.6rem;color:#fff;margin-bottom:6px}
-.sub{color:#94a3b8;font-size:.85rem;margin-bottom:28px}
+.sub{color:#94a3b8;font-size:.85rem;margin-bottom:20px}
+
+/* ── Filter bar ── */
+.filter-bar{background:#fff;border-radius:14px;padding:16px 20px;margin-bottom:20px;box-shadow:0 4px 20px rgba(0,0,0,.4);display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+.fg{display:flex;flex-direction:column;gap:3px}
+.fg label{font-size:.68rem;font-weight:600;color:var(--slate);text-transform:uppercase;letter-spacing:.6px}
+.fg select{border:1.5px solid #e0e7f0;border-radius:8px;padding:6px 10px;font-size:.82rem;font-family:inherit;color:var(--dark);background:#f8faff;outline:none;min-width:140px;transition:.15s}
+.fg select:focus{border-color:var(--navy)}
+.btn{padding:7px 16px;border:none;border-radius:8px;font-size:.82rem;font-weight:600;font-family:inherit;cursor:pointer;transition:.15s}
+.btn-primary{background:var(--navy);color:#fff}
+.btn-primary:hover{background:var(--mid)}
+.btn-ghost{background:#f0f4ff;color:var(--navy)}
+.btn-ghost:hover{background:#e0eaff}
 
 /* ── KPI row ── */
-.kpi-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px;margin-bottom:24px}
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:14px;margin-bottom:20px}
 .kpi{background:#fff;border-radius:14px;padding:16px 20px;box-shadow:0 4px 20px rgba(0,0,0,.4)}
-.kpi .kv{font-family:'Raleway',sans-serif;font-weight:900;font-size:1.4rem;color:var(--navy)}
-.kpi .kl{font-size:.7rem;font-weight:600;color:var(--slate);text-transform:uppercase;letter-spacing:.7px;margin-top:3px}
+.kpi .kv{font-family:'Raleway',sans-serif;font-weight:900;font-size:1.35rem;color:var(--navy)}
+.kpi .kl{font-size:.68rem;font-weight:600;color:var(--slate);text-transform:uppercase;letter-spacing:.7px;margin-top:3px}
 
 /* ── Section ── */
 .section{background:#fff;border-radius:16px;padding:22px 26px;margin-bottom:22px;box-shadow:0 4px 24px rgba(0,0,0,.4)}
@@ -56,6 +68,7 @@ tbody td{padding:9px 14px;font-size:.83rem;color:var(--dark)}
 .num{text-align:right;font-variant-numeric:tabular-nums}
 tfoot tr{background:#e8f0fe}
 tfoot td{padding:9px 14px;font-size:.83rem;font-weight:700;color:var(--navy)}
+.empty-row td{text-align:center;color:#94a3b8;padding:24px!important}
 
 /* ── RM table ── */
 .pct{font-size:.75rem;font-weight:600;padding:2px 7px;border-radius:10px}
@@ -64,13 +77,10 @@ tfoot td{padding:9px 14px;font-size:.83rem;font-weight:700;color:var(--navy)}
 .pct-bad{background:#fee2e2;color:#991b1b}
 .target-input{border:1.5px solid #e0e7f0;border-radius:6px;padding:4px 8px;font-size:.82rem;font-family:inherit;width:110px;text-align:right;outline:none;transition:.15s}
 .target-input:focus{border-color:var(--navy)}
-.save-btn{padding:4px 10px;background:var(--navy);color:#fff;border:none;border-radius:6px;font-size:.75rem;font-weight:600;cursor:pointer;transition:.15s}
+.save-btn{padding:4px 10px;background:var(--navy);color:#fff;border:none;border-radius:6px;font-size:.75rem;font-weight:600;cursor:pointer;transition:.15s;margin-left:4px}
 .save-btn:hover{background:var(--mid)}
-
-/* ── Month/Year selector for RM ── */
-.rm-controls{display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.rm-controls{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
 .rm-controls select{border:1.5px solid #e0e7f0;border-radius:8px;padding:6px 10px;font-size:.83rem;font-family:inherit;color:var(--dark);background:#f8faff;outline:none}
-.rm-controls select:focus{border-color:var(--navy)}
 </style>
 </head>
 <body>
@@ -86,10 +96,41 @@ tfoot td{padding:9px 14px;font-size:.83rem;font-weight:700;color:var(--navy)}
 
 <div class="page">
   <h1>Management Dashboard</h1>
-  <p class="sub">Sales performance, broker activity, and RM targets — last 12 months.</p>
+  <p class="sub">Sales performance, broker activity, and RM targets.</p>
+
+  <!-- Global Filters -->
+  <div class="filter-bar">
+    <div class="fg">
+      <label>Plan</label>
+      <select id="fPlan">
+        <option value="">All Plans</option>
+        <option value="Healthxclusive">Healthxclusive</option>
+        <option value="Healthx">Healthx</option>
+        <option value="Openx">Openx</option>
+      </select>
+    </div>
+    <div class="fg">
+      <label>Type</label>
+      <select id="fType">
+        <option value="">New &amp; Renewal</option>
+        <option value="New">New</option>
+        <option value="Renewal">Renewal</option>
+      </select>
+    </div>
+    <div class="fg">
+      <label>Broker</label>
+      <select id="fBroker"><option value="">All Brokers</option></select>
+    </div>
+    <div class="fg">
+      <label>RM</label>
+      <select id="fRm"><option value="">All RMs</option></select>
+    </div>
+    <button class="btn btn-primary" onclick="applyFilters()">Apply</button>
+    <button class="btn btn-ghost" onclick="clearFilters()">Clear</button>
+  </div>
 
   <!-- KPIs -->
-  <div class="kpi-row" id="kpiRow">
+  <div class="kpi-row">
     <div class="kpi"><div class="kv" id="kTotal">—</div><div class="kl">Total Policies</div></div>
     <div class="kpi"><div class="kv" id="kPremium">—</div><div class="kl">Total Premium (AED)</div></div>
     <div class="kpi"><div class="kv" id="kMembers">—</div><div class="kl">Total Members</div></div>
@@ -98,7 +139,7 @@ tfoot td{padding:9px 14px;font-size:.83rem;font-weight:700;color:var(--navy)}
 
   <!-- Monthly Sales -->
   <div class="section">
-    <div class="section-title">Monthly Sales — Last 12 Months</div>
+    <div class="section-title">Monthly Sales</div>
     <div class="chart-wrap"><canvas id="monthChart"></canvas></div>
     <div class="tbl-wrap">
       <table>
@@ -111,7 +152,7 @@ tfoot td{padding:9px 14px;font-size:.83rem;font-weight:700;color:var(--navy)}
 
   <!-- Broker Report -->
   <div class="section">
-    <div class="section-title">Broker Performance Report</div>
+    <div class="section-title">Broker Performance</div>
     <div class="tbl-wrap">
       <table>
         <thead><tr><th>Broker</th><th class="num">Policies</th><th class="num">Members</th><th class="num">Net Premium (AED)</th><th class="num">Grand Total (AED)</th><th class="num">Avg Policy (AED)</th></tr></thead>
@@ -146,26 +187,58 @@ tfoot td{padding:9px 14px;font-size:.83rem;font-weight:700;color:var(--navy)}
 
 <script>
 let monthlyData = [], brokersData = [], rmData = {actuals: [], targets: []};
-let monthChart = null;
+let monthChart  = null;
 
-// ── Populate year selector ─────────────────────────────────────────────────
+// ── Year selector ──────────────────────────────────────────────────────────
 const now = new Date();
 const yearSel = document.getElementById('rmYear');
-for (let y = now.getFullYear(); y >= now.getFullYear() - 2; y--) {
+for (let y = now.getFullYear(); y >= now.getFullYear() - 2; y--)
   yearSel.innerHTML += `<option value="${y}" ${y === now.getFullYear() ? 'selected' : ''}>${y}</option>`;
-}
 document.getElementById('rmMonth').value = now.getMonth() + 1;
+
+// ── Populate broker/RM dropdowns from meta ─────────────────────────────────
+async function loadMeta() {
+  try {
+    const res = await fetch('/api/policies/meta');
+    const d   = await res.json();
+    const fill = (id, items) => {
+      const sel = document.getElementById(id);
+      const cur = sel.value;
+      sel.innerHTML = sel.options[0].outerHTML +
+        items.map(v => `<option value="${v}">${v}</option>`).join('');
+      sel.value = cur;
+    };
+    fill('fBroker', d.brokers || []);
+    fill('fRm',     d.rms    || []);
+  } catch(e) {}
+}
+
+// ── Build query string from current filters ────────────────────────────────
+function filterParams() {
+  const p = new URLSearchParams();
+  const v = id => document.getElementById(id).value;
+  if (v('fPlan'))   p.set('plan',      v('fPlan'));
+  if (v('fType'))   p.set('plan_type', v('fType'));
+  if (v('fBroker')) p.set('broker',    v('fBroker'));
+  if (v('fRm'))     p.set('rm',        v('fRm'));
+  return p.toString() ? '?' + p.toString() : '';
+}
 
 // ── Load all data ──────────────────────────────────────────────────────────
 async function loadAll() {
+  const qs = filterParams();
   const [mRes, bRes, rRes] = await Promise.all([
-    fetch('/api/dashboard/monthly'),
-    fetch('/api/dashboard/brokers'),
-    fetch('/api/dashboard/rm'),
+    fetch('/api/dashboard/monthly'  + qs),
+    fetch('/api/dashboard/brokers'  + qs),
+    fetch('/api/dashboard/rm'       + qs),
   ]);
-  monthlyData  = await mRes.json();
-  brokersData  = await bRes.json();
-  rmData       = await rRes.json();
+  const mJson = await mRes.json();
+  const bJson = await bRes.json();
+  const rJson = await rRes.json();
+
+  monthlyData = Array.isArray(mJson) ? mJson : [];
+  brokersData = Array.isArray(bJson) ? bJson : [];
+  rmData      = (rJson && rJson.actuals) ? rJson : {actuals: [], targets: []};
 
   renderKPIs();
   renderMonthly();
@@ -173,21 +246,29 @@ async function loadAll() {
   renderRM();
 }
 
+function applyFilters() { loadAll(); }
+function clearFilters() {
+  ['fPlan','fType','fBroker','fRm'].forEach(id => document.getElementById(id).value = '');
+  loadAll();
+}
+
+// ── KPIs ───────────────────────────────────────────────────────────────────
 function renderKPIs() {
-  const totalPolicies  = monthlyData.reduce((s,r) => s + parseInt(r.policy_count), 0);
-  const totalPremium   = monthlyData.reduce((s,r) => s + parseFloat(r.total_premium || 0), 0);
-  const totalMembers   = monthlyData.reduce((s,r) => s + parseInt(r.member_count || 0), 0);
-  const avgSize        = totalPolicies ? totalPremium / totalPolicies : 0;
+  const totalPolicies = monthlyData.reduce((s,r) => s + parseInt(r.policy_count||0), 0);
+  const totalPremium  = monthlyData.reduce((s,r) => s + parseFloat(r.total_premium||0), 0);
+  const totalMembers  = monthlyData.reduce((s,r) => s + parseInt(r.member_count||0), 0);
+  const avgSize       = totalPolicies ? totalPremium / totalPolicies : 0;
   document.getElementById('kTotal').textContent   = totalPolicies.toLocaleString();
   document.getElementById('kPremium').textContent = fmtNum(totalPremium);
   document.getElementById('kMembers').textContent = totalMembers.toLocaleString();
   document.getElementById('kAvg').textContent     = fmtNum(avgSize);
 }
 
+// ── Monthly ────────────────────────────────────────────────────────────────
 function renderMonthly() {
   const labels = monthlyData.map(r => fmtMonth(r.month));
-  const grands  = monthlyData.map(r => parseFloat(r.total_premium) || 0);
-  const nets    = monthlyData.map(r => parseFloat(r.net_premium) || 0);
+  const grands = monthlyData.map(r => parseFloat(r.total_premium)||0);
+  const nets   = monthlyData.map(r => parseFloat(r.net_premium)||0);
 
   if (monthChart) monthChart.destroy();
   monthChart = new Chart(document.getElementById('monthChart'), {
@@ -202,25 +283,26 @@ function renderMonthly() {
     options: {
       responsive: true, maintainAspectRatio: false,
       plugins: { legend: { position: 'top' } },
-      scales: {
-        y: { ticks: { callback: v => 'AED ' + fmtNum(v) } }
-      }
+      scales: { y: { ticks: { callback: v => 'AED ' + fmtNum(v) } } }
     }
   });
 
-  const tbody = document.getElementById('monthBody');
   let sumC=0, sumM=0, sumN=0, sumG=0;
-  tbody.innerHTML = monthlyData.map(r => {
-    sumC += parseInt(r.policy_count); sumM += parseInt(r.member_count || 0);
-    sumN += parseFloat(r.net_premium || 0); sumG += parseFloat(r.total_premium || 0);
-    return `<tr>
-      <td>${fmtMonth(r.month)}</td>
-      <td class="num">${r.policy_count}</td>
-      <td class="num">${parseInt(r.member_count || 0).toLocaleString()}</td>
-      <td class="num">AED ${fmtNum(r.net_premium)}</td>
-      <td class="num">AED ${fmtNum(r.total_premium)}</td>
-    </tr>`;
-  }).join('') || '<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:20px">No data yet</td></tr>';
+  document.getElementById('monthBody').innerHTML = monthlyData.length
+    ? monthlyData.map(r => {
+        sumC += parseInt(r.policy_count||0);
+        sumM += parseInt(r.member_count||0);
+        sumN += parseFloat(r.net_premium||0);
+        sumG += parseFloat(r.total_premium||0);
+        return `<tr>
+          <td>${fmtMonth(r.month)}</td>
+          <td class="num">${r.policy_count}</td>
+          <td class="num">${parseInt(r.member_count||0).toLocaleString()}</td>
+          <td class="num">AED ${fmtNum(r.net_premium)}</td>
+          <td class="num">AED ${fmtNum(r.total_premium)}</td>
+        </tr>`;
+      }).join('')
+    : '<tr class="empty-row"><td colspan="5">No data for selected filters</td></tr>';
 
   document.getElementById('mfCount').textContent   = sumC;
   document.getElementById('mfMembers').textContent = sumM.toLocaleString();
@@ -228,72 +310,67 @@ function renderMonthly() {
   document.getElementById('mfGrand').textContent   = 'AED ' + fmtNum(sumG);
 }
 
+// ── Brokers ────────────────────────────────────────────────────────────────
 function renderBrokers() {
-  document.getElementById('brokerBody').innerHTML =
-    brokersData.map(r => `
-      <tr>
+  document.getElementById('brokerBody').innerHTML = brokersData.length
+    ? brokersData.map(r => `<tr>
         <td><strong>${r.broker}</strong></td>
         <td class="num">${r.policy_count}</td>
-        <td class="num">${parseInt(r.total_members || 0).toLocaleString()}</td>
+        <td class="num">${parseInt(r.total_members||0).toLocaleString()}</td>
         <td class="num">AED ${fmtNum(r.total_net)}</td>
         <td class="num">AED ${fmtNum(r.total_grand)}</td>
         <td class="num">AED ${fmtNum(r.avg_policy_size)}</td>
-      </tr>`).join('') ||
-    '<tr><td colspan="6" style="text-align:center;color:#94a3b8;padding:20px">No data yet</td></tr>';
+      </tr>`).join('')
+    : '<tr class="empty-row"><td colspan="6">No data for selected filters</td></tr>';
 }
 
+// ── RM vs Targets ──────────────────────────────────────────────────────────
 function renderRM() {
   const year  = parseInt(document.getElementById('rmYear').value);
   const month = parseInt(document.getElementById('rmMonth').value);
 
-  // Build actuals map for selected year/month
   const actualMap = {};
   (rmData.actuals || []).forEach(a => {
     if (a.year === year && a.month === month)
-      actualMap[a.rm_name] = { count: a.policy_count, amount: parseFloat(a.actual_amount || 0) };
+      actualMap[a.rm_name] = { count: parseInt(a.policy_count||0), amount: parseFloat(a.actual_amount||0) };
   });
-
-  // Build target map
   const targetMap = {};
   (rmData.targets || []).forEach(t => {
     if (t.year === year && t.month === month)
-      targetMap[t.rm_name] = parseFloat(t.target_amount || 0);
+      targetMap[t.rm_name] = parseFloat(t.target_amount||0);
   });
 
-  // All RM names (union of actuals + targets)
   const allRMs = [...new Set([
     ...Object.keys(actualMap),
     ...Object.keys(targetMap),
-    ...(rmData.actuals || []).map(a => a.rm_name)
+    ...(rmData.actuals||[]).map(a => a.rm_name),
   ])].filter(Boolean).sort();
 
   if (!allRMs.length) {
-    document.getElementById('rmBody').innerHTML =
-      '<tr><td colspan="6" style="text-align:center;color:#94a3b8;padding:20px">No RM data yet</td></tr>';
+    document.getElementById('rmBody').innerHTML = '<tr class="empty-row"><td colspan="6">No RM data for selected filters</td></tr>';
     return;
   }
 
   document.getElementById('rmBody').innerHTML = allRMs.map(rm => {
-    const actual  = (actualMap[rm]?.amount) || 0;
-    const count   = (actualMap[rm]?.count)  || 0;
-    const target  = targetMap[rm] || 0;
+    const actual   = actualMap[rm]?.amount || 0;
+    const count    = actualMap[rm]?.count  || 0;
+    const target   = targetMap[rm] || 0;
     const variance = actual - target;
-    const pct      = target > 0 ? (actual / target * 100) : null;
+    const pct      = target > 0 ? actual / target * 100 : null;
     const pctClass = pct === null ? '' : pct >= 100 ? 'pct-good' : pct >= 70 ? 'pct-warn' : 'pct-bad';
     const pctLabel = pct === null ? '—' : `<span class="pct ${pctClass}">${pct.toFixed(0)}%</span>`;
-
+    const safeId   = rm.replace(/\W+/g,'_');
     return `<tr>
       <td><strong>${rm}</strong></td>
       <td class="num">${count}</td>
       <td class="num">AED ${fmtNum(actual)}</td>
       <td class="num">
         <input class="target-input" type="number" min="0" step="1000"
-               value="${target || ''}" placeholder="Set target"
-               id="ti-${rm.replace(/\s+/g,'_')}" />
+          value="${target||''}" placeholder="Set target" id="ti-${safeId}">
         <button class="save-btn" onclick="saveTarget('${rm.replace(/'/g,"\\'")}')">Save</button>
       </td>
-      <td class="num" style="color:${variance >= 0 ? '#16a34a' : '#dc2626'};font-weight:600">
-        ${variance >= 0 ? '+' : ''}AED ${fmtNum(variance)}
+      <td class="num" style="color:${variance>=0?'#16a34a':'#dc2626'};font-weight:600">
+        ${variance>=0?'+':''}AED ${fmtNum(variance)}
       </td>
       <td class="num">${pctLabel}</td>
     </tr>`;
@@ -303,37 +380,33 @@ function renderRM() {
 async function saveTarget(rmName) {
   const year  = parseInt(document.getElementById('rmYear').value);
   const month = parseInt(document.getElementById('rmMonth').value);
-  const key   = rmName.replace(/\s+/g, '_');
-  const val   = parseFloat(document.getElementById(`ti-${key}`).value) || 0;
-
-  const res  = await fetch('/api/dashboard/rm_targets', {
-    method: 'POST',
-    headers: {'Content-Type':'application/json'},
+  const val   = parseFloat(document.getElementById(`ti-${rmName.replace(/\W+/g,'_')}`).value) || 0;
+  const res   = await fetch('/api/dashboard/rm_targets', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
     body: JSON.stringify({ rm_name: rmName, year, month, target_amount: val }),
   });
   const data = await res.json();
   if (data.ok) {
-    // Update local target map and re-render
-    const existing = rmData.targets.find(t => t.rm_name === rmName && t.year === year && t.month === month);
-    if (existing) existing.target_amount = val;
+    const ex = rmData.targets.find(t => t.rm_name===rmName && t.year===year && t.month===month);
+    if (ex) ex.target_amount = val;
     else rmData.targets.push({ rm_name: rmName, year, month, target_amount: val });
     renderRM();
   }
 }
 
-function fmtMonth(monthStr) {
-  if (!monthStr) return '—';
-  // monthStr is 'YYYY-MM'
-  const [y, m] = monthStr.split('-');
-  return new Date(y, parseInt(m) - 1, 1).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
+function fmtMonth(s) {
+  if (!s) return '—';
+  const [y, m] = s.split('-');
+  return new Date(y, parseInt(m)-1, 1).toLocaleDateString('en-GB', {month:'short', year:'numeric'});
 }
 function fmtNum(n) {
-  return Number(n || 0).toLocaleString('en-AE', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  return Number(n||0).toLocaleString('en-AE', {minimumFractionDigits:0, maximumFractionDigits:0});
 }
 
 document.getElementById('rmYear').addEventListener('change', renderRM);
 document.getElementById('rmMonth').addEventListener('change', renderRM);
 
+loadMeta();
 loadAll();
 </script>
 </body>
