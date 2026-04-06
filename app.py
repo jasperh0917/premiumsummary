@@ -2237,6 +2237,141 @@ def api_policies_meta():
         return jsonify({'brokers': [], 'rms': [], 'plans': [], 'plan_types': []})
 
 
+# ── Settings: Underwriters / RM Persons / Brokers ────────────────────────────
+
+@app.route('/settings')
+def page_settings():
+    return render_template('settings.html')
+
+
+def _people_list(table_name):
+    supa = get_supa()
+    if not supa:
+        return jsonify([])
+    try:
+        res = supa.table(table_name).select('*').order('name').execute()
+        return jsonify(res.data or [])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+def _people_add(table_name):
+    supa = get_supa()
+    if not supa:
+        return jsonify({'error': 'DB not configured'}), 503
+    data = request.get_json(force=True) or {}
+    name = (data.get('name') or '').strip()
+    if not name:
+        return jsonify({'error': 'name required'}), 400
+    try:
+        res = supa.table(table_name).insert({'name': name}).execute()
+        return jsonify(res.data[0] if res.data else {}), 201
+    except Exception as e:
+        msg = str(e)
+        if 'unique' in msg.lower() or 'duplicate' in msg.lower():
+            return jsonify({'error': 'Already exists'}), 409
+        return jsonify({'error': msg}), 500
+
+
+def _people_edit(table_name, rid):
+    supa = get_supa()
+    if not supa:
+        return jsonify({'error': 'DB not configured'}), 503
+    data = request.get_json(force=True) or {}
+    name = (data.get('name') or '').strip()
+    if not name:
+        return jsonify({'error': 'name required'}), 400
+    try:
+        res = supa.table(table_name).update({'name': name}).eq('id', rid).execute()
+        return jsonify(res.data[0] if res.data else {})
+    except Exception as e:
+        msg = str(e)
+        if 'unique' in msg.lower() or 'duplicate' in msg.lower():
+            return jsonify({'error': 'Already exists'}), 409
+        return jsonify({'error': msg}), 500
+
+
+# policy column that links to each people table
+_PEOPLE_POLICY_COL = {
+    'underwriters': 'underwriter',
+    'rm_persons':   'rm_person',
+    'brokers':      'broker',
+}
+
+def _people_delete(table_name, rid):
+    supa = get_supa()
+    if not supa:
+        return jsonify({'error': 'DB not configured'}), 503
+    try:
+        # Check if any policy references this person
+        row = supa.table(table_name).select('name').eq('id', rid).single().execute()
+        name = row.data['name'] if row.data else None
+        if name:
+            pol_col = _PEOPLE_POLICY_COL.get(table_name)
+            if pol_col:
+                check = supa.table('policies').select('id', count='exact').eq(pol_col, name).limit(1).execute()
+                if (check.count or 0) > 0:
+                    return jsonify({'error': f'Cannot delete — {check.count} policy record(s) use this name.'}), 409
+        supa.table(table_name).delete().eq('id', rid).execute()
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# Underwriters
+@app.route('/api/settings/underwriters', methods=['GET'])
+def api_underwriters_list():
+    return _people_list('underwriters')
+
+@app.route('/api/settings/underwriters', methods=['POST'])
+def api_underwriters_add():
+    return _people_add('underwriters')
+
+@app.route('/api/settings/underwriters/<int:rid>', methods=['PUT'])
+def api_underwriters_edit(rid):
+    return _people_edit('underwriters', rid)
+
+@app.route('/api/settings/underwriters/<int:rid>', methods=['DELETE'])
+def api_underwriters_delete(rid):
+    return _people_delete('underwriters', rid)
+
+
+# RM Persons
+@app.route('/api/settings/rm_persons', methods=['GET'])
+def api_rm_list():
+    return _people_list('rm_persons')
+
+@app.route('/api/settings/rm_persons', methods=['POST'])
+def api_rm_add():
+    return _people_add('rm_persons')
+
+@app.route('/api/settings/rm_persons/<int:rid>', methods=['PUT'])
+def api_rm_edit(rid):
+    return _people_edit('rm_persons', rid)
+
+@app.route('/api/settings/rm_persons/<int:rid>', methods=['DELETE'])
+def api_rm_delete(rid):
+    return _people_delete('rm_persons', rid)
+
+
+# Brokers
+@app.route('/api/settings/brokers', methods=['GET'])
+def api_brokers_list():
+    return _people_list('brokers')
+
+@app.route('/api/settings/brokers', methods=['POST'])
+def api_brokers_add():
+    return _people_add('brokers')
+
+@app.route('/api/settings/brokers/<int:rid>', methods=['PUT'])
+def api_brokers_edit(rid):
+    return _people_edit('brokers', rid)
+
+@app.route('/api/settings/brokers/<int:rid>', methods=['DELETE'])
+def api_brokers_delete(rid):
+    return _people_delete('brokers', rid)
+
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5050))
     app.run(debug=False, port=port, host='0.0.0.0')

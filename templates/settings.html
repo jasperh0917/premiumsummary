@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Settings — WellX Premium Summary</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f3f4f6;min-height:100vh}
+
+  /* ── Top bar ── */
+  .topbar{background:#111827;padding:14px 24px;display:flex;align-items:center;gap:12px}
+  .topbar-title{color:#fff;font-size:17px;font-weight:700;letter-spacing:-.3px}
+  .topbar-nav{margin-left:auto;display:flex;gap:8px;flex-shrink:0}
+  .topbar-nav a{
+    color:#d1d5db;text-decoration:none;font-size:13px;padding:6px 14px;
+    border-radius:6px;border:1px solid #374151;background:#1f2937;transition:.15s
+  }
+  .topbar-nav a:hover{background:#374151;color:#fff}
+  .topbar-nav a.active{background:#2563eb;border-color:#2563eb;color:#fff}
+
+  /* ── Layout ── */
+  .page{max-width:960px;margin:32px auto;padding:0 20px}
+  h1{font-size:22px;font-weight:700;color:#111827;margin-bottom:24px}
+
+  /* ── Tabs ── */
+  .tabs{display:flex;gap:4px;border-bottom:2px solid #e5e7eb;margin-bottom:28px}
+  .tab-btn{
+    padding:10px 20px;font-size:14px;font-weight:600;cursor:pointer;border:none;
+    background:transparent;color:#6b7280;border-bottom:2px solid transparent;
+    margin-bottom:-2px;transition:.15s;border-radius:4px 4px 0 0
+  }
+  .tab-btn:hover{color:#111827;background:#f9fafb}
+  .tab-btn.active{color:#2563eb;border-bottom-color:#2563eb}
+
+  /* ── Panel ── */
+  .panel{display:none}
+  .panel.active{display:block}
+
+  /* ── Card ── */
+  .card{background:#fff;border-radius:10px;border:1px solid #e5e7eb;overflow:hidden}
+  .card-header{
+    padding:16px 20px;border-bottom:1px solid #f3f4f6;display:flex;
+    align-items:center;justify-content:space-between
+  }
+  .card-header h2{font-size:15px;font-weight:700;color:#111827}
+
+  /* ── Add form ── */
+  .add-row{display:flex;gap:8px;padding:16px 20px;border-bottom:1px solid #f3f4f6;background:#f9fafb}
+  .add-row input{
+    flex:1;padding:9px 12px;border:1px solid #d1d5db;border-radius:7px;
+    font-size:14px;outline:none;transition:.15s
+  }
+  .add-row input:focus{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+  .btn{
+    padding:9px 18px;border:none;border-radius:7px;font-size:13px;
+    font-weight:600;cursor:pointer;transition:.15s;white-space:nowrap
+  }
+  .btn-primary{background:#2563eb;color:#fff}
+  .btn-primary:hover{background:#1d4ed8}
+  .btn-primary:disabled{background:#93c5fd;cursor:default}
+  .btn-ghost{background:#f3f4f6;color:#374151;border:1px solid #d1d5db}
+  .btn-ghost:hover{background:#e5e7eb}
+  .btn-danger{background:#fee2e2;color:#991b1b;border:1px solid #fecaca}
+  .btn-danger:hover{background:#fecaca}
+  .btn-danger:disabled{background:#f3f4f6;color:#9ca3af;border-color:#e5e7eb;cursor:default}
+  .btn-save{background:#dcfce7;color:#166534;border:1px solid #bbf7d0}
+  .btn-save:hover{background:#bbf7d0}
+  .btn-cancel{background:#f9fafb;color:#6b7280;border:1px solid #e5e7eb}
+  .btn-cancel:hover{background:#f3f4f6}
+  .btn-sm{padding:5px 12px;font-size:12px}
+
+  /* ── List ── */
+  .people-list{list-style:none}
+  .people-list li{
+    display:flex;align-items:center;gap:10px;
+    padding:11px 20px;border-bottom:1px solid #f3f4f6;transition:.1s
+  }
+  .people-list li:last-child{border-bottom:none}
+  .people-list li:hover{background:#f9fafb}
+  .people-name{flex:1;font-size:14px;color:#111827}
+  .edit-input{
+    flex:1;padding:5px 10px;border:1px solid #93c5fd;border-radius:6px;
+    font-size:14px;outline:none;background:#eff6ff
+  }
+  .edit-input:focus{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+  .actions{display:flex;gap:6px;flex-shrink:0}
+
+  /* ── Count badge ── */
+  .count-badge{
+    font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;
+    background:#fee2e2;color:#991b1b;margin-left:6px
+  }
+  .count-badge.zero{background:#f3f4f6;color:#6b7280}
+
+  /* ── Toast ── */
+  #toast{
+    position:fixed;bottom:28px;right:28px;padding:12px 20px;border-radius:9px;
+    font-size:13px;font-weight:600;color:#fff;z-index:9999;
+    transition:opacity .3s;pointer-events:none;opacity:0
+  }
+  #toast.show{opacity:1}
+  #toast.ok{background:#16a34a}
+  #toast.err{background:#dc2626}
+
+  /* ── Loading ── */
+  .loading{padding:28px 20px;text-align:center;color:#9ca3af;font-size:14px}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-title">⚙️ WellX Settings</div>
+  <nav class="topbar-nav">
+    <a href="/">🧮 Calculator</a>
+    <a href="/policies">📋 Policies</a>
+    <a href="/dashboard">📊 Dashboard</a>
+    <a href="/settings" class="active">⚙️ Settings</a>
+  </nav>
+</div>
+
+<div class="page">
+  <h1>People &amp; Broker Management</h1>
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('underwriters')">Underwriters</button>
+    <button class="tab-btn" onclick="switchTab('rm_persons')">RM Persons</button>
+    <button class="tab-btn" onclick="switchTab('brokers')">Brokers</button>
+  </div>
+
+  <!-- Underwriters -->
+  <div class="panel active" id="panel-underwriters">
+    <div class="card">
+      <div class="card-header">
+        <h2>Underwriters</h2>
+      </div>
+      <div class="add-row">
+        <input id="add-underwriters" type="text" placeholder="New underwriter name…" onkeydown="if(event.key==='Enter')addPerson('underwriters')"/>
+        <button class="btn btn-primary" onclick="addPerson('underwriters')">+ Add</button>
+      </div>
+      <ul class="people-list" id="list-underwriters"><li class="loading">Loading…</li></ul>
+    </div>
+  </div>
+
+  <!-- RM Persons -->
+  <div class="panel" id="panel-rm_persons">
+    <div class="card">
+      <div class="card-header">
+        <h2>RM Persons</h2>
+      </div>
+      <div class="add-row">
+        <input id="add-rm_persons" type="text" placeholder="New RM name…" onkeydown="if(event.key==='Enter')addPerson('rm_persons')"/>
+        <button class="btn btn-primary" onclick="addPerson('rm_persons')">+ Add</button>
+      </div>
+      <ul class="people-list" id="list-rm_persons"><li class="loading">Loading…</li></ul>
+    </div>
+  </div>
+
+  <!-- Brokers -->
+  <div class="panel" id="panel-brokers">
+    <div class="card">
+      <div class="card-header">
+        <h2>Brokers</h2>
+      </div>
+      <div class="add-row">
+        <input id="add-brokers" type="text" placeholder="New broker name…" onkeydown="if(event.key==='Enter')addPerson('brokers')"/>
+        <button class="btn btn-primary" onclick="addPerson('brokers')">+ Add</button>
+      </div>
+      <ul class="people-list" id="list-brokers"><li class="loading">Loading…</li></ul>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── Tab switching ─────────────────────────────────────────────────────────────
+const TABS = ['underwriters','rm_persons','brokers'];
+
+function switchTab(key) {
+  TABS.forEach(t => {
+    document.getElementById('panel-' + t).classList.toggle('active', t === key);
+    document.querySelectorAll('.tab-btn').forEach((b, i) => {
+      b.classList.toggle('active', TABS[i] === key);
+    });
+  });
+  if (!_loaded[key]) loadList(key);
+}
+
+const _loaded = {};
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+function toast(msg, type = 'ok') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'show ' + type;
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.className = '', 2800);
+}
+
+// ── Load list ─────────────────────────────────────────────────────────────────
+async function loadList(table) {
+  const ul = document.getElementById('list-' + table);
+  ul.innerHTML = '<li class="loading">Loading…</li>';
+  try {
+    const res = await fetch('/api/settings/' + table);
+    const rows = await res.json();
+    _loaded[table] = true;
+    if (!Array.isArray(rows) || rows.length === 0) {
+      ul.innerHTML = '<li class="loading">No entries yet.</li>';
+      return;
+    }
+    ul.innerHTML = '';
+    rows.forEach(row => ul.appendChild(makeRow(table, row)));
+  } catch(e) {
+    ul.innerHTML = '<li class="loading" style="color:#dc2626">Failed to load.</li>';
+  }
+}
+
+// ── Build a list row ──────────────────────────────────────────────────────────
+function makeRow(table, row) {
+  const li = document.createElement('li');
+  li.id = 'row-' + table + '-' + row.id;
+  li.dataset.id   = row.id;
+  li.dataset.name = row.name;
+
+  const nameSpan = document.createElement('span');
+  nameSpan.className = 'people-name';
+  nameSpan.textContent = row.name;
+
+  const actions = document.createElement('div');
+  actions.className = 'actions';
+
+  const editBtn = document.createElement('button');
+  editBtn.className = 'btn btn-ghost btn-sm';
+  editBtn.textContent = 'Edit';
+  editBtn.onclick = () => startEdit(table, row.id, row.name, li);
+
+  const delBtn = document.createElement('button');
+  delBtn.className = 'btn btn-danger btn-sm';
+  delBtn.textContent = 'Delete';
+  delBtn.title = 'Cannot delete if policies exist';
+  delBtn.onclick = () => deletePerson(table, row.id, row.name, delBtn);
+
+  actions.appendChild(editBtn);
+  actions.appendChild(delBtn);
+  li.appendChild(nameSpan);
+  li.appendChild(actions);
+  return li;
+}
+
+// ── Inline edit ───────────────────────────────────────────────────────────────
+function startEdit(table, id, currentName, li) {
+  li.innerHTML = '';
+  const input = document.createElement('input');
+  input.className = 'edit-input';
+  input.value = currentName;
+  input.onkeydown = e => {
+    if (e.key === 'Enter') saveEdit(table, id, input);
+    if (e.key === 'Escape') cancelEdit(table, id, currentName, li);
+  };
+
+  const actions = document.createElement('div');
+  actions.className = 'actions';
+
+  const saveBtn = document.createElement('button');
+  saveBtn.className = 'btn btn-save btn-sm';
+  saveBtn.textContent = 'Save';
+  saveBtn.onclick = () => saveEdit(table, id, input);
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.className = 'btn btn-cancel btn-sm';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.onclick = () => cancelEdit(table, id, currentName, li);
+
+  actions.appendChild(saveBtn);
+  actions.appendChild(cancelBtn);
+  li.appendChild(input);
+  li.appendChild(actions);
+  input.focus();
+  input.select();
+}
+
+function cancelEdit(table, id, name, li) {
+  li.replaceWith(makeRow(table, {id, name}));
+}
+
+async function saveEdit(table, id, input) {
+  const name = input.value.trim();
+  if (!name) { toast('Name cannot be empty', 'err'); return; }
+  input.disabled = true;
+  try {
+    const res = await fetch(`/api/settings/${table}/${id}`, {
+      method: 'PUT',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({name})
+    });
+    const data = await res.json();
+    if (!res.ok) { toast(data.error || 'Error saving', 'err'); input.disabled = false; return; }
+    const li = document.getElementById('row-' + table + '-' + id);
+    li.replaceWith(makeRow(table, {id, name}));
+    toast('Saved ✓');
+  } catch(e) {
+    toast('Network error', 'err');
+    input.disabled = false;
+  }
+}
+
+// ── Add ───────────────────────────────────────────────────────────────────────
+async function addPerson(table) {
+  const inp = document.getElementById('add-' + table);
+  const name = inp.value.trim();
+  if (!name) { inp.focus(); return; }
+  inp.disabled = true;
+  try {
+    const res = await fetch('/api/settings/' + table, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({name})
+    });
+    const data = await res.json();
+    if (!res.ok) { toast(data.error || 'Error adding', 'err'); inp.disabled = false; inp.focus(); return; }
+    inp.value = '';
+    inp.disabled = false;
+    // Append new row to the list
+    const ul = document.getElementById('list-' + table);
+    const empty = ul.querySelector('.loading');
+    if (empty) ul.innerHTML = '';
+    ul.appendChild(makeRow(table, data));
+    toast('Added ✓');
+    inp.focus();
+  } catch(e) {
+    toast('Network error', 'err');
+    inp.disabled = false;
+  }
+}
+
+// ── Delete ────────────────────────────────────────────────────────────────────
+async function deletePerson(table, id, name, btn) {
+  if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
+  btn.disabled = true;
+  btn.textContent = '…';
+  try {
+    const res = await fetch(`/api/settings/${table}/${id}`, {method: 'DELETE'});
+    const data = await res.json();
+    if (!res.ok) {
+      toast(data.error || 'Cannot delete', 'err');
+      btn.disabled = false;
+      btn.textContent = 'Delete';
+      return;
+    }
+    const li = document.getElementById('row-' + table + '-' + id);
+    li.style.opacity = '0';
+    li.style.transition = 'opacity .3s';
+    setTimeout(() => { li.remove(); toast('Deleted'); }, 300);
+  } catch(e) {
+    toast('Network error', 'err');
+    btn.disabled = false;
+    btn.textContent = 'Delete';
+  }
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+loadList('underwriters');
+</script>
+</body>
+</html>

@@ -271,6 +271,9 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0a0a0a;min-height:100v
         <a href="/dashboard" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.15);border-radius:10px;color:rgba(255,255,255,.85);font-size:.78rem;font-weight:600;font-family:'Inter',sans-serif;text-decoration:none;transition:.15s" onmouseover="this.style.background='rgba(255,255,255,.16)'" onmouseout="this.style.background='rgba(255,255,255,.08)'">
           📊 Dashboard
         </a>
+        <a href="/settings" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.15);border-radius:10px;color:rgba(255,255,255,.85);font-size:.78rem;font-weight:600;font-family:'Inter',sans-serif;text-decoration:none;transition:.15s" onmouseover="this.style.background='rgba(255,255,255,.16)'" onmouseout="this.style.background='rgba(255,255,255,.08)'">
+          ⚙️ Settings
+        </a>
       </div>
     </div>
   </div>
@@ -611,19 +614,35 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0a0a0a;min-height:100v
 </div><!-- /card -->
 
 <script>
-// ── Dropdown data ─────────────────────────────────────────────────────────────
-const BROKERS = ["ADIB","AES International","Insurance Market","Al Sayegh","Al Manarah","Al Nabooda","Aon Middle East","Associated Insurance Brokers-AUH","Beneple","Berns Brett Masaood","Burns & Wilcox","Compass","Cedar","Continental","Cosmos","Cross Road","Doo","Earnest","Fidelity Insurance Services","FISCO","Green Shield","Gargash","Gateway","Genesis","Howden","Indemnity","Interactive","Joie de Vivre International","Kaizzen Plus","Links","Lockton - Dubai","Lockton - Abu Dhabi","Lifecare International Broker","Malakut","Marsh","Newtech","Northern","Nasco Emirates - Abu Dhabi","Nasco M.E. - Dubai","New Shield","Nexus","Omega","Pearl","Phillip Middle East","Prominent","PWS Gulf","Pacific Prime","Platinum","Direct Sale","R2S","RMS","Seven","The Brokerage Firm","Unitrust","Viva","Wayyak","Wehbe Insurance Services","Other"];
-const UNDERWRITERS = ["Jasper","Mabel","Joseph","Angela"];
-const RMS = ["Sujith","Heston","Mark"];
+// ── Dropdown data — loaded from DB ────────────────────────────────────────────
 const DEFAULT_BRACKETS = ["0-10","11-17","18-25","26-30","31-35","36-40","41-45","46-50","51-55","56-59","60-64","65-99"];
 
 function populate(id, items) {
   const sel = document.getElementById(id);
   items.forEach(n => { const o = document.createElement('option'); o.value = o.textContent = n; sel.appendChild(o); });
 }
-populate('brokerName', BROKERS);
-populate('underwriter', UNDERWRITERS);
-populate('rmPerson', RMS);
+
+// Fetch brokers, underwriters, and RMs from the settings API
+(async function loadDropdowns() {
+  try {
+    const [bRes, uRes, rRes] = await Promise.all([
+      fetch('/api/settings/brokers'),
+      fetch('/api/settings/underwriters'),
+      fetch('/api/settings/rm_persons'),
+    ]);
+    const brokers      = (await bRes.json()).map(r => r.name);
+    const underwriters = (await uRes.json()).map(r => r.name);
+    const rms          = (await rRes.json()).map(r => r.name);
+    populate('brokerName', brokers);
+    populate('underwriter', underwriters);
+    populate('rmPerson', rms);
+  } catch(e) {
+    console.warn('Could not load dropdowns from DB, using fallback', e);
+    populate('brokerName', ["ADIB","AES International","Insurance Market","Al Sayegh","Al Manarah","Al Nabooda","Aon Middle East","Associated Insurance Brokers-AUH","Beneple","Berns Brett Masaood","Burns & Wilcox","Compass","Cedar","Continental","Cosmos","Cross Road","Doo","Earnest","Fidelity Insurance Services","FISCO","Green Shield","Gargash","Gateway","Genesis","Howden","Indemnity","Interactive","Joie de Vivre International","Kaizzen Plus","Links","Lockton - Dubai","Lockton - Abu Dhabi","Lifecare International Broker","Malakut","Marsh","Newtech","Northern","Nasco Emirates - Abu Dhabi","Nasco M.E. - Dubai","New Shield","Nexus","Omega","Pearl","Phillip Middle East","Prominent","PWS Gulf","Pacific Prime","Platinum","Direct Sale","R2S","RMS","Seven","The Brokerage Firm","Unitrust","Viva","Wayyak","Wehbe Insurance Services","Other"]);
+    populate('underwriter', ["Jasper","Mabel","Joseph","Angela"]);
+    populate('rmPerson', ["Sujith","Heston","Mark"]);
+  }
+})();
 
 // ── Bracket definitions ───────────────────────────────────────────────────────
 const DHA_BRACKETS = [
