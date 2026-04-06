@@ -90,6 +90,19 @@ tbody td{padding:9px 12px;font-size:.82rem;color:var(--dark);white-space:nowrap}
 .badge-emp{background:#dcfce7;color:#166534}
 .badge-dep{background:#f3e8ff;color:#6b21a8}
 
+/* ── Rate editing ── */
+.rate-edit-bar{display:flex;align-items:center;gap:8px;margin-bottom:14px}
+.rate-input{border:1.5px solid #bfdbfe;border-radius:6px;padding:4px 7px;font-size:.82rem;font-family:inherit;width:90px;text-align:right;outline:none;background:#eff6ff;color:var(--dark);transition:.15s}
+.rate-input:focus{border-color:var(--navy);background:#fff}
+.mat-input{width:110px}
+.rates-saving{display:none;font-size:.8rem;font-weight:600;color:var(--slate);align-items:center;gap:6px}
+
+/* ── Census upload ── */
+.census-bar{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.census-status{font-size:.8rem;font-weight:600;color:var(--slate)}
+.progress-bar-wrap{height:6px;background:#e5e7eb;border-radius:3px;overflow:hidden;width:200px;display:none}
+.progress-bar{height:100%;background:var(--navy);width:0;transition:width .3s;border-radius:3px}
+
 /* ── Edit button ── */
 .edit-btn{display:inline-flex;align-items:center;gap:6px;padding:7px 16px;background:#eff6ff;color:#1d4ed8;border:1.5px solid #bfdbfe;border-radius:8px;font-size:.82rem;font-weight:600;font-family:inherit;cursor:pointer;transition:.15s}
 .edit-btn:hover{background:#1d4ed8;color:#fff;border-color:#1d4ed8}
@@ -170,14 +183,30 @@ tbody td{padding:9px 12px;font-size:.82rem;color:var(--dark);white-space:nowrap}
 
   <!-- Category Rates -->
   <div class="card">
-    <div class="card-title">Category Rate Tables</div>
-    <div class="cat-tabs" id="catTabs"></div>
+    <div class="card-title" style="display:flex;align-items:center;justify-content:space-between">
+      <span>Category Rate Tables</span>
+      <div class="rate-edit-bar" style="margin:0">
+        <span class="rates-saving" id="ratesSaving">⏳ Saving &amp; recalculating…</span>
+        <button class="edit-btn" id="ratesEditBtn" onclick="startEditRates()">✏️ Edit Rates</button>
+        <button class="btn-save" id="ratesSaveBtn" style="display:none;padding:6px 16px;font-size:.82rem" onclick="saveRates()">💾 Save Rates</button>
+        <button class="btn-cancel" id="ratesCancelBtn" style="display:none;padding:6px 14px;font-size:.82rem" onclick="cancelEditRates()">Cancel</button>
+      </div>
+    </div>
+    <div class="cat-tabs" id="catTabs" style="margin-top:14px"></div>
     <div id="catPanels"></div>
   </div>
 
   <!-- Member List -->
   <div class="card">
-    <div class="card-title">Member List (<span id="memCount">0</span> members)</div>
+    <div class="card-title" style="display:flex;align-items:center;justify-content:space-between">
+      <span>Member List (<span id="memCount">0</span> members)</span>
+      <div class="census-bar" style="margin:0;gap:10px">
+        <span class="census-status" id="censusStatus"></span>
+        <div class="progress-bar-wrap" id="censusProgress"><div class="progress-bar" id="censusBar"></div></div>
+        <button class="edit-btn" onclick="triggerCensusUpload()">📤 Replace Census</button>
+        <input type="file" id="censusFileInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="uploadCensus(this)"/>
+      </div>
+    </div>
     <div class="tbl-wrap">
       <table>
         <thead>
@@ -446,7 +475,13 @@ async function loadDetail() {
   const data = await res.json();
   if (data.error) { document.querySelector('.page-header h1').textContent = 'Policy not found'; return; }
 
-  _policyCache = data.policy;  // cache for edit modal
+  _policyCache    = data.policy;  // cache for edit modal
+  _ratesEditMode  = false;
+  const rEB = document.getElementById('ratesEditBtn');
+  const rSB = document.getElementById('ratesSaveBtn');
+  const rCB = document.getElementById('ratesCancelBtn');
+  const rSv = document.getElementById('ratesSaving');
+  if (rEB) { rEB.style.display=''; rSB.style.display='none'; rCB.style.display='none'; rSv.style.display='none'; }
 
   const p = data.policy;
 
@@ -541,17 +576,32 @@ async function loadDetail() {
     panel.className = 'cat-panel' + (i === 0 ? ' active' : '');
     panel.id = `panel-${cat.category}`;
     panel.innerHTML = `
-      ${parseFloat(cat.maternity_rate) > 0
-        ? `<div class="mat-rate">🤱 Maternity Rate: AED ${fmtNum(cat.maternity_rate)} / year</div>` : ''}
-      <div class="tbl-wrap">
+      <div class="mat-rate" style="cursor:default">
+        🤱 Maternity Rate (AED/yr):&nbsp;
+        <span data-rate-val="${cat.maternity_rate||0}"
+              data-rate-type="maternity"
+              data-cat-id="${cat.id}"
+              data-mat-input="1">AED ${fmtNum(cat.maternity_rate)}</span>
+      </div>
+      <div class="tbl-wrap" style="margin-top:10px">
         <table>
           <thead><tr><th>Age Range</th><th class="num">Male Rate (AED/yr)</th><th class="num">Female Rate (AED/yr)</th></tr></thead>
           <tbody>
             ${brackets.map(b => `
               <tr>
                 <td>${b.label}</td>
-                <td class="num">${fmtNum(b.male_rate)}</td>
-                <td class="num">${fmtNum(b.female_rate)}</td>
+                <td class="num">
+                  <span data-rate-val="${b.male_rate||0}"
+                        data-rate-type="male"
+                        data-rate-id="${b.id}"
+                        data-cat-id="${cat.id}">${fmtNum(b.male_rate)}</span>
+                </td>
+                <td class="num">
+                  <span data-rate-val="${b.female_rate||0}"
+                        data-rate-type="female"
+                        data-rate-id="${b.id}"
+                        data-cat-id="${cat.id}">${fmtNum(b.female_rate)}</span>
+                </td>
               </tr>`).join('')}
           </tbody>
         </table>
@@ -577,6 +627,130 @@ async function loadDetail() {
       <td class="num"><strong>${fmtNum(m.final_premium)}</strong></td>
     </tr>
   `).join('');
+}
+
+// ── Edit Rates ─────────────────────────────────────────────────────────────────
+let _ratesEditMode = false;
+
+function startEditRates() {
+  _ratesEditMode = true;
+  document.getElementById('ratesEditBtn').style.display   = 'none';
+  document.getElementById('ratesSaveBtn').style.display   = '';
+  document.getElementById('ratesCancelBtn').style.display = '';
+
+  document.querySelectorAll('[data-rate-val]').forEach(el => {
+    const inp = document.createElement('input');
+    inp.type      = 'number';
+    inp.className = 'rate-input' + (el.dataset.matInput ? ' mat-input' : '');
+    inp.value     = el.dataset.rateVal;
+    inp.min       = '0';
+    inp.step      = '0.01';
+    inp.dataset.rateId   = el.dataset.rateId   || '';
+    inp.dataset.rateType = el.dataset.rateType || '';
+    inp.dataset.catId    = el.dataset.catId    || '';
+    el.replaceWith(inp);
+  });
+}
+
+function cancelEditRates() {
+  _ratesEditMode = false;
+  document.getElementById('ratesEditBtn').style.display   = '';
+  document.getElementById('ratesSaveBtn').style.display   = 'none';
+  document.getElementById('ratesCancelBtn').style.display = 'none';
+  loadDetail();
+}
+
+async function saveRates() {
+  const saveBtn  = document.getElementById('ratesSaveBtn');
+  const cancelBtn = document.getElementById('ratesCancelBtn');
+  const savingEl = document.getElementById('ratesSaving');
+  saveBtn.disabled = cancelBtn.disabled = true;
+  saveBtn.style.display = 'none';
+  savingEl.style.display = 'flex';
+
+  const catMap = {};
+  document.querySelectorAll('input.rate-input').forEach(inp => {
+    const rateType = inp.dataset.rateType;
+    const val      = parseFloat(inp.value) || 0;
+    const catId    = inp.dataset.catId;
+    const brId     = inp.dataset.rateId;
+    if (!catMap[catId]) catMap[catId] = {id: parseInt(catId), maternity_rate: 0, brackets: {}};
+    if (rateType === 'maternity') {
+      catMap[catId].maternity_rate = val;
+    } else {
+      if (!catMap[catId].brackets[brId]) catMap[catId].brackets[brId] = {id: parseInt(brId), male_rate: 0, female_rate: 0};
+      catMap[catId].brackets[brId][rateType + '_rate'] = val;
+    }
+  });
+
+  const payload = {
+    categories: Object.values(catMap).map(cat => ({
+      id: cat.id, maternity_rate: cat.maternity_rate,
+      brackets: Object.values(cat.brackets),
+    }))
+  };
+
+  try {
+    const res  = await fetch(`/api/policies/${PID}/rates`, {
+      method: 'PUT', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      toast(data.error || 'Save failed', 'err');
+      saveBtn.disabled = cancelBtn.disabled = false;
+      saveBtn.style.display = ''; savingEl.style.display = 'none';
+    } else {
+      toast('Rates updated & premiums recalculated ✓');
+      _ratesEditMode = false; loadDetail();
+    }
+  } catch(e) {
+    toast('Network error', 'err');
+    saveBtn.disabled = cancelBtn.disabled = false;
+    saveBtn.style.display = ''; savingEl.style.display = 'none';
+  }
+}
+
+// ── Census upload ──────────────────────────────────────────────────────────────
+function triggerCensusUpload() {
+  document.getElementById('censusFileInput').value = '';
+  document.getElementById('censusFileInput').click();
+}
+
+async function uploadCensus(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const memberCount = parseInt(document.getElementById('memCount').textContent) || 0;
+  if (!confirm(
+    `Replace all ${memberCount} members with "${file.name}"?\n\n` +
+    `Premiums will be recalculated using the existing rates.\n\nThis cannot be undone.`
+  )) return;
+
+  const statusEl    = document.getElementById('censusStatus');
+  const progressWr  = document.getElementById('censusProgress');
+  const progressBar = document.getElementById('censusBar');
+  statusEl.textContent    = 'Uploading…';
+  progressWr.style.display = 'block';
+  progressBar.style.width  = '40%';
+
+  const fd = new FormData();
+  fd.append('census', file);
+  try {
+    progressBar.style.width = '70%';
+    const res  = await fetch(`/api/policies/${PID}/census`, {method:'POST', body:fd});
+    const data = await res.json();
+    progressBar.style.width = '100%';
+    if (!res.ok) {
+      toast(data.error || 'Upload failed', 'err');
+    } else {
+      toast(`Census replaced — ${data.member_count} members loaded ✓`);
+      loadDetail();
+    }
+    statusEl.textContent = ''; progressWr.style.display = 'none';
+  } catch(e) {
+    toast('Network error', 'err');
+    statusEl.textContent = ''; progressWr.style.display = 'none';
+  }
 }
 
 loadDetail();

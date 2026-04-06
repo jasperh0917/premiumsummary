@@ -2066,6 +2066,199 @@ def api_policies():
         return jsonify({'error': str(e)}), 500
 
 
+# ── Shared helper: recalculate members + totals from stored rates ─────────────
+
+def _recalculate_policy(supa, policy_id):
+    """Re-apply stored bracket rates to all members, then update policy totals."""
+    # Fetch categories + brackets
+    cat_res = supa.table('policy_categories').select('*').eq('policy_id', policy_id).execute()
+    categories_data = {}
+    for cat in (cat_res.data or []):
+        br_res = supa.table('policy_brackets').select('*') \
+                     .eq('category_id', cat['id']).order('age_lo').execute()
+        categories_data[cat['category'].upper()] = {
+            'brackets': [
+                {'age_lo': b['age_lo'], 'age_hi': b['age_hi'],
+                 'male': b['male_rate'], 'female': b['female_rate'], 'label': b['label']}
+                for b in (br_res.data or [])
+            ],
+            'maternity_rate': float(cat.get('maternity_rate') or 0),
+        }
+
+    # Fetch members
+    mem_res = supa.table('policy_members').select('*').eq('policy_id', policy_id).execute()
+    members = mem_res.data or []
+
+    total_net = total_mat = 0.0
+    for m in members:
+        rate, bracket_label, _ = get_member_rate(m, categories_data)
+        cat_key    = (m.get('category') or '').upper()
+        mat_rate   = categories_data.get(cat_key, {}).get('maternity_rate', 0)
+        emirate    = m.get('emirate') or 'Dubai'
+        mat_age_max = MAT_AGE_MAX_AUH if 'abu dhabi' in emirate.lower() else MAT_AGE_MAX_DXB
+        gender     = (m.get('gender') or '').lower()
+        marital    = (m.get('marital_status') or '').lower()
+        age        = m.get('age_alb') or 0
+        maternity  = float(mat_rate or 0) if (
+            gender.startswith('f') and marital.startswith('m')
+            and MAT_AGE_MIN <= age <= mat_age_max
+        ) else 0.0
+        gross_load   = float(m.get('gross_loading') or 0)
+        final_prem   = float(rate) + maternity + gross_load
+
+        supa.table('policy_members').update({
+            'base_premium':      float(rate),
+            'maternity_premium': maternity,
+            'final_premium':     final_prem,
+            'age_bracket':       bracket_label or m.get('age_bracket', ''),
+        }).eq('id', m['id']).execute()
+
+        total_net += float(rate)
+        total_mat += maternity
+
+    bas_total  = BASMAH_FEE * len(members)
+    subtotal   = total_net + total_mat + bas_total
+    vat        = subtotal * VAT_RATE
+    grand_total = subtotal + vat
+
+    supa.table('policies').update({
+        'total_net':       total_net,
+        'total_maternity': total_mat,
+        'total_basmah':    bas_total,
+        'subtotal':        subtotal,
+        'vat':             vat,
+        'grand_total':     grand_total,
+    }).eq('id', policy_id).execute()
+
+
+# ── Edit rates ────────────────────────────────────────────────────────────────
+
+@app.route('/api/policies/<int:pid>/rates', methods=['PUT'])
+def api_policy_rates_edit(pid):
+    supa = get_supa()
+    if not supa:
+        return jsonify({'error': 'Database not configured'}), 503
+    data       = request.get_json(force=True) or {}
+    categories = data.get('categories', [])
+    try:
+        for cat in categories:
+            cat_id = cat.get('id')
+            if not cat_id:
+                continue
+            supa.table('policy_categories').update({
+                'maternity_rate': float(cat.get('maternity_rate') or 0),
+            }).eq('id', cat_id).execute()
+
+            for br in cat.get('brackets', []):
+                br_id = br.get('id')
+                if not br_id:
+                    continue
+                supa.table('policy_brackets').update({
+                    'male_rate':   float(br.get('male_rate')   or 0),
+                    'female_rate': float(br.get('female_rate') or 0),
+                }).eq('id', br_id).execute()
+
+        _recalculate_policy(supa, pid)
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# ── Replace census ────────────────────────────────────────────────────────────
+
+@app.route('/api/policies/<int:pid>/census', methods=['POST'])
+def api_policy_census_replace(pid):
+    supa = get_supa()
+    if not supa:
+        return jsonify({'error': 'Database not configured'}), 503
+
+    census_file = request.files.get('census')
+    if not census_file:
+        return jsonify({'error': 'No file uploaded'}), 400
+
+    try:
+        pol_res = supa.table('policies').select('start_date,plan').eq('id', pid).execute()
+        if not pol_res.data:
+            return jsonify({'error': 'Policy not found'}), 404
+        pol        = pol_res.data[0]
+        start_date = str(pol.get('start_date') or '')
+        plan_lower = (pol.get('plan') or '').lower()
+        age_method = 'anb' if plan_lower in ('healthx', 'healthxclusive') else 'alb'
+
+        file_bytes = census_file.read()
+        filename   = census_file.filename or 'census.xlsx'
+
+        # Parse new census
+        members_raw = parse_census(file_bytes, filename, start_date, age_method)
+
+        # Fetch stored rates
+        cat_res = supa.table('policy_categories').select('*').eq('policy_id', pid).execute()
+        categories_data = {}
+        for cat in (cat_res.data or []):
+            br_res = supa.table('policy_brackets').select('*') \
+                         .eq('category_id', cat['id']).order('age_lo').execute()
+            categories_data[cat['category'].upper()] = {
+                'brackets': [
+                    {'age_lo': b['age_lo'], 'age_hi': b['age_hi'],
+                     'male': b['male_rate'], 'female': b['female_rate'], 'label': b['label']}
+                    for b in (br_res.data or [])
+                ],
+                'maternity_rate': float(cat.get('maternity_rate') or 0),
+            }
+
+        # Calculate premiums using stored rates
+        members_calc = calculate_premiums(members_raw, categories_data)
+
+        # Delete old members
+        supa.table('policy_members').delete().eq('policy_id', pid).execute()
+
+        # Insert new members in batches of 500
+        mem_rows = []
+        for i, m in enumerate(members_calc):
+            gross_load = float(m.get('gross_loading') or 0)
+            mem_rows.append({
+                'policy_id':        pid,
+                'member_no':        i + 1,
+                'name':             m.get('name', ''),
+                'dob':              _parse_dob(str(m.get('dob', ''))),
+                'gender':           m.get('gender', ''),
+                'marital_status':   m.get('marital_status', ''),
+                'relation':         m.get('relation', ''),
+                'category':         m.get('category', ''),
+                'age_alb':          m.get('age_alb'),
+                'emirate':          m.get('emirate', ''),
+                'age_bracket':      m.get('age_bracket', ''),
+                'base_premium':     m['base_premium'],
+                'maternity_premium': m['maternity_premium'],
+                'gross_loading':    gross_load,
+                'final_premium':    m['base_premium'] + m['maternity_premium'] + gross_load,
+            })
+        for i in range(0, len(mem_rows), 500):
+            supa.table('policy_members').insert(mem_rows[i:i + 500]).execute()
+
+        # Recalculate and update policy totals
+        total_net  = sum(m['base_premium']      for m in members_calc)
+        total_mat  = sum(m['maternity_premium'] for m in members_calc)
+        bas_total  = BASMAH_FEE * len(members_calc)
+        subtotal   = total_net + total_mat + bas_total
+        vat        = subtotal * VAT_RATE
+        grand_total = subtotal + vat
+
+        supa.table('policies').update({
+            'member_count':    len(members_calc),
+            'total_net':       total_net,
+            'total_maternity': total_mat,
+            'total_basmah':    bas_total,
+            'subtotal':        subtotal,
+            'vat':             vat,
+            'grand_total':     grand_total,
+        }).eq('id', pid).execute()
+
+        return jsonify({'ok': True, 'member_count': len(members_calc)})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/policies/<int:pid>', methods=['PUT'])
 def api_policy_edit(pid):
     supa = get_supa()
