@@ -285,13 +285,16 @@ def parse_rates_pdf(pdf_bytes, plan=''):
 
     response = client.messages.create(
         model='claude-haiku-4-5-20251001',
-        max_tokens=2048,
+        max_tokens=4096,
         messages=[{'role': 'user', 'content': content}],
     )
 
     raw = response.content[0].text.strip()
     raw = re.sub(r'^```(?:json)?\s*', '', raw)
     raw = re.sub(r'\s*```$', '', raw)
+    # Fix common JSON issues from LLM output
+    raw = re.sub(r',\s*([}\]])', r'\1', raw)   # trailing commas
+    raw = re.sub(r'//[^\n]*', '', raw)           # single-line comments
     result = json.loads(raw)
 
     result.setdefault('company_name', '')
