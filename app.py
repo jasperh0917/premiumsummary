@@ -1645,6 +1645,7 @@ def save_policy(fd, members_data, verified_rates, maternity_rates,
             'plan':             fd.get('plan', ''),
             'plan_type':        fd.get('plan_type', ''),
             'start_date':       fd.get('start_date') or None,
+            'confirmation_date': fd.get('confirmation_date') or None,
             'inception_payment': fd.get('inception_payment', ''),
             'endorsement_freq': fd.get('endorsement_freq', ''),
             'has_lsb':          bool(fd.get('has_lsb', False)),
@@ -2586,7 +2587,7 @@ def api_policy_edit(pid):
     # Whitelist of editable fields
     allowed = {
         'company_name', 'broker', 'rm_person', 'underwriter',
-        'plan', 'plan_type', 'start_date',
+        'plan', 'plan_type', 'start_date', 'confirmation_date',
         'inception_payment', 'endorsement_freq', 'has_lsb',
         'rm_broker', 'rm_insurer', 'rm_wellx', 'rm_tpa', 'rm_insurance_tax',
     }

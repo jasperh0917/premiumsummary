@@ -375,6 +375,11 @@ tbody td{padding:9px 12px;font-size:.82rem;color:var(--dark);white-space:nowrap}
           <option value="true">Yes</option>
         </select>
       </div>
+      <div class="form-group">
+        <label>Confirmation Date</label>
+        <input type="date" id="eConfirmationDate"/>
+        <small style="color:#6b7280;font-size:.72rem">Month this sale counts in</small>
+      </div>
       <!-- Commission -->
       <div class="form-group full" style="margin-top:4px">
         <label style="font-size:.72rem;color:#003780;border-bottom:1px solid #e0e7f0;padding-bottom:4px">Commission Rates (%)</label>
@@ -477,10 +482,11 @@ async function openEdit() {
     setVal('eBroker',      p.broker          || '');
     setVal('eRm',          p.rm_person       || '');
     setVal('eUnderwriter', p.underwriter     || '');
-    setVal('eStartDate',   p.start_date      ? p.start_date.slice(0, 10) : '');
-    setVal('eInception',   p.inception_payment || '');
+    setVal('eStartDate',         p.start_date         ? p.start_date.slice(0, 10) : '');
+    setVal('eInception',         p.inception_payment  || '');
     setVal('eEndorsement', p.endorsement_freq  || '');
-    setVal('eLsb',         p.has_lsb ? 'true' : 'false');
+    setVal('eLsb',               p.has_lsb ? 'true' : 'false');
+    setVal('eConfirmationDate',  p.confirmation_date  ? p.confirmation_date.slice(0, 10) : new Date().toISOString().slice(0, 10));
     setVal('eRmBroker',    p.rm_broker   ?? '');
     setVal('eRmInsurer',   p.rm_insurer  ?? '');
     setVal('eRmWellx',     p.rm_wellx    ?? '');
@@ -512,6 +518,7 @@ async function saveEdit() {
     inception_payment:  document.getElementById('eInception').value,
     endorsement_freq:   document.getElementById('eEndorsement').value,
     has_lsb:            document.getElementById('eLsb').value === 'true',
+    confirmation_date:  document.getElementById('eConfirmationDate').value || null,
     rm_broker:          parseFloat(document.getElementById('eRmBroker').value)  || 0,
     rm_insurer:         parseFloat(document.getElementById('eRmInsurer').value) || 0,
     rm_wellx:           parseFloat(document.getElementById('eRmWellx').value)   || 0,
@@ -587,6 +594,7 @@ async function loadDetail() {
     ['Inception Payment', p.inception_payment],
     ['Endorsement Freq',  p.endorsement_freq],
     ['LSB Members',       p.has_lsb ? 'Yes' : 'No'],
+    ['Confirmation Date', fmtDateShort(p.confirmation_date)],
   ];
   document.getElementById('infoGrid').innerHTML = info.map(([l, v]) => `
     <div class="info-item"><div class="lbl">${l}</div><div class="val">${v || '—'}</div></div>

@@ -376,6 +376,15 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0a0a0a;min-height:100v
         </div>
       </div>
 
+      <div class="row-2">
+        <div class="field">
+          <label for="confirmationDate">Confirmation Date <span class="req">*</span></label>
+          <input type="date" id="confirmationDate" required>
+          <small style="color:#6b7280;font-size:.72rem">Date the sale was confirmed — determines which month the sale counts in</small>
+        </div>
+        <div class="field"></div>
+      </div>
+
       <div class="section-label">Cost Structure</div>
 
       <table class="commission-table">
@@ -1208,6 +1217,7 @@ async function calculatePremium() {
     plan_type:          document.getElementById('planType').value,
     inception_payment:  document.getElementById('inceptionPayment').value,
     endorsement_freq:   document.getElementById('endorsementFreq').value,
+    confirmation_date:  document.getElementById('confirmationDate').value || null,
     has_lsb:            document.getElementById('hasLsb').checked,
     age_method:         document.getElementById('planName').value === 'Healthx' ? 'anb' : 'alb',
     rm_broker:          (document.getElementById('rmBroker')  || {}).value || '0',
@@ -1470,7 +1480,13 @@ function resetAll() {
   currentToken = ''; currentPage = 0; totalPages = 1;
 }
 
-document.getElementById('clearBtn').addEventListener('click', resetAll);
+function setTodayOnConfirmationDate() {
+  const el = document.getElementById('confirmationDate');
+  if (el) el.value = new Date().toISOString().slice(0, 10);
+}
+setTodayOnConfirmationDate();
+
+document.getElementById('clearBtn').addEventListener('click', () => { resetAll(); setTodayOnConfirmationDate(); });
 </script>
 </body>
 </html>
