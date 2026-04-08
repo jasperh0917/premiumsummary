@@ -1130,7 +1130,7 @@ document.getElementById('intakeForm').addEventListener('submit', async (e) => {
   const plan      = document.getElementById('planName').value;
   const isHealthx = plan === 'Healthx';
 
-  if (!isHealthx && !document.getElementById('toolFile').files[0]) {
+  if (!document.getElementById('toolFile').files[0]) {
     document.getElementById('zone-tool').classList.add('error');
     valid = false;
   }
@@ -1155,7 +1155,7 @@ document.getElementById('intakeForm').addEventListener('submit', async (e) => {
     fd.append('plan',       plan);
     fd.append('start_date', document.getElementById('startDate').value);
     fd.append('census',     document.getElementById('censusFile').files[0]);
-    if (!isHealthx) fd.append('tool', document.getElementById('toolFile').files[0]);
+    fd.append('tool', document.getElementById('toolFile').files[0]);
 
     const res  = await fetch('/api/upload', { method: 'POST', body: fd });
     const data = await res.json();
