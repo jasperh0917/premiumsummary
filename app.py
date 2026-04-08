@@ -238,8 +238,8 @@ def parse_rates_pdf(pdf_bytes, plan=''):
     doc.close()
 
     content = []
-    for i in range(min(page_count, 5)):
-        img_b64, _ = pdf_page_image(pdf_bytes, i, scale=2.0)
+    for i in range(min(page_count, 3)):
+        img_b64, _ = pdf_page_image(pdf_bytes, i, scale=1.5)
         content.append({
             'type': 'image',
             'source': {'type': 'base64', 'media_type': 'image/png', 'data': img_b64},
