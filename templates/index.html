@@ -940,13 +940,15 @@ function renderCatPanel(cat) {
       </label>
     </div>` : '';
 
+  const fourCol = _fourColRates;
   panel.innerHTML = bracketSelectorHtml + `
     <table class="rate-tbl">
       <thead>
         <tr>
           <th>Age Range</th>
-          <th>Male Rate (AED/yr)</th>
-          <th>Female Rate (AED/yr)</th>
+          ${fourCol
+            ? '<th>Principal Male</th><th>Principal Female</th><th>Dependent Male</th><th>Dependent Female</th>'
+            : '<th>Male Rate (AED/yr)</th><th>Female Rate (AED/yr)</th>'}
         </tr>
       </thead>
       <tbody>
@@ -959,6 +961,13 @@ function renderCatPanel(cat) {
             <td><input class="rate-input ${b.female ? 'highlight' : ''}" type="number" min="0" step="1"
                   id="female_${cat.letter}_${i}" value="${b.female || ''}" placeholder="0"
                   oninput="updateRate('${cat.letter}', ${i}, 'female', this.value)"></td>
+            ${fourCol ? `
+            <td><input class="rate-input ${b.dep_male ? 'highlight' : ''}" type="number" min="0" step="1"
+                  id="dep_male_${cat.letter}_${i}" value="${b.dep_male || ''}" placeholder="0"
+                  oninput="updateRate('${cat.letter}', ${i}, 'dep_male', this.value)"></td>
+            <td><input class="rate-input ${b.dep_female ? 'highlight' : ''}" type="number" min="0" step="1"
+                  id="dep_female_${cat.letter}_${i}" value="${b.dep_female || ''}" placeholder="0"
+                  oninput="updateRate('${cat.letter}', ${i}, 'dep_female', this.value)"></td>` : ''}
           </tr>`).join('')}
       </tbody>
     </table>
@@ -1057,7 +1066,10 @@ function initCategories(extractedRates, matRate) {
   renderCatPanel(cat);
 }
 
-function initCategoriesFromVision(visionCats) {
+let _fourColRates = false;  // true when PDF has Principal + Dependent rate columns
+
+function initCategoriesFromVision(visionCats, fourCol) {
+  _fourColRates = !!fourCol;
   categories = [];
   document.getElementById('catPanels').innerHTML = '';
   const plan      = document.getElementById('planName').value;
@@ -1071,7 +1083,9 @@ function initCategoriesFromVision(visionCats) {
       brackets: (catData.brackets || []).map(b => ({
         label: b.label || `${b.age_lo}-${b.age_hi}`,
         lo: b.age_lo, hi: b.age_hi,
-        male: b.male || 0, female: b.female || 0
+        male: b.male || 0, female: b.female || 0,
+        dep_male: b.dep_male || b.male || 0,
+        dep_female: b.dep_female || b.female || 0
       })),
       bracketType: null,
       maternity: catData.maternity_rate || 0
@@ -1174,7 +1188,7 @@ document.getElementById('intakeForm').addEventListener('submit', async (e) => {
 
     // ── Init rate table from PDF-extracted categories ──
     if (data.vision_categories && Object.keys(data.vision_categories).length > 0) {
-      initCategoriesFromVision(data.vision_categories);
+      initCategoriesFromVision(data.vision_categories, data.four_col_rates);
     } else {
       initCategories([], 0);
     }
@@ -1431,7 +1445,9 @@ async function calculatePremium() {
   categories.forEach(cat => {
     verified_rates[cat.letter] = cat.brackets.map(b => ({
       age_lo: b.lo, age_hi: b.hi, label: b.label,
-      male: parseFloat(b.male) || 0, female: parseFloat(b.female) || 0
+      male: parseFloat(b.male) || 0, female: parseFloat(b.female) || 0,
+      dep_male: parseFloat(b.dep_male) || parseFloat(b.male) || 0,
+      dep_female: parseFloat(b.dep_female) || parseFloat(b.female) || 0
     }));
     maternity_rates[cat.letter] = parseFloat(cat.maternity) || 0;
   });
