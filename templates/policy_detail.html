@@ -380,6 +380,10 @@ tbody td{padding:9px 12px;font-size:.82rem;color:var(--dark);white-space:nowrap}
         <input type="date" id="eConfirmationDate"/>
         <small style="color:#6b7280;font-size:.72rem">Month this sale counts in</small>
       </div>
+      <div class="form-group full">
+        <label>Reconciliation Note</label>
+        <textarea id="eReconNote" rows="2" placeholder="Notes on premium discrepancy…" style="width:100%;border:1.5px solid #d1d5db;border-radius:8px;padding:8px 10px;font-size:.82rem;font-family:inherit;resize:vertical;box-sizing:border-box"></textarea>
+      </div>
       <!-- Commission -->
       <div class="form-group full" style="margin-top:4px">
         <label style="font-size:.72rem;color:#003780;border-bottom:1px solid #e0e7f0;padding-bottom:4px">Commission Rates (%)</label>
@@ -487,6 +491,7 @@ async function openEdit() {
     setVal('eEndorsement', p.endorsement_freq  || '');
     setVal('eLsb',               p.has_lsb ? 'true' : 'false');
     setVal('eConfirmationDate',  p.confirmation_date  ? p.confirmation_date.slice(0, 10) : new Date().toISOString().slice(0, 10));
+    setVal('eReconNote',         p.recon_note || '');
     setVal('eRmBroker',    p.rm_broker   ?? '');
     setVal('eRmInsurer',   p.rm_insurer  ?? '');
     setVal('eRmWellx',     p.rm_wellx    ?? '');
@@ -519,6 +524,7 @@ async function saveEdit() {
     endorsement_freq:   document.getElementById('eEndorsement').value,
     has_lsb:            document.getElementById('eLsb').value === 'true',
     confirmation_date:  document.getElementById('eConfirmationDate').value || null,
+    recon_note:         document.getElementById('eReconNote').value.trim() || null,
     rm_broker:          parseFloat(document.getElementById('eRmBroker').value)  || 0,
     rm_insurer:         parseFloat(document.getElementById('eRmInsurer').value) || 0,
     rm_wellx:           parseFloat(document.getElementById('eRmWellx').value)   || 0,
@@ -595,6 +601,7 @@ async function loadDetail() {
     ['Endorsement Freq',  p.endorsement_freq],
     ['LSB Members',       p.has_lsb ? 'Yes' : 'No'],
     ['Confirmation Date', fmtDateShort(p.confirmation_date)],
+    ...(p.recon_note ? [['Recon Note', p.recon_note]] : []),
   ];
   document.getElementById('infoGrid').innerHTML = info.map(([l, v]) => `
     <div class="info-item"><div class="lbl">${l}</div><div class="val">${v || '—'}</div></div>

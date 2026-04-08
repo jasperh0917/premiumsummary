@@ -156,6 +156,10 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0a0a0a;min-height:100v
 .qt-field input{width:100%;border:1.5px solid #d1d9e6;border-radius:7px;padding:8px 10px;font-family:'Inter',sans-serif;font-size:.9rem;color:#1a2332;background:#fff}
 .qt-field input:focus{outline:none;border-color:var(--navy);box-shadow:0 0 0 3px rgba(0,55,128,.1)}
 
+/* ─── Census Review inline inputs ───────────────────────────────────────── */
+.cr-input{border:1px solid #d1d5db;border-radius:5px;padding:3px 6px;font-size:.78rem;font-family:inherit;background:#fff;color:#1a2332;width:100%;box-sizing:border-box}
+.cr-input:focus{outline:none;border-color:#003780;box-shadow:0 0 0 2px rgba(0,55,128,.12)}
+
 /* ─── STEP 3: Results ────────────────────────────────────────────────────── */
 .recon-banner{border-radius:12px;padding:20px 24px;margin-bottom:24px;display:flex;align-items:center;gap:18px}
 .recon-banner.match{background:linear-gradient(135deg,#d4edda,#c3e6cb)}
@@ -412,43 +416,22 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0a0a0a;min-height:100v
 
       <div class="section-label">Documents</div>
 
-      <!-- Non-Healthx: tool + single census -->
-      <div id="uploadNonHealthx">
-        <div class="file-row">
-          <div class="file-zone" id="zone-tool">
-            <input type="file" id="toolFile" accept=".xlsx,.xls">
-            <div class="file-icon">🧮</div>
-            <div class="file-label">Quote Tool</div>
-            <div class="file-sub">Excel (.xlsx)</div>
-            <div class="file-name" id="toolName"></div>
-          </div>
-          <div class="file-zone" id="zone-census">
-            <input type="file" id="censusFile" accept=".xlsx,.xls,.csv">
-            <div class="file-icon">📊</div>
-            <div class="file-label">Member Census</div>
-            <div class="file-sub">Excel or CSV</div>
-            <div class="file-name" id="censusName"></div>
-          </div>
+      <div class="file-row">
+        <!-- Rates Table PDF (hidden for Healthx — manual rate entry) -->
+        <div class="file-zone" id="zone-tool" style="">
+          <input type="file" id="toolFile" accept=".pdf,.xlsx,.xls">
+          <div class="file-icon">📄</div>
+          <div class="file-label">Rates Table</div>
+          <div class="file-sub">PDF quote/rates table</div>
+          <div class="file-name" id="toolName"></div>
         </div>
-      </div>
-
-      <!-- Healthx only: two census files -->
-      <div id="uploadHealthx" style="display:none">
-        <div class="file-row">
-          <div class="file-zone" id="zone-quoted-census">
-            <input type="file" id="quotedCensusFile" accept=".xlsx,.xls,.csv">
-            <div class="file-icon">📋</div>
-            <div class="file-label">Quoted Census</div>
-            <div class="file-sub">Census used for quoting (reconciliation)</div>
-            <div class="file-name" id="quotedCensusName"></div>
-          </div>
-          <div class="file-zone" id="zone-confirmed-census">
-            <input type="file" id="confirmedCensusFile" accept=".xlsx,.xls,.csv">
-            <div class="file-icon">✅</div>
-            <div class="file-label">Confirmed Census</div>
-            <div class="file-sub">Final confirmed member list (final premium)</div>
-            <div class="file-name" id="confirmedCensusName"></div>
-          </div>
+        <!-- Member Census (all plans) -->
+        <div class="file-zone" id="zone-census">
+          <input type="file" id="censusFile" accept=".xlsx,.xls,.csv">
+          <div class="file-icon">📊</div>
+          <div class="file-label">Member Census</div>
+          <div class="file-sub">Excel or CSV</div>
+          <div class="file-name" id="censusName"></div>
         </div>
       </div>
 
@@ -461,6 +444,40 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0a0a0a;min-height:100v
 
       <div class="form-footer"><img class="footer-logo-img" src="/brand-logo" alt="Powered by Wellx Labs"></div>
     </form>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       CENSUS REVIEW — shown between Step 1 and Step 2
+  ══════════════════════════════════════════════════════════════════════ -->
+  <div class="card-body step-content" id="step-census" style="display:none">
+    <div id="censusReviewHeader" class="recon-banner match" style="margin-bottom:16px;align-items:flex-start;gap:14px">
+      <div class="recon-icon" id="crIcon">📋</div>
+      <div style="flex:1">
+        <div class="recon-title" id="crTitle">Census Preview</div>
+        <div class="recon-sub" id="crSub"></div>
+      </div>
+      <button class="btn-primary" id="crConfirmBtn" onclick="confirmCensus()" style="white-space:nowrap;padding:8px 18px;font-size:.85rem">Confirm &amp; Continue →</button>
+    </div>
+
+    <div id="crParentsNote" style="display:none;background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:.82rem;color:#856404"></div>
+
+    <div style="overflow-x:auto">
+      <table class="diff-table" id="censusReviewTable" style="font-size:.8rem">
+        <thead>
+          <tr>
+            <th style="width:32px">#</th>
+            <th>Name</th>
+            <th>DOB</th>
+            <th>Gender</th>
+            <th>Cat</th>
+            <th>Relation</th>
+            <th>Marital</th>
+            <th style="width:28px"></th>
+          </tr>
+        </thead>
+        <tbody id="censusReviewBody"></tbody>
+      </table>
+    </div>
   </div>
 
   <!-- ═══════════════════════════════════════════════════════════════════
@@ -561,6 +578,34 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0a0a0a;min-height:100v
       </table>
       <div class="info-box" style="border-color:#f5c6cb;background:#fdf3f5;color:#721c24">
         <strong>Common causes:</strong> member count discrepancy, age bracket boundary differences, maternity surcharge eligibility, or category rate assignments. Review the Premium per Member file for individual breakdowns.
+      </div>
+    </div>
+
+    <!-- Mismatch Analysis Panel (shown only on mismatch) -->
+    <div id="mismatchPanel" style="display:none;margin-bottom:20px">
+      <div class="section-label" style="color:#721c24;border-image:linear-gradient(90deg,#b43082,#f1517b) 1">Why is there a mismatch?</div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px">
+        <button class="btn-secondary" id="btnUploadQuoted" onclick="toggleQuotedUpload()" style="font-size:.82rem">📂 Upload Quoted Census for AI Analysis</button>
+        <button class="btn-secondary" id="btnManualNote" onclick="toggleManualNote()" style="font-size:.82rem">✏️ Add Manual Note</button>
+      </div>
+
+      <!-- Quoted census upload zone -->
+      <div id="quotedUploadZone" style="display:none;margin-bottom:14px">
+        <div class="file-zone" id="zone-quoted-diff" style="max-width:380px" onclick="document.getElementById('quotedDiffFile').click()">
+          <input type="file" id="quotedDiffFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="runCensusComparison()">
+          <div class="file-icon">📋</div>
+          <div class="file-label">Quoted Census</div>
+          <div class="file-sub">Upload the census used for the original quote</div>
+          <div class="file-name" id="quotedDiffName"></div>
+        </div>
+        <div id="censusCompareResult" style="display:none;margin-top:14px"></div>
+      </div>
+
+      <!-- Manual note textarea -->
+      <div id="manualNoteZone" style="display:none;margin-bottom:14px">
+        <label style="font-size:.82rem;font-weight:600;color:#374151;display:block;margin-bottom:6px">Reconciliation Note</label>
+        <textarea id="reconNoteInput" rows="3" placeholder="Explain the discrepancy — e.g. 'Member X changed category after quoting' or '2 members added post-quote approval'…" style="width:100%;border:1.5px solid #d1d5db;border-radius:8px;padding:10px 12px;font-size:.82rem;font-family:inherit;resize:vertical;box-sizing:border-box"></textarea>
+        <small style="color:#6b7280;font-size:.72rem">Saved with the policy record for future reference</small>
       </div>
     </div>
 
@@ -798,15 +843,14 @@ function setupZone(zoneId, inputId, nameId, accept) {
     }
   });
 }
-setupZone('zone-tool',              'toolFile',              'toolName',          'xlsx');
-setupZone('zone-census',            'censusFile',            'censusName',        'xlsx');
-setupZone('zone-quoted-census',     'quotedCensusFile',      'quotedCensusName',  'xlsx');
-setupZone('zone-confirmed-census',  'confirmedCensusFile',   'confirmedCensusName','xlsx');
+setupZone('zone-tool',   'toolFile',   'toolName',   'pdf');
+setupZone('zone-census', 'censusFile', 'censusName', 'xlsx');
 
 // ── Step navigation ───────────────────────────────────────────────────────────
 function goToStep(n) {
   document.querySelectorAll('.step-content').forEach(el => el.classList.remove('active'));
-  document.getElementById('step-' + n).classList.add('active');
+  const target = document.getElementById('step-' + n);
+  if (target) target.classList.add('active');
   [1,2,3].forEach(i => {
     const si = document.getElementById('si-' + i);
     si.classList.remove('active','done');
@@ -1062,57 +1106,42 @@ let currentToken = '';
 // ── STEP 1 Submit ─────────────────────────────────────────────────────────────
 document.getElementById('intakeForm').addEventListener('submit', async (e) => {
   e.preventDefault();
-  // Validate required form fields
   let valid = true;
   ['companyName','brokerName','startDate','underwriter'].forEach(id => {
     const el = document.getElementById(id);
     if (!el.value.trim()) { el.classList.add('error'); valid = false; }
     else el.classList.remove('error');
   });
+
   const plan      = document.getElementById('planName').value;
   const isHealthx = plan === 'Healthx';
 
-  if (isHealthx) {
-    if (!document.getElementById('quotedCensusFile').files[0]) {
-      document.getElementById('zone-quoted-census').classList.add('error');
-      valid = false;
-    }
-    if (!document.getElementById('confirmedCensusFile').files[0]) {
-      document.getElementById('zone-confirmed-census').classList.add('error');
-      valid = false;
-    }
-  } else {
-    if (!document.getElementById('toolFile').files[0]) {
-      document.getElementById('zone-tool').classList.add('error');
-      valid = false;
-    }
-    if (!document.getElementById('censusFile').files[0]) {
-      document.getElementById('zone-census').classList.add('error');
-      valid = false;
-    }
+  if (!isHealthx && !document.getElementById('toolFile').files[0]) {
+    document.getElementById('zone-tool').classList.add('error');
+    valid = false;
+  }
+  if (!document.getElementById('censusFile').files[0]) {
+    document.getElementById('zone-census').classList.add('error');
+    valid = false;
   }
   if (!valid) { showToast('Please fill all required fields and upload the required files', 'error-t'); return; }
 
   const btn = document.getElementById('step1Btn');
   btn.disabled = true;
   btn.innerHTML = isHealthx
-    ? '<span class="spinner"></span>Reading censuses…'
-    : '<span class="spinner"></span>Reading tool…';
+    ? '<span class="spinner"></span>Reading census…'
+    : '<span class="spinner"></span>Reading rates PDF…';
   showOverlay(
-    isHealthx ? 'Reading Census Files' : 'Reading Quote Tool',
-    isHealthx ? 'Preparing rate entry…' : 'Extracting rates and policy details…'
+    isHealthx ? 'Reading Census' : 'Reading Rates Table',
+    isHealthx ? 'Preparing rate entry…' : 'Extracting rates via AI — this may take a few seconds…'
   );
 
   try {
     const fd = new FormData();
-    fd.append('plan', plan);
-    if (isHealthx) {
-      fd.append('quoted_census',    document.getElementById('quotedCensusFile').files[0]);
-      fd.append('confirmed_census', document.getElementById('confirmedCensusFile').files[0]);
-    } else {
-      fd.append('tool',   document.getElementById('toolFile').files[0]);
-      fd.append('census', document.getElementById('censusFile').files[0]);
-    }
+    fd.append('plan',       plan);
+    fd.append('start_date', document.getElementById('startDate').value);
+    fd.append('census',     document.getElementById('censusFile').files[0]);
+    if (!isHealthx) fd.append('tool', document.getElementById('toolFile').files[0]);
 
     const res  = await fetch('/api/upload', { method: 'POST', body: fd });
     const data = await res.json();
@@ -1120,68 +1149,39 @@ document.getElementById('intakeForm').addEventListener('submit', async (e) => {
 
     if (data.error) { showToast(data.error, 'error-t'); btn.disabled = false; btn.innerHTML = 'Extract Rates &amp; Continue →'; return; }
 
-    currentToken = data.token;
-    const td = data.tool_data || {};
+    currentToken  = data.token;
+    const td      = data.tool_data || {};
+    _lastToolData = td;
 
-    if (isHealthx) {
-      // Healthx: no tool data, just init empty rate table and go to Step 2
-      // Update summary card to show minimal info
-      document.getElementById('ts-company').textContent     = document.getElementById('companyName').value || '—';
-      document.getElementById('ts-product').textContent     = 'Healthx';
-      document.getElementById('ts-start').textContent       = document.getElementById('startDate').value || '—';
-      document.getElementById('ts-underwriter').textContent = document.getElementById('underwriter').value || '—';
-      document.getElementById('ts-quote').textContent       = '—';
-      document.getElementById('ts-members').textContent     = '—';
-      initCategoriesFromVision({});   // empty → Healthx blank DHA category
-      goToStep(2);
-      showToast('Census files loaded — enter rates manually and click Calculate', 'success');
+    // ── Pre-fill tool summary card ──
+    document.getElementById('ts-company').textContent     = td.company_name || document.getElementById('companyName').value || '—';
+    document.getElementById('ts-product').textContent     = plan || '—';
+    document.getElementById('ts-start').textContent       = td.start_date || document.getElementById('startDate').value || '—';
+    document.getElementById('ts-underwriter').textContent = td.underwriter || document.getElementById('underwriter').value || '—';
+    document.getElementById('ts-quote').textContent       = td.confirmed_quote
+      ? 'AED ' + Number(td.confirmed_quote).toLocaleString('en-US', {minimumFractionDigits:0, maximumFractionDigits:0})
+      : '—';
+    document.getElementById('ts-members').textContent = td.members || '—';
+
+    // ── Pre-fill Step 1 form fields (override only if blank) ──
+    const setIfBlank = (id, val) => { const el = document.getElementById(id); if (el && !el.value && val) el.value = val; };
+    setIfBlank('companyName', td.company_name);
+    setIfBlank('startDate',   td.start_date);
+
+    // ── Pre-fill quote totals ──
+    if (td.confirmed_quote) document.getElementById('qtPremium').value = td.confirmed_quote;
+    if (td.members)         document.getElementById('qtMembers').value = td.members;
+
+    // ── Init rate table from PDF-extracted categories ──
+    if (data.vision_categories && Object.keys(data.vision_categories).length > 0) {
+      initCategoriesFromVision(data.vision_categories);
     } else {
-      // ── Pre-fill tool summary card ──
-      document.getElementById('ts-company').textContent    = td.company_name || '—';
-      document.getElementById('ts-product').textContent    = td.product      || '—';
-      document.getElementById('ts-start').textContent      = td.start_date   || '—';
-      document.getElementById('ts-underwriter').textContent = td.underwriter || '—';
-      document.getElementById('ts-quote').textContent      = td.confirmed_quote
-        ? 'AED ' + Number(td.confirmed_quote).toLocaleString('en-US', {minimumFractionDigits:0, maximumFractionDigits:0})
-        : '—';
-      document.getElementById('ts-members').textContent    = td.members || '—';
-
-      // ── Pre-fill Step 1 form fields (override only if blank) ──
-      const setIfBlank = (id, val) => { const el = document.getElementById(id); if (el && !el.value && val) el.value = val; };
-      setIfBlank('companyName', td.company_name);
-      setIfBlank('startDate',   td.start_date);
-      if (td.underwriter) {
-        const uw = document.getElementById('underwriter');
-        for (const opt of uw.options) {
-          if (opt.value.toLowerCase() === td.underwriter.toLowerCase()) { uw.value = opt.value; break; }
-        }
-      }
-
-      // ── Pre-fill commission fields from tool fees (HSB rates as %) ──
-      const fees = td.fees || {};
-      const pct  = (v) => (v * 100).toFixed(2);
-      const setFee = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
-      if (fees.broker)  setFee('rmBroker', pct(fees.broker.hsb));
-      if (fees.qic)     setFee('rmQic',    pct(fees.qic.hsb));
-      if (fees.healthx) setFee('rmWellx',  pct(fees.healthx.hsb));
-      if (fees.nas)     setFee('rmNas',    pct(fees.nas.hsb));
-      if (fees.levy)    setFee('rmTax',    pct(fees.levy.hsb));
-      updateRmTotal();
-
-      // ── Pre-fill quote totals ──
-      if (td.confirmed_quote) document.getElementById('qtPremium').value = td.confirmed_quote;
-      if (td.members)         document.getElementById('qtMembers').value = td.members;
-
-      // ── Init rate table from tool categories ──
-      if (data.vision_categories && Object.keys(data.vision_categories).length > 0) {
-        initCategoriesFromVision(data.vision_categories);
-      } else {
-        initCategories([], 0);
-      }
-
-      goToStep(2);
-      showToast('Tool data extracted — review rates and click Calculate', 'success');
+      initCategories([], 0);
     }
+
+    // ── Show Census Review panel before going to Step 2 ──
+    showCensusReview(data.census_preview || { members: [], warnings: {}, duplicate_pairs: [], stats: { total: 0, categories: {}, warning_count: 0, parents_excluded: 0 } });
+
   } catch(err) {
     hideOverlay();
     showToast('Upload failed: ' + err.message, 'error-t');
@@ -1189,6 +1189,204 @@ document.getElementById('intakeForm').addEventListener('submit', async (e) => {
     btn.innerHTML = 'Extract Rates &amp; Continue →';
   }
 });
+
+// ── Census Review ─────────────────────────────────────────────────────────────
+let _censusPreviewMembers = [];
+const GENDER_OPTS   = ['M','F','Unknown'];
+const RELATION_OPTS = ['Employee','Spouse','Child','Unknown'];
+const MARITAL_OPTS  = ['Single','Married','Divorced','Widowed','Unknown'];
+
+function showCensusReview(preview) {
+  _censusPreviewMembers = (preview.members || []).map(m => Object.assign({}, m));
+  const stats    = preview.stats || {};
+  const warnings = preview.warnings || {};
+  const dups     = (preview.duplicate_pairs || []).flat();
+
+  // Header
+  const hasWarnings = stats.warning_count > 0;
+  const hdr = document.getElementById('censusReviewHeader');
+  hdr.className = 'recon-banner ' + (hasWarnings ? 'mismatch' : 'match');
+  document.getElementById('crIcon').textContent  = hasWarnings ? '⚠️' : '✅';
+  document.getElementById('crTitle').textContent = hasWarnings
+    ? `Census Preview — ${stats.warning_count} issue${stats.warning_count > 1 ? 's' : ''} found`
+    : 'Census Preview — All Good';
+
+  const catStr = Object.entries(stats.categories || {}).map(([k,v]) => `Cat ${k}: ${v}`).join(' · ');
+  document.getElementById('crSub').textContent =
+    `${stats.total} members · ${catStr}` +
+    (stats.parents_excluded ? ` · ${stats.parents_excluded} parent(s) excluded` : '');
+
+  // Parents note
+  const pNote = document.getElementById('crParentsNote');
+  if (stats.parents_excluded) {
+    pNote.style.display = '';
+    pNote.textContent   = `ℹ️ ${stats.parents_excluded} parent row(s) were excluded — parents are not eligible for coverage under this plan.`;
+  } else {
+    pNote.style.display = 'none';
+  }
+
+  // Table
+  renderCensusReviewTable(warnings, dups);
+
+  // Show census review step
+  document.querySelectorAll('.step-content').forEach(el => el.style.display = 'none');
+  document.getElementById('step-census').style.display = '';
+  document.getElementById('step1Btn').disabled  = false;
+  document.getElementById('step1Btn').innerHTML = 'Extract Rates &amp; Continue →';
+}
+
+function renderCensusReviewTable(warnings, dupIndices) {
+  const tbody = document.getElementById('censusReviewBody');
+  tbody.innerHTML = '';
+  _censusPreviewMembers.forEach((m, i) => {
+    const w   = (warnings || {})[String(i)] || [];
+    const dup = (dupIndices || []).includes(i);
+    const rowCls = w.length ? (dup ? 'style="background:#fff9e6"' : 'style="background:#fffbeb"') : '';
+    const warnCell = w.length
+      ? `<td title="${w.join('\n')}" style="color:#b45309;font-size:1rem;cursor:help">⚠️</td>`
+      : '<td></td>';
+
+    tbody.innerHTML += `<tr ${rowCls} data-idx="${i}">
+      <td style="color:#9ca3af">${i+1}</td>
+      <td><input class="cr-input" value="${escHtml(m.name || '')}" onchange="_censusPreviewMembers[${i}].name=this.value" style="width:140px"></td>
+      <td><input class="cr-input" value="${escHtml(m.dob || '')}" onchange="_censusPreviewMembers[${i}].dob=this.value" style="width:100px"></td>
+      <td>${crSelect('gender', i, m.gender, GENDER_OPTS)}</td>
+      <td><input class="cr-input" value="${escHtml(m.category || '')}" onchange="_censusPreviewMembers[${i}].category=this.value.toUpperCase()" style="width:40px;text-align:center"></td>
+      <td>${crSelect('relation', i, m.relation, RELATION_OPTS)}</td>
+      <td>${crSelect('marital_status', i, m.marital_status, MARITAL_OPTS)}</td>
+      ${warnCell}
+      <td><button onclick="deleteCensusRow(${i})" title="Remove row" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:1rem;padding:0 4px">×</button></td>
+    </tr>`;
+  });
+}
+
+function crSelect(field, idx, current, opts) {
+  const options = opts.map(o =>
+    `<option value="${o}"${o===current?' selected':''}>${o}</option>`
+  ).join('');
+  return `<select class="cr-input" onchange="_censusPreviewMembers[${idx}]['${field}']=this.value" style="padding:2px 4px">${options}</select>`;
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function deleteCensusRow(idx) {
+  _censusPreviewMembers.splice(idx, 1);
+  renderCensusReviewTable({}, []);
+  document.getElementById('crSub').textContent = `${_censusPreviewMembers.length} members (after edit)`;
+}
+
+async function confirmCensus() {
+  const btn = document.getElementById('crConfirmBtn');
+  btn.disabled    = true;
+  btn.textContent = 'Saving…';
+  try {
+    await fetch(`/api/update_census/${currentToken}`, {
+      method:  'POST',
+      headers: {'Content-Type':'application/json'},
+      body:    JSON.stringify({ members: _censusPreviewMembers }),
+    });
+    const td = _lastToolData || {};
+    // Go to step 2
+    document.querySelectorAll('.step-content').forEach(el => el.style.display = 'none');
+    document.getElementById('step-2').style.display = '';
+    showToast(
+      Object.keys(td).length
+        ? 'Rates extracted — review and click Calculate'
+        : 'Census confirmed — enter rates and click Calculate',
+      'success'
+    );
+  } catch(err) {
+    showToast('Error confirming census: ' + err.message, 'error-t');
+  } finally {
+    btn.disabled    = false;
+    btn.textContent = 'Confirm & Continue →';
+  }
+}
+
+let _lastToolData = {};
+
+// ── Mismatch analysis panel ───────────────────────────────────────────────────
+function toggleQuotedUpload() {
+  const zone = document.getElementById('quotedUploadZone');
+  zone.style.display = zone.style.display === 'none' ? '' : 'none';
+}
+
+function toggleManualNote() {
+  const zone = document.getElementById('manualNoteZone');
+  zone.style.display = zone.style.display === 'none' ? '' : 'none';
+  if (zone.style.display !== 'none') document.getElementById('reconNoteInput').focus();
+}
+
+async function runCensusComparison() {
+  const file = document.getElementById('quotedDiffFile').files[0];
+  if (!file) return;
+  document.getElementById('quotedDiffName').textContent = file.name;
+  document.getElementById('censusCompareResult').style.display = 'none';
+
+  const fd = new FormData();
+  fd.append('quoted_census', file);
+  showOverlay('Analysing Census', 'Comparing quoted vs confirmed census…');
+  try {
+    const res  = await fetch(`/api/compare_census/${currentOutToken}`, { method:'POST', body:fd });
+    const diff = await res.json();
+    hideOverlay();
+    if (diff.error) { showToast(diff.error, 'error-t'); return; }
+    renderCensusDiff(diff);
+  } catch(err) {
+    hideOverlay();
+    showToast('Comparison failed: ' + err.message, 'error-t');
+  }
+}
+
+function renderCensusDiff(diff) {
+  const added   = diff.added   || [];
+  const removed = diff.removed || [];
+  const changed = diff.changed || [];
+
+  const fmtMember = m => `${m.name} (Cat ${m.category} · ${m.relation} · ${m.dob})`;
+
+  let html = '';
+
+  if (added.length) {
+    html += `<div class="section-label" style="color:#155724;font-size:.78rem;margin-top:0">➕ Added (${added.length}) — in confirmed, not in quoted</div>`;
+    html += '<ul style="margin:0 0 12px;padding-left:18px;font-size:.8rem">';
+    added.forEach(m => { html += `<li style="color:#155724">${escHtml(fmtMember(m))}</li>`; });
+    html += '</ul>';
+  }
+
+  if (removed.length) {
+    html += `<div class="section-label" style="color:#721c24;font-size:.78rem;margin-top:0">➖ Removed (${removed.length}) — in quoted, not in confirmed</div>`;
+    html += '<ul style="margin:0 0 12px;padding-left:18px;font-size:.8rem">';
+    removed.forEach(m => { html += `<li style="color:#721c24">${escHtml(fmtMember(m))}</li>`; });
+    html += '</ul>';
+  }
+
+  if (changed.length) {
+    html += `<div class="section-label" style="color:#7c3aed;font-size:.78rem;margin-top:0">🔄 Changed (${changed.length}) — field differences</div>`;
+    html += '<table class="diff-table" style="font-size:.78rem;margin-bottom:12px"><thead><tr><th>Member</th><th>Field</th><th>Confirmed</th><th>Quoted</th></tr></thead><tbody>';
+    changed.forEach(c => {
+      c.changes.forEach((ch, ci) => {
+        html += `<tr>
+          ${ci === 0 ? `<td rowspan="${c.changes.length}">${escHtml(c.name)} (Cat ${c.category})</td>` : ''}
+          <td style="text-transform:capitalize">${ch.field.replace('_',' ')}</td>
+          <td style="color:#059669">${escHtml(ch.confirmed)}</td>
+          <td style="color:#dc2626">${escHtml(ch.quoted)}</td>
+        </tr>`;
+      });
+    });
+    html += '</tbody></table>';
+  }
+
+  if (!added.length && !removed.length && !changed.length) {
+    html = '<div style="color:#059669;font-size:.82rem;padding:10px 0">✅ No differences found in the fields checked (Name, Category, Relation, DOB, Gender, Marital Status).</div>';
+  }
+
+  const box = document.getElementById('censusCompareResult');
+  box.innerHTML  = html;
+  box.style.display = '';
+}
 
 // ── STEP 2 Calculate ──────────────────────────────────────────────────────────
 async function calculatePremium() {
@@ -1282,6 +1480,7 @@ async function calculatePremium() {
           ? `Calculated premium AED ${fmtAED(rec.calc_premium)} matches confirmed quote AED ${fmtAED(rec.quote_premium)}`
           : 'No quote total provided for comparison. Download reports to review.';
       document.getElementById('diffSection').style.display = 'none';
+      document.getElementById('mismatchPanel').style.display = 'none';
     } else {
       banner.className = 'recon-banner mismatch';
       document.getElementById('reconIcon').textContent = '❌';
@@ -1292,6 +1491,12 @@ async function calculatePremium() {
 
       // Diff table
       document.getElementById('diffSection').style.display = 'block';
+      document.getElementById('mismatchPanel').style.display = '';
+      // Reset mismatch panel sub-zones
+      document.getElementById('quotedUploadZone').style.display = 'none';
+      document.getElementById('manualNoteZone').style.display = 'none';
+      document.getElementById('censusCompareResult').style.display = 'none';
+      document.getElementById('reconNoteInput').value = '';
       const tbody = document.getElementById('diffTableBody');
       tbody.innerHTML = '';
       rec.items.forEach(item => {
@@ -1414,11 +1619,12 @@ async function downloadSummary() {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({
-        out_token:       currentOutToken,
-        loading_members: loadingMembers,
-        has_lsb:         document.getElementById('hasLsb').checked,
+        out_token:         currentOutToken,
+        loading_members:   loadingMembers,
+        has_lsb:           document.getElementById('hasLsb').checked,
         inception_payment: document.getElementById('inceptionPayment').value,
         endorsement_freq:  document.getElementById('endorsementFreq').value,
+        recon_note:        (document.getElementById('reconNoteInput') || {}).value || null,
       })
     });
     const data = await res.json();
@@ -1446,6 +1652,17 @@ function fmtAED(n) {
 }
 
 function resetAll() {
+  // Reset census review
+  _censusPreviewMembers = [];
+  _lastToolData = {};
+  document.getElementById('censusReviewBody').innerHTML = '';
+  document.getElementById('step-census').style.display = 'none';
+  // Reset mismatch panel
+  document.getElementById('mismatchPanel').style.display = 'none';
+  document.getElementById('quotedUploadZone').style.display = 'none';
+  document.getElementById('manualNoteZone').style.display = 'none';
+  document.getElementById('censusCompareResult').style.display = 'none';
+  document.getElementById('reconNoteInput').value = '';
   // Reset form
   document.getElementById('intakeForm').reset();
   document.getElementById('toolName').textContent   = '';
