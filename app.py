@@ -1994,34 +1994,31 @@ def api_upload():
     start_date   = request.form.get('start_date', '')
     census_file  = request.files.get('census')
     rates_file   = request.files.get('tool')   # PDF rates table (or xlsx fallback)
-    is_healthx   = plan.lower() == 'healthx'
-
     if not census_file:
         return jsonify({'error': 'Member Census file is required'}), 400
-    if not is_healthx and not rates_file:
+    if not rates_file:
         return jsonify({'error': 'Rates Table PDF is required'}), 400
 
     census_bytes    = census_file.read()
     census_filename = census_file.filename or 'census.xlsx'
 
-    # ── Parse rates (PDF vision for non-Healthx, empty for Healthx manual entry) ──
+    # ── Parse rates (PDF vision for all plans) ──
     tool_data = {}
-    if not is_healthx and rates_file:
-        rates_bytes = rates_file.read()
-        rates_fname = (rates_file.filename or '').lower()
-        try:
-            if rates_fname.endswith('.pdf'):
-                tool_data = parse_rates_pdf(rates_bytes, plan)
-            elif rates_fname.endswith(('.xlsx', '.xls')):
-                # Legacy Excel fallback
-                if plan.lower() == 'openx':
-                    tool_data = parse_openx_tool(rates_bytes)
-                else:
-                    tool_data = parse_healthxclusive_tool(rates_bytes)
+    rates_bytes = rates_file.read()
+    rates_fname = (rates_file.filename or '').lower()
+    try:
+        if rates_fname.endswith('.pdf'):
+            tool_data = parse_rates_pdf(rates_bytes, plan)
+        elif rates_fname.endswith(('.xlsx', '.xls')):
+            # Legacy Excel fallback
+            if plan.lower() == 'openx':
+                tool_data = parse_openx_tool(rates_bytes)
             else:
-                tool_data = parse_rates_pdf(rates_bytes, plan)
-        except Exception as e:
-            return jsonify({'error': f'Rates parsing error: {str(e)}'}), 400
+                tool_data = parse_healthxclusive_tool(rates_bytes)
+        else:
+            tool_data = parse_rates_pdf(rates_bytes, plan)
+    except Exception as e:
+        return jsonify({'error': f'Rates parsing error: {str(e)}'}), 400
 
     # Use start_date from form or from extracted tool_data
     effective_start = start_date or tool_data.get('start_date', '')
