@@ -800,14 +800,12 @@ function updateRmTotal() {
 function onPlanChange() {
   const plan      = document.getElementById('planName').value;
   const isHealthx = plan === 'Healthx';
-  document.getElementById('uploadNonHealthx').style.display = isHealthx ? 'none' : '';
-  document.getElementById('uploadHealthx').style.display    = isHealthx ? '' : 'none';
   // Update Step 2 info box text
   const infoBox = document.getElementById('rateInfoBox');
   if (infoBox) {
     infoBox.innerHTML = isHealthx
-      ? '<strong>Enter gross premium rates manually</strong> from the insurer\'s quote letter. Select DHA or DOH bracket structure per category.'
-      : '<strong>Gross premium rates have been pre-filled</strong> from the Quote Tool (GROSS PREMIUM columns). Review each category tab and adjust if needed before calculating.';
+      ? '<strong>Rates extracted from PDF.</strong> Review each category tab and adjust if needed before calculating.'
+      : '<strong>Gross premium rates have been pre-filled</strong> from the rates PDF. Review each category tab and adjust if needed before calculating.';
   }
   updateCostStructure();
 }
