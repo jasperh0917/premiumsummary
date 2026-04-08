@@ -253,10 +253,13 @@ def parse_rates_pdf(pdf_bytes, plan=''):
         '  "start_date": "YYYY-MM-DD or empty",\n'
         '  "confirmed_quote": <net premium before VAT as number, 0 if not found>,\n'
         '  "members": <total insured count as integer, 0 if not found>,\n'
+        '  "rate_columns": <"2col" if only Male/Female, "4col" if Principal Male/Female AND Dependent Male/Female>,\n'
         '  "categories": {\n'
         '    "A": {\n'
         '      "brackets": [\n'
-        '        {"label": "18-24", "age_lo": 18, "age_hi": 24, "male": 123.45, "female": 134.56}\n'
+        '        {"label": "18-25", "age_lo": 18, "age_hi": 25,\n'
+        '         "male": 123.45, "female": 134.56,\n'
+        '         "dep_male": 110.00, "dep_female": 120.00}\n'
         '      ],\n'
         '      "maternity_rate": 45.00\n'
         '    }\n'
@@ -264,7 +267,14 @@ def parse_rates_pdf(pdf_bytes, plan=''):
         '}\n\n'
         'Rules:\n'
         '- Extract ALL age bracket rows with exact premium figures — do not round or modify the numbers\n'
-        '- If only one rate column exists (no gender split), use the same value for both male and female\n'
+        '- If the table has 4 rate columns (Principal Male, Principal Female, Dependent Male, Dependent Female):\n'
+        '  - male/female = Principal Male/Female rates\n'
+        '  - dep_male/dep_female = Dependent Male/Female rates\n'
+        '  - set rate_columns to "4col"\n'
+        '- If the table has only 2 rate columns (Male/Female with no Principal/Dependent split):\n'
+        '  - male/female = those rates; dep_male/dep_female = same as male/female\n'
+        '  - set rate_columns to "2col"\n'
+        '- If only one rate column exists (no gender split), use the same value for male, female, dep_male, dep_female\n'
         '- Extract all categories (A, B, C …) if multiple exist\n'
         '- confirmed_quote is the total net premium BEFORE VAT — not the grand total\n'
         '- members is the total insured member count shown in the quote\n'
@@ -290,14 +300,19 @@ def parse_rates_pdf(pdf_bytes, plan=''):
     result['members']         = int(result.get('members') or 0)
     result.setdefault('categories', {})
 
+    four_col = result.get('rate_columns') == '4col'
     for cat_data in result['categories'].values():
         cat_data.setdefault('maternity_rate', 0.0)
         cat_data.setdefault('brackets', [])
         for b in cat_data['brackets']:
-            b['male']   = float(b.get('male', 0))
-            b['female'] = float(b.get('female', 0))
+            b['male']      = float(b.get('male', 0))
+            b['female']    = float(b.get('female', 0))
+            # dep rates — fall back to principal rates when not present (2-col tables)
+            b['dep_male']  = float(b.get('dep_male') or b['male'])
+            b['dep_female']= float(b.get('dep_female') or b['female'])
             b['age_lo'] = int(b.get('age_lo', 0))
             b['age_hi'] = int(b.get('age_hi', 99))
+    result['four_col_rates'] = four_col
 
     # Fields expected by the frontend tool_data shape
     result['product']    = plan or ''
@@ -644,7 +659,7 @@ def detect_col_map(headers):
         if 'marital' in c:
             col_map['marital'] = i; break
     for i, c in enumerate(h):
-        if 'relation' in c:
+        if 'relation' in c or 'dependency' in c or 'membertype' in c or c in ('dep', 'type'):
             col_map['relation'] = i; break
     for i, c in enumerate(h):
         if c == 'category' or (c.startswith('cat') and len(c) <= 8):
@@ -756,10 +771,14 @@ def parse_census(file_bytes, filename, start_date_str, age_method='alb'):
             if name.startswith('=') or not name or name == 'nan':
                 name = ''
 
-        if not name:
-            # QIC format: columns B(1), C(2), D(3) = first, second, last name
+        if not name and 'first_name' not in col_map and 'last_name' not in col_map:
+            # QIC format fallback: columns B(1), C(2), D(3) = first, second, last name
+            # Only use this when no named name columns were detected
+            dob_col_idx = col_map.get('dob', -1)
             parts = []
             for idx in [1, 2, 3]:
+                if idx == dob_col_idx:
+                    continue  # skip DOB column
                 if idx < len(row_vals) and row_vals[idx]:
                     p = str(row_vals[idx]).strip()
                     if p and p != 'nan' and not p.startswith('=') and not p.startswith('('):
@@ -859,6 +878,8 @@ def normalize_member_fields(m):
     m['marital_status'] = _MARITAL_MAP.get(marital_raw, m.get('marital_status', 'Unknown') if marital_raw else 'Unknown')
 
     cat = m.get('category', 'A').strip().upper()
+    # Handle "CAT A", "CATEGORY B", "CLASS C" prefixes
+    cat = re.sub(r'^(?:CAT(?:EGORY)?|CLASS)\s*', '', cat).strip()
     m['category'] = cat if cat and cat not in ('NAN', '') else 'A'
 
     return m
@@ -963,7 +984,12 @@ def get_member_rate(member, categories_data):
     bracket  = find_bracket(member['age_alb'], brackets)
     if not bracket:
         return 0, None, f"No bracket for age {member['age_alb']}"
-    rate = bracket.get('female' if member['gender'].lower().startswith('f') else 'male', 0)
+    is_female = member['gender'].lower().startswith('f')
+    is_dependent = member.get('relation', 'Employee') in ('Spouse', 'Child')
+    if is_dependent and 'dep_male' in bracket:
+        rate = bracket.get('dep_female' if is_female else 'dep_male', 0)
+    else:
+        rate = bracket.get('female' if is_female else 'male', 0)
     return rate, bracket['label'], None
 
 # ── Calculation Engine ────────────────────────────────────────────────────────
@@ -2035,6 +2061,7 @@ def api_upload():
         'token':             token,
         'tool_data':         tool_data,
         'vision_categories': tool_data.get('categories', {}),
+        'four_col_rates':    tool_data.get('four_col_rates', False),
         'census_preview': {
             'members':       sorted_members,
             'warnings':      warnings,
