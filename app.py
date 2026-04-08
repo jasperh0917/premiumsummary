@@ -615,12 +615,26 @@ def parse_census(file_bytes, filename, start_date_str, age_method='alb'):
             _dob_col   = detect_col_map(all_rows[header_idx]).get('dob', 999)
             data_start = header_idx + 2 if _is_notes_row(all_rows, header_idx, _dob_col) else header_idx + 1
         else:
-            sheet_name = next((s for s in xl.sheetnames if 'INCEP' in s.upper()), xl.sheetnames[0])
-            ws = xl[sheet_name]
-            all_rows  = [[cell.value for cell in row] for row in ws.iter_rows()]
-            header_idx = detect_header_row(all_rows)
-            _dob_col   = detect_col_map(all_rows[header_idx]).get('dob', 999)
-            data_start = header_idx + 2 if _is_notes_row(all_rows, header_idx, _dob_col) else header_idx + 1
+            # Prefer INCEP sheet but fall back to whichever sheet has data rows
+            _incep = next((s for s in xl.sheetnames if 'INCEP' in s.upper()), None)
+            _candidates = ([_incep] if _incep else []) + [s for s in xl.sheetnames if s != _incep]
+            all_rows, header_idx, _dob_col, data_start = None, 0, 999, 1
+            for _sname in _candidates:
+                _ws = xl[_sname]
+                _rows = [[cell.value for cell in row] for row in _ws.iter_rows()]
+                _hi   = detect_header_row(_rows)
+                _dc   = detect_col_map(_rows[_hi]).get('dob', 999)
+                _ds   = _hi + 2 if _is_notes_row(_rows, _hi, _dc) else _hi + 1
+                if any(any(v is not None for v in r) for r in _rows[_ds:]):
+                    all_rows, header_idx, _dob_col, data_start = _rows, _hi, _dc, _ds
+                    break
+            if all_rows is None:
+                # All sheets empty — use first INCEP sheet anyway
+                _ws = xl[_candidates[0]]
+                all_rows   = [[cell.value for cell in row] for row in _ws.iter_rows()]
+                header_idx = detect_header_row(all_rows)
+                _dob_col   = detect_col_map(all_rows[header_idx]).get('dob', 999)
+                data_start = header_idx + 2 if _is_notes_row(all_rows, header_idx, _dob_col) else header_idx + 1
 
     col_map = detect_col_map(all_rows[header_idx])
     if 'dob' not in col_map:
