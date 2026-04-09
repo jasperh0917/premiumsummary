@@ -846,7 +846,10 @@ setupZone('zone-census', 'censusFile', 'censusName', 'xlsx');
 
 // ── Step navigation ───────────────────────────────────────────────────────────
 function goToStep(n) {
-  document.querySelectorAll('.step-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.step-content').forEach(el => {
+    el.classList.remove('active');
+    el.style.display = '';  // clear any inline display override from showCensusReview/confirmCensus
+  });
   const target = document.getElementById('step-' + n);
   if (target) target.classList.add('active');
   [1,2,3].forEach(i => {
