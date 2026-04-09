@@ -1010,29 +1010,38 @@ def get_member_rate(member, categories_data):
 
 # ── Calculation Engine ────────────────────────────────────────────────────────
 def calculate_premiums(members, categories_data):
+    # Pass 1: compute base premiums
+    base_data = []
+    for m in members:
+        rate, bracket_label, error = get_member_rate(m, categories_data)
+        emirate = m.get('emirate', 'Dubai')
+        mat_age_max = MAT_AGE_MAX_AUH if 'abu dhabi' in emirate.lower() else MAT_AGE_MAX_DXB
+        base_data.append((float(rate), bracket_label, error, mat_age_max))
+
+    # Average premium per capita = total net / total members (maternity surcharge)
+    total_base = sum(d[0] for d in base_data)
+    avg_premium = total_base / len(members) if members else 0.0
+
+    # Pass 2: build results using avg_premium as maternity surcharge
     results = []
     for i, m in enumerate(members):
-        rate, bracket_label, error = get_member_rate(m, categories_data)
-        cat      = m['category'].upper()
-        mat_rate = categories_data.get(cat, {}).get('maternity_rate', 0)
-        maternity = 0
-        emirate   = m.get('emirate', 'Dubai')
-        mat_age_max = MAT_AGE_MAX_AUH if 'abu dhabi' in emirate.lower() else MAT_AGE_MAX_DXB
+        rate, bracket_label, error, mat_age_max = base_data[i]
+        maternity = 0.0
         if (m['gender'].lower().startswith('f')
                 and m['marital_status'].lower().startswith('m')
                 and MAT_AGE_MIN <= m['age_alb'] <= mat_age_max):
-            maternity = float(mat_rate or 0)
+            maternity = avg_premium
 
         results.append({
             **m,
-            'no':               i + 1,
-            'base_premium':     float(rate),
-            'age_bracket':      bracket_label or 'N/A',
+            'no':                i + 1,
+            'base_premium':      rate,
+            'age_bracket':       bracket_label or 'N/A',
             'maternity_premium': maternity,
-            'mat_age_max':      mat_age_max,
-            'basmah_fee':       BASMAH_FEE,
-            'total_excl_vat':   float(rate) + maternity,
-            'error':            error or '',
+            'mat_age_max':       mat_age_max,
+            'basmah_fee':        BASMAH_FEE,
+            'total_excl_vat':    rate + maternity,
+            'error':             error or '',
         })
 
     net       = sum(r['base_premium']     for r in results)
@@ -2440,31 +2449,37 @@ def _recalculate_policy(supa, policy_id):
     mem_res = supa.table('policy_members').select('*').eq('policy_id', policy_id).execute()
     members = mem_res.data or []
 
-    total_net = total_mat = 0.0
+    # Pass 1: compute base premiums + average for maternity
+    base_rates = []
     for m in members:
         rate, bracket_label, _ = get_member_rate(m, categories_data)
-        cat_key    = (m.get('category') or '').upper()
-        mat_rate   = categories_data.get(cat_key, {}).get('maternity_rate', 0)
-        emirate    = m.get('emirate') or 'Dubai'
+        emirate = m.get('emirate') or 'Dubai'
         mat_age_max = MAT_AGE_MAX_AUH if 'abu dhabi' in emirate.lower() else MAT_AGE_MAX_DXB
-        gender     = (m.get('gender') or '').lower()
-        marital    = (m.get('marital_status') or '').lower()
-        age        = m.get('age_alb') or 0
-        maternity  = float(mat_rate or 0) if (
+        base_rates.append((float(rate), bracket_label, mat_age_max))
+
+    total_net = sum(r[0] for r in base_rates)
+    avg_premium = total_net / len(members) if members else 0.0
+
+    total_mat = 0.0
+    for i, m in enumerate(members):
+        rate, bracket_label, mat_age_max = base_rates[i]
+        gender  = (m.get('gender') or '').lower()
+        marital = (m.get('marital_status') or '').lower()
+        age     = m.get('age_alb') or 0
+        maternity = avg_premium if (
             gender.startswith('f') and marital.startswith('m')
             and MAT_AGE_MIN <= age <= mat_age_max
         ) else 0.0
-        gross_load   = float(m.get('gross_loading') or 0)
-        final_prem   = float(rate) + maternity + gross_load
+        gross_load = float(m.get('gross_loading') or 0)
+        final_prem = rate + maternity + gross_load
 
         supa.table('policy_members').update({
-            'base_premium':      float(rate),
+            'base_premium':      rate,
             'maternity_premium': maternity,
             'final_premium':     final_prem,
             'age_bracket':       bracket_label or m.get('age_bracket', ''),
         }).eq('id', m['id']).execute()
 
-        total_net += float(rate)
         total_mat += maternity
 
     bas_total  = BASMAH_FEE * len(members)
