@@ -138,6 +138,7 @@ tfoot td{padding:9px 14px;font-size:.83rem;font-weight:700;color:var(--navy)}
 
   <!-- KPIs -->
   <div class="kpi-row">
+    <div class="kpi"><div class="kv" id="kRevenue">—</div><div class="kl">Total Revenue</div></div>
     <div class="kpi"><div class="kv" id="kTotal">—</div><div class="kl">Total Policies</div></div>
     <div class="kpi"><div class="kv" id="kGross">—</div><div class="kl">Total Gross Premium</div></div>
     <div class="kpi"><div class="kv" id="kMembers">—</div><div class="kl">Total Members</div></div>
@@ -207,7 +208,7 @@ tfoot td{padding:9px 14px;font-size:.83rem;font-weight:700;color:var(--navy)}
           <th>Plan</th>
           <th class="num">Policies</th>
           <th class="num">Total Premium</th>
-          <th class="num">Commission Amount</th>
+          <th class="num">Revenue</th>
           <th class="num">Take Rate %</th>
         </tr></thead>
         <tbody id="takeRateBody"></tbody>
@@ -351,6 +352,7 @@ function renderTakeRate(data) {
   document.getElementById('trfPremium').textContent  = fmtNum(total.total_premium || 0);
   document.getElementById('trfComm').textContent     = fmtNum(total.commission_amount || 0);
   document.getElementById('trfRate').textContent     = total.take_rate_pct != null ? fmtP(total.take_rate_pct) : '—';
+  document.getElementById('kRevenue').textContent    = fmtCompact(total.commission_amount || 0);
 }
 
 // ── Dashboard download ────────────────────────────────────────────────────────
@@ -379,9 +381,9 @@ function renderKPIs() {
   const totalMembers  = monthlyRows.reduce((s,r) => s + parseInt(r.member_count||0), 0);
   const avgSize       = totalPolicies ? totalGross / totalPolicies : 0;
   document.getElementById('kTotal').textContent   = totalPolicies.toLocaleString();
-  document.getElementById('kGross').textContent   = fmtNum(totalGross);
+  document.getElementById('kGross').textContent   = fmtCompact(totalGross);
   document.getElementById('kMembers').textContent = totalMembers.toLocaleString();
-  document.getElementById('kAvg').textContent     = fmtNum(avgSize);
+  document.getElementById('kAvg').textContent     = fmtCompact(avgSize);
 }
 
 // ── Monthly chart + table ──────────────────────────────────────────────────────
@@ -529,7 +531,10 @@ function renderRM() {
     ...Object.keys(actualMap),
     ...Object.keys(targetMap),
     ...(rmData.actuals||[]).map(a => a.rm_name),
-  ])].filter(Boolean).sort();
+  ])].filter(Boolean);
+
+  // Rank by actual sales (descending)
+  allRMs.sort((a, b) => (actualMap[b]?.amount || 0) - (actualMap[a]?.amount || 0));
 
   if (!allRMs.length) {
     document.getElementById('rmBody').innerHTML = '<tr class="empty-row"><td colspan="6">No RM data for selected filters</td></tr>';
@@ -540,7 +545,8 @@ function renderRM() {
     const actual   = actualMap[rm]?.amount || 0;
     const count    = actualMap[rm]?.count  || 0;
     const target   = targetMap[rm] || 0;
-    const variance = actual - target;
+    const gap      = Math.max(target - actual, 0);
+    const hitTarget = target > 0 && actual >= target;
     const pct      = target > 0 ? actual / target * 100 : null;
     const pctClass = pct === null ? '' : pct >= 100 ? 'pct-good' : pct >= 70 ? 'pct-warn' : 'pct-bad';
     const pctLabel = pct === null ? '—' : `<span class="pct ${pctClass}">${pct.toFixed(0)}%</span>`;
@@ -548,7 +554,7 @@ function renderRM() {
     return `<tr>
       <td><strong>${rm}</strong></td>
       <td class="num">${count}</td>
-      <td class="num">${fmtNum(actual)}</td>
+      <td class="num">${fmtCompact(actual)}</td>
       <td class="num">
         <input class="target-input" type="text" inputmode="numeric"
           value="${target ? fmtNum(target) : ''}" placeholder="Set target" id="ti-${safeId}"
@@ -556,8 +562,8 @@ function renderRM() {
           onblur="if(this.value)this.value=Number(this.value.replace(/,/g,'')).toLocaleString('en-AE',{maximumFractionDigits:0})">
         <button class="save-btn" onclick="saveTarget('${rm.replace(/'/g,"\\'")}')">Save</button>
       </td>
-      <td class="num" style="color:${variance>=0?'#16a34a':'#dc2626'};font-weight:600">
-        ${variance>=0?'+':''}${fmtNum(variance)}
+      <td class="num" style="color:${hitTarget?'#16a34a':'#dc2626'};font-weight:600">
+        ${target > 0 ? fmtCompact(gap) : '—'}
       </td>
       <td class="num">${pctLabel}</td>
     </tr>`;
@@ -589,6 +595,14 @@ function fmtMonth(s) {
 }
 function fmtNum(n) {
   return Number(n||0).toLocaleString('en-AE', {minimumFractionDigits:0, maximumFractionDigits:0});
+}
+function fmtCompact(n) {
+  const v = Number(n||0);
+  const a = Math.abs(v);
+  const sign = v < 0 ? '-' : '';
+  if (a >= 1e6) return sign + (a/1e6).toFixed(2).replace(/\.?0+$/,'') + 'M';
+  if (a >= 1e3) return sign + Math.round(a/1e3) + 'K';
+  return sign + Math.round(a).toLocaleString('en-AE');
 }
 
 document.getElementById('rmYear').addEventListener('change', renderRM);
