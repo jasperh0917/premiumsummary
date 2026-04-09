@@ -170,7 +170,7 @@ Return ONLY a valid JSON object — no markdown, no explanation — with this ex
 Rules:
 - Extract ALL categories visible (A, B, C, etc.). If only one category, use "A".
 - "male" and "female" are annual premiums in AED. If the table shows one rate column, use the same value for both.
-- "maternity_rate" is the additional annual maternity premium per eligible female (look for "Additional Maternity Premium" or similar). Use 0 if not shown.
+- "maternity_rate" is the PER-ELIGIBLE-FEMALE maternity surcharge. Look for a line labelled "Additional Maternity Premium" or "Additional Maternity Premium / Married Females". The FIRST value shown for that label is the per-female rate (e.g. AED 5,264). A separate line may show "Total Maternity Premium" (e.g. AED 21,055) — that is the SUM across all eligible females and must NOT be used. Extract ONLY the per-female rate. Use 0 if the label is completely absent.
 - "total_premium" is the net premium before fees (look for "TOTAL PREMIUM"). Use 0 if not shown.
 - "members" is the total member count from the summary. Use 0 if not shown.
 - "grand_total" includes BASMAH + VAT. Use 0 if not shown.
