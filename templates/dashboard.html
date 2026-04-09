@@ -86,6 +86,34 @@ tfoot td{padding:9px 14px;font-size:.83rem;font-weight:700;color:var(--navy)}
 .save-btn:hover{background:var(--mid)}
 .rm-controls{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
 .rm-controls select{border:1.5px solid #e0e7f0;border-radius:8px;padding:6px 10px;font-size:.83rem;font-family:inherit;color:var(--dark);background:#f8faff;outline:none}
+
+/* ── Print (PDF export) ── */
+@media print {
+  @page { size: A4; margin: 12mm; }
+  html, body { background: #fff !important; color: #000 !important; padding: 0 !important; }
+  .top-nav, .nav-links, .nav-brand,
+  .filter-bar .btn, #dashDlBtn, #dashPrintBtn,
+  .target-input, .save-btn,
+  .rm-controls select, .rm-controls label { display: none !important; }
+  .filter-bar { box-shadow: none !important; border: 1px solid #e0e7f0; padding: 10px 14px; }
+  .fg select { border: none !important; background: transparent !important; padding: 0 !important; font-weight: 600; color: #000 !important; -webkit-appearance: none; appearance: none; }
+  .page { max-width: 100% !important; margin: 0 !important; padding: 0 !important; }
+  h1 { color: #003780 !important; font-size: 1.3rem; }
+  .sub { color: #475569 !important; }
+  .section, .kpi, .filter-bar { box-shadow: none !important; border: 1px solid #e5ecf6; page-break-inside: avoid; }
+  .kpi .kv { color: #003780 !important; }
+  .kpi .kl { color: #475569 !important; }
+  .section-title { color: #003780 !important; }
+  .chart-wrap { height: 260px !important; page-break-inside: avoid; }
+  thead tr { background: #003780 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  thead th { color: #fff !important; }
+  tbody tr:nth-child(even) { background: #f4f8ff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  tbody td, tfoot td { color: #000 !important; }
+  .pct-good { background: #dcfce7 !important; color: #166534 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .pct-warn { background: #fef9c3 !important; color: #854d0e !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .pct-bad  { background: #fee2e2 !important; color: #991b1b !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .section { page-break-inside: avoid; }
+}
 </style>
 </head>
 <body>
@@ -134,6 +162,7 @@ tfoot td{padding:9px 14px;font-size:.83rem;font-weight:700;color:var(--navy)}
     <button class="btn btn-primary" onclick="applyFilters()">Apply</button>
     <button class="btn btn-ghost" onclick="clearFilters()">Clear</button>
     <button class="btn btn-ghost" id="dashDlBtn" onclick="downloadDashboard()" style="margin-left:auto">⬇ Download Excel</button>
+    <button class="btn btn-ghost" id="dashPrintBtn" onclick="printDashboard()">🖨 Print / PDF</button>
   </div>
 
   <!-- KPIs -->
@@ -595,6 +624,13 @@ function fmtMonth(s) {
 }
 function fmtNum(n) {
   return Number(n||0).toLocaleString('en-AE', {minimumFractionDigits:0, maximumFractionDigits:0});
+}
+function printDashboard() {
+  // Ensure Chart.js canvases re-render at print size
+  if (window.Chart && Chart.instances) {
+    Object.values(Chart.instances).forEach(c => { try { c.resize(); } catch(e){} });
+  }
+  setTimeout(() => window.print(), 100);
 }
 function fmtCompact(n) {
   const v = Number(n||0);
