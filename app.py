@@ -312,6 +312,13 @@ def parse_rates_pdf(pdf_bytes, plan=''):
         '- Extract all categories (A, B, C …) if multiple exist\n'
         '- confirmed_quote = net premium BEFORE VAT (not grand total)\n'
         '- members = total insured member count\n'
+        + (
+        '- maternity_rate: look for a line labelled "Additional Maternity Premium" or\n'
+        '  "Additional Maternity Premium / Married Females". The FIRST numeric value on that\n'
+        '  line (or immediately after it) is the PER-ELIGIBLE-FEMALE rate (e.g. AED 5,264).\n'
+        '  A separate "Total Maternity Premium" line (e.g. AED 21,055) is the SUM across all\n'
+        '  eligible females — do NOT use it. Use 0 only if the label is entirely absent.\n'
+        if plan.lower() in ('healthxclusive',) else
         '- maternity_rate: each category table ends with a summary block that looks like:\n'
         '    "Maternity Premium  AED X"  ← total already billed (may be 0 if no eligible females in census)\n'
         '    "Census  N"                 ← count of eligible females\n'
@@ -319,6 +326,7 @@ def parse_rates_pdf(pdf_bytes, plan=''):
         '  Extract Y (the Average) as maternity_rate. NOT X (the Maternity Premium total).\n'
         '  Even if Maternity Premium is AED 0, the Average can still be non-zero — always use the Average.\n'
         '  This value is typically 3,000–8,000 AED. Use 0 only if the Average row is truly absent.\n'
+        )
         '- age_lo and age_hi must be integers; use 99 for the upper bound of the last bracket\n'
         '- Return ONLY the JSON object'
     )})
@@ -1178,7 +1186,8 @@ def build_mismatch_analysis(members_data, q_premium, c_premium, q_members, gross
 # ── Combined Excel Generator ─────────────────────────────────────────────────
 def make_combined_excel(form_data, members_data, verified_rates, maternity_rates,
                         loading_members, has_lsb, totals, quote_totals,
-                        quoted_totals_calc=None, quoted_member_count=None):
+                        quoted_totals_calc=None, quoted_member_count=None,
+                        census_diff_summary=''):
     from collections import defaultdict as _dd
 
     plan        = form_data.get('plan', '')
@@ -1874,6 +1883,9 @@ def make_combined_excel(form_data, members_data, verified_rates, maternity_rates
         causes = build_mismatch_analysis(members_data, q_premium, c_premium, q_members, total_gross_load)
         analysis_txt = '❌ ' + ' | '.join(causes)
 
+    if census_diff_summary:
+        analysis_txt += f'\nCensus diff: {census_diff_summary}'
+
     summary_block = [
         ('Company Name',                  company),
         ('Broker',                        broker_name),
@@ -2225,6 +2237,31 @@ def api_compare_census(out_token):
 
     confirmed_members = stored['members_data']
     diff = compare_censuses(confirmed_members, quoted_members)
+
+    # Build a compact summary string and cache it so the Excel can include it
+    parts = []
+    if diff.get('added'):
+        parts.append(f"➕ Added {len(diff['added'])}")
+    if diff.get('removed'):
+        parts.append(f"➖ Removed {len(diff['removed'])}")
+    if diff.get('changed'):
+        parts.append(f"🔄 Changed {len(diff['changed'])}")
+    if not parts:
+        diff_summary = 'Census identical to quoted'
+    else:
+        diff_summary = ' | '.join(parts)
+        # Append first changed-field details (up to 3 members)
+        detail_lines = []
+        for ch in diff.get('changed', [])[:3]:
+            field_desc = ', '.join(
+                f"{c['field']}: {c['from']}→{c['to']}" for c in ch.get('changes', [])
+            )
+            detail_lines.append(f"{ch['name']}: {field_desc}")
+        if detail_lines:
+            diff_summary += ' (' + '; '.join(detail_lines) + ')'
+
+    _store[out_token]['census_diff_summary'] = diff_summary
+
     return jsonify(diff)
 
 
@@ -2379,6 +2416,8 @@ def api_finalize_summary():
     if body.get('recon_note') is not None:
         fd['recon_note'] = body['recon_note']
 
+    census_diff_summary = stored.get('census_diff_summary', '')
+
     try:
         wb = make_combined_excel(
             fd,
@@ -2391,6 +2430,7 @@ def api_finalize_summary():
             quote_totals,
             quoted_totals_calc=None,
             quoted_member_count=None,
+            census_diff_summary=census_diff_summary,
         )
     except Exception as e:
         return jsonify({'error': f'Excel generation error: {str(e)}'}), 500

@@ -590,7 +590,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0a0a0a;min-height:100v
       <!-- Quoted census upload zone -->
       <div id="quotedUploadZone" style="display:none;margin-bottom:14px">
         <div class="file-zone" id="zone-quoted-diff" style="max-width:380px" onclick="document.getElementById('quotedDiffFile').click()">
-          <input type="file" id="quotedDiffFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="runCensusComparison()">
+          <input type="file" id="quotedDiffFile" accept=".xlsx,.xls,.csv" style="display:none">
           <div class="file-icon">📋</div>
           <div class="file-label">Quoted Census</div>
           <div class="file-sub">Upload the census used for the original quote</div>
@@ -856,6 +856,28 @@ function setupZone(zoneId, inputId, nameId, accept) {
 }
 setupZone('zone-tool',   'toolFile',   'toolName',   'pdf');
 setupZone('zone-census', 'censusFile', 'censusName', 'xlsx');
+
+// Quoted census diff zone — same drag-drop, but also triggers comparison on drop/change
+(function() {
+  const zone  = document.getElementById('zone-quoted-diff');
+  const input = document.getElementById('quotedDiffFile');
+  const name  = document.getElementById('quotedDiffName');
+  function _setFile(file) {
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (!['xlsx','xls','csv'].includes(ext)) { showToast('Wrong file type', 'error-t'); return; }
+    const dt = new DataTransfer(); dt.items.add(file); input.files = dt.files;
+    name.textContent = file.name;
+    zone.classList.add('has-file'); zone.classList.remove('error');
+    runCensusComparison();
+  }
+  zone.addEventListener('dragover',  e => { e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', ()  => zone.classList.remove('drag-over'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault(); zone.classList.remove('drag-over');
+    if (e.dataTransfer.files.length) _setFile(e.dataTransfer.files[0]);
+  });
+  input.addEventListener('change', () => { if (input.files[0]) runCensusComparison(); });
+})();
 
 // ── Step navigation ───────────────────────────────────────────────────────────
 function goToStep(n) {
