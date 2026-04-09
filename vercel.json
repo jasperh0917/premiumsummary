@@ -5,7 +5,8 @@
       "src": "app.py",
       "use": "@vercel/python",
       "config": {
-        "includeFiles": ["templates/**", "Style/**"]
+        "includeFiles": ["templates/**", "Style/**"],
+        "maxDuration": 300
       }
     }
   ],
@@ -14,10 +15,5 @@
       "src": "/(.*)",
       "dest": "app.py"
     }
-  ],
-  "functions": {
-    "app.py": {
-      "maxDuration": 300
-    }
-  }
+  ]
 }
