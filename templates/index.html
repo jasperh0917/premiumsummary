@@ -359,6 +359,28 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0a0a0a;min-height:100v
         </div>
       </div>
 
+      <!-- Age method toggle — only shown for Healthx -->
+      <div id="ageMethodRow" style="display:none;margin-top:4px;margin-bottom:2px">
+        <div class="field">
+          <label>Age Calculation</label>
+          <div style="display:flex;gap:0;border:1.5px solid #e0e7f0;border-radius:8px;overflow:hidden;width:fit-content;margin-top:2px">
+            <button type="button" id="ageAlb"
+              onclick="setAgeMethod('alb')"
+              style="padding:6px 18px;font-size:.82rem;font-weight:600;font-family:inherit;border:none;cursor:pointer;background:var(--navy);color:#fff;transition:.15s">
+              ALB
+            </button>
+            <button type="button" id="ageAnb"
+              onclick="setAgeMethod('anb')"
+              style="padding:6px 18px;font-size:.82rem;font-weight:600;font-family:inherit;border:none;cursor:pointer;background:#f0f4ff;color:var(--navy);transition:.15s">
+              ANB
+            </button>
+          </div>
+          <span id="ageMethodHint" style="font-size:.72rem;color:#64748b;margin-top:4px;display:block">
+            ALB — Age Last Birthday (default)
+          </span>
+        </div>
+      </div>
+
       <div class="row-2">
         <div class="field">
           <label for="inceptionPayment">Payment Mode</label>
@@ -810,9 +832,26 @@ function updateRmTotal() {
     ? total.toFixed(2) + '%' : '—';
 }
 
+let _ageMethod = 'alb'; // default
+
+function setAgeMethod(method) {
+  _ageMethod = method;
+  document.getElementById('ageAlb').style.background  = method === 'alb' ? 'var(--navy)' : '#f0f4ff';
+  document.getElementById('ageAlb').style.color        = method === 'alb' ? '#fff'        : 'var(--navy)';
+  document.getElementById('ageAnb').style.background  = method === 'anb' ? 'var(--navy)' : '#f0f4ff';
+  document.getElementById('ageAnb').style.color        = method === 'anb' ? '#fff'        : 'var(--navy)';
+  document.getElementById('ageMethodHint').textContent =
+    method === 'alb' ? 'ALB — Age Last Birthday (default)' : 'ANB — Age Next Birthday (+1 year)';
+}
+
 function onPlanChange() {
   const plan      = document.getElementById('planName').value;
   const isHealthx = plan === 'Healthx';
+
+  // Show age method toggle only for Healthx; reset to ALB on plan change
+  document.getElementById('ageMethodRow').style.display = isHealthx ? '' : 'none';
+  if (isHealthx) setAgeMethod('alb');
+
   // Update Step 2 info box text
   const infoBox = document.getElementById('rateInfoBox');
   if (infoBox) {
@@ -1192,6 +1231,7 @@ document.getElementById('intakeForm').addEventListener('submit', async (e) => {
   try {
     const fd = new FormData();
     fd.append('plan',       plan);
+    fd.append('age_method', _ageMethod);
     fd.append('start_date', document.getElementById('startDate').value);
     fd.append('census',     document.getElementById('censusFile').files[0]);
     fd.append('tool', document.getElementById('toolFile').files[0]);
@@ -1542,7 +1582,7 @@ async function calculatePremium() {
     endorsement_freq:   document.getElementById('endorsementFreq').value,
     confirmation_date:  document.getElementById('confirmationDate').value || null,
     has_lsb:            document.getElementById('hasLsb').checked,
-    age_method:         document.getElementById('planName').value === 'Healthx' ? 'anb' : 'alb',
+    age_method:         _ageMethod,
     rm_broker:          (document.getElementById('rmBroker')  || {}).value || '0',
     rm_insurer:         (document.getElementById('rmQic')     || document.getElementById('rmDni') || {}).value || '0',
     rm_wellx:           (document.getElementById('rmWellx')   || {}).value || '0',

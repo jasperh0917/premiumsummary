@@ -2171,7 +2171,10 @@ def api_upload():
 
     # Use start_date from form or from extracted tool_data
     effective_start = start_date or tool_data.get('start_date', '')
-    age_method = 'anb' if plan.lower() == 'healthx' else 'alb'
+    # age_method sent by UI toggle (ALB default); only relevant for Healthx
+    age_method = request.form.get('age_method', 'alb')
+    if age_method not in ('alb', 'anb'):
+        age_method = 'alb'
 
     # ── Parse census ──────────────────────────────────────────────────────────
     census_members = []
@@ -2197,6 +2200,7 @@ def api_upload():
     token = str(uuid.uuid4())
     _session_set(token, {
         'plan':            plan,
+        'age_method':      age_method,
         'census_bytes':    census_bytes,
         'census_filename': census_filename,
         'members_preview': sorted_members,   # user-correctable
@@ -2468,7 +2472,8 @@ def api_calculate():
         return jsonify({'error': 'Session expired. Please re-upload files.'}), 400
 
     start_date  = form_data.get('start_date')
-    age_method  = form_data.get('age_method', 'alb')   # 'anb' for Healthx
+    # UI toggle value takes priority; fall back to what was stored at upload time
+    age_method  = form_data.get('age_method') or stored.get('age_method', 'alb')
 
     if not start_date:
         return jsonify({'error': 'Start date is required'}), 400
