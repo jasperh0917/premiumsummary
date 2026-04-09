@@ -48,8 +48,6 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0a0a0a;min-height:100v
 
 /* Card body */
 .card-body{padding:32px 36px}
-.step-content{display:none}
-.step-content.active{display:block}
 
 /* Section label */
 .section-label{font-family:'Raleway',sans-serif;font-size:.67rem;font-weight:800;letter-spacing:1.8px;text-transform:uppercase;color:var(--navy);margin:28px 0 14px;padding-bottom:9px;border-bottom:2px solid transparent;border-image:var(--grad-full) 1}
@@ -303,7 +301,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0a0a0a;min-height:100v
   <!-- ═══════════════════════════════════════════════════════════════════
        STEP 1 — Intake Form
   ══════════════════════════════════════════════════════════════════════ -->
-  <div class="card-body step-content active" id="step-1" style="display:block">
+  <div class="card-body" id="step-1">
     <form id="intakeForm" novalidate>
 
       <div class="section-label">Client &amp; Broker</div>
@@ -449,7 +447,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0a0a0a;min-height:100v
   <!-- ═══════════════════════════════════════════════════════════════════
        CENSUS REVIEW — shown between Step 1 and Step 2
   ══════════════════════════════════════════════════════════════════════ -->
-  <div class="card-body step-content" id="step-census" style="display:none">
+  <div class="card-body" id="step-census" style="display:none">
     <div id="censusReviewHeader" class="recon-banner match" style="margin-bottom:16px;align-items:flex-start;gap:14px">
       <div class="recon-icon" id="crIcon">📋</div>
       <div style="flex:1">
@@ -483,7 +481,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0a0a0a;min-height:100v
   <!-- ═══════════════════════════════════════════════════════════════════
        STEP 2 — Verify Rates
   ══════════════════════════════════════════════════════════════════════ -->
-  <div class="card-body step-content" id="step-2">
+  <div class="card-body" id="step-2" style="display:none">
 
     <div class="section-label">Extracted from Quote Tool</div>
     <div id="extractionBadge" class="extraction-badge badge-success">
@@ -545,7 +543,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0a0a0a;min-height:100v
   <!-- ═══════════════════════════════════════════════════════════════════
        STEP 3 — Results
   ══════════════════════════════════════════════════════════════════════ -->
-  <div class="card-body step-content" id="step-3">
+  <div class="card-body" id="step-3" style="display:none">
 
     <!-- Reconciliation Banner -->
     <div class="recon-banner" id="reconBanner">
@@ -846,12 +844,15 @@ setupZone('zone-census', 'censusFile', 'censusName', 'xlsx');
 
 // ── Step navigation ───────────────────────────────────────────────────────────
 function goToStep(n) {
-  document.querySelectorAll('.step-content').forEach(el => {
-    el.classList.remove('active');
-    el.style.display = '';  // clear any inline display override from showCensusReview/confirmCensus
+  // Hide all steps explicitly — no CSS class dependency
+  ['step-1','step-2','step-3','step-census'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
   });
+  // Show the target step
   const target = document.getElementById('step-' + n);
-  if (target) target.classList.add('active');
+  if (target) target.style.display = 'block';
+  // Update step bar indicators (cosmetic only)
   [1,2,3].forEach(i => {
     const si = document.getElementById('si-' + i);
     si.classList.remove('active','done');
@@ -1244,8 +1245,11 @@ function showCensusReview(preview) {
   renderCensusReviewTable(warnings, dups);
 
   // Show census review step
-  document.querySelectorAll('.step-content').forEach(el => el.style.display = 'none');
-  document.getElementById('step-census').style.display = '';
+  ['step-1','step-2','step-3','step-census'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+  document.getElementById('step-census').style.display = 'block';
   document.getElementById('step1Btn').disabled  = false;
   document.getElementById('step1Btn').innerHTML = 'Extract Rates &amp; Continue →';
 }
@@ -1304,8 +1308,11 @@ async function confirmCensus() {
     });
     const td = _lastToolData || {};
     // Go to step 2
-    document.querySelectorAll('.step-content').forEach(el => el.style.display = 'none');
-    document.getElementById('step-2').style.display = '';
+    ['step-1','step-2','step-3','step-census'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
+    document.getElementById('step-2').style.display = 'block';
     showToast(
       Object.keys(td).length
         ? 'Rates extracted — review and click Calculate'
