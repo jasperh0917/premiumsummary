@@ -138,9 +138,9 @@ tfoot td{padding:9px 14px;font-size:.83rem;font-weight:700;color:var(--navy)}
   <!-- KPIs -->
   <div class="kpi-row">
     <div class="kpi"><div class="kv" id="kTotal">—</div><div class="kl">Total Policies</div></div>
-    <div class="kpi"><div class="kv" id="kGross">—</div><div class="kl">Total Gross Premium (AED)</div></div>
+    <div class="kpi"><div class="kv" id="kGross">—</div><div class="kl">Total Gross Premium</div></div>
     <div class="kpi"><div class="kv" id="kMembers">—</div><div class="kl">Total Members</div></div>
-    <div class="kpi"><div class="kv" id="kAvg">—</div><div class="kl">Avg Policy Size (AED)</div></div>
+    <div class="kpi"><div class="kv" id="kAvg">—</div><div class="kl">Avg Policy Size</div></div>
   </div>
 
   <!-- Monthly Sales -->
@@ -164,8 +164,8 @@ tfoot td{padding:9px 14px;font-size:.83rem;font-weight:700;color:var(--navy)}
           <th>Month</th>
           <th class="num">Policies</th>
           <th class="num">Members</th>
-          <th class="num">Gross Premium (AED)</th>
-          <th class="num">Grand Total (AED)</th>
+          <th class="num">Gross Premium</th>
+          <th class="num">Grand Total</th>
         </tr></thead>
         <tbody id="monthBody"></tbody>
         <tfoot><tr>
@@ -188,9 +188,9 @@ tfoot td{padding:9px 14px;font-size:.83rem;font-weight:700;color:var(--navy)}
           <th>Broker</th>
           <th class="num">Policies</th>
           <th class="num">Members</th>
-          <th class="num">Gross Premium (AED)</th>
-          <th class="num">Grand Total (AED)</th>
-          <th class="num">Avg Policy (AED)</th>
+          <th class="num">Gross Premium</th>
+          <th class="num">Grand Total</th>
+          <th class="num">Avg Policy</th>
         </tr></thead>
         <tbody id="brokerBody"></tbody>
       </table>
@@ -217,9 +217,9 @@ tfoot td{padding:9px 14px;font-size:.83rem;font-weight:700;color:var(--navy)}
         <thead><tr>
           <th>RM</th>
           <th class="num">Policies</th>
-          <th class="num">Actual (AED)</th>
-          <th class="num">Target (AED)</th>
-          <th class="num">Variance</th>
+          <th class="num">Actual</th>
+          <th class="num">Target</th>
+          <th class="num">To reach target</th>
           <th class="num">% of Target</th>
         </tr></thead>
         <tbody id="rmBody"></tbody>
@@ -416,16 +416,16 @@ function renderMonthly() {
           <td>${fmtMonth(r.month)}</td>
           <td class="num">${r.policy_count}</td>
           <td class="num">${parseInt(r.member_count||0).toLocaleString()}</td>
-          <td class="num">AED ${fmtNum(r.gross_premium)}</td>
-          <td class="num">AED ${fmtNum(r.grand_total)}</td>
+          <td class="num">${fmtNum(r.gross_premium)}</td>
+          <td class="num">${fmtNum(r.grand_total)}</td>
         </tr>`;
       }).join('')
     : '<tr class="empty-row"><td colspan="5">No data for selected filters</td></tr>';
 
   document.getElementById('mfCount').textContent   = sumC;
   document.getElementById('mfMembers').textContent = sumM.toLocaleString();
-  document.getElementById('mfGross').textContent   = 'AED ' + fmtNum(sumG);
-  document.getElementById('mfGrand').textContent   = 'AED ' + fmtNum(sumGrand);
+  document.getElementById('mfGross').textContent   = fmtNum(sumG);
+  document.getElementById('mfGrand').textContent   = fmtNum(sumGrand);
 }
 
 // ── Brokers ────────────────────────────────────────────────────────────────────
@@ -435,9 +435,9 @@ function renderBrokers() {
         <td><strong>${r.broker}</strong></td>
         <td class="num">${r.policy_count}</td>
         <td class="num">${parseInt(r.total_members||0).toLocaleString()}</td>
-        <td class="num">AED ${fmtNum(r.gross_premium)}</td>
-        <td class="num">AED ${fmtNum(r.total_grand)}</td>
-        <td class="num">AED ${fmtNum(r.avg_policy_size)}</td>
+        <td class="num">${fmtNum(r.gross_premium)}</td>
+        <td class="num">${fmtNum(r.total_grand)}</td>
+        <td class="num">${fmtNum(r.avg_policy_size)}</td>
       </tr>`).join('')
     : '<tr class="empty-row"><td colspan="6">No data for selected filters</td></tr>';
 }
@@ -481,14 +481,16 @@ function renderRM() {
     return `<tr>
       <td><strong>${rm}</strong></td>
       <td class="num">${count}</td>
-      <td class="num">AED ${fmtNum(actual)}</td>
+      <td class="num">${fmtNum(actual)}</td>
       <td class="num">
-        <input class="target-input" type="number" min="0" step="1000"
-          value="${target||''}" placeholder="Set target" id="ti-${safeId}">
+        <input class="target-input" type="text" inputmode="numeric"
+          value="${target ? fmtNum(target) : ''}" placeholder="Set target" id="ti-${safeId}"
+          onfocus="this.value=this.value.replace(/,/g,'')"
+          onblur="if(this.value)this.value=Number(this.value.replace(/,/g,'')).toLocaleString('en-AE',{maximumFractionDigits:0})">
         <button class="save-btn" onclick="saveTarget('${rm.replace(/'/g,"\\'")}')">Save</button>
       </td>
       <td class="num" style="color:${variance>=0?'#16a34a':'#dc2626'};font-weight:600">
-        ${variance>=0?'+':''}AED ${fmtNum(variance)}
+        ${variance>=0?'+':''}${fmtNum(variance)}
       </td>
       <td class="num">${pctLabel}</td>
     </tr>`;
@@ -498,7 +500,7 @@ function renderRM() {
 async function saveTarget(rmName) {
   const year  = parseInt(document.getElementById('rmYear').value);
   const month = parseInt(document.getElementById('rmMonth').value);
-  const val   = parseFloat(document.getElementById(`ti-${rmName.replace(/\W+/g,'_')}`).value) || 0;
+  const val   = parseFloat((document.getElementById(`ti-${rmName.replace(/\W+/g,'_')}`).value || '').replace(/,/g,'')) || 0;
   const res   = await fetch('/api/dashboard/rm_targets', {
     method: 'POST', headers: {'Content-Type':'application/json'},
     body: JSON.stringify({ rm_name: rmName, year, month, target_amount: val }),

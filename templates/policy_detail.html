@@ -624,13 +624,11 @@ async function loadDetail() {
   `).join('');
 
   // Totals
+  const totalPremium = (parseFloat(p.total_net)||0) + (parseFloat(p.total_maternity)||0);
   const totals = [
-    ['Net Premium',       p.total_net,       false],
-    ['Maternity',         p.total_maternity, false],
-    ['BASMAH Fees',       p.total_basmah,    false],
-    ['Subtotal',          p.subtotal,        false],
-    ['VAT (5%)',          p.vat,             false],
-    ['Grand Total (AED)', p.grand_total,     true],
+    ['Premium',           p.total_net,    false],
+    ['Maternity Premium', p.total_maternity, false],
+    ['Total Premium',     totalPremium,   true],
   ];
   document.getElementById('totalsGrid').innerHTML = totals.map(([l, v, hi]) => `
     <div class="total-item ${hi ? 'highlight' : ''}">

@@ -2242,27 +2242,40 @@ def api_compare_census(out_token):
     confirmed_members = stored['members_data']
     diff = compare_censuses(confirmed_members, quoted_members)
 
-    # Build a compact summary string and cache it so the Excel can include it
-    parts = []
+    # Build a detailed summary string and cache it so the Excel can include it
+    def _fmt_m(m):
+        age  = m.get('age_alb') or m.get('age_anb') or '?'
+        gen  = (m.get('gender') or '?')[:1].upper()
+        rel  = m.get('relation') or m.get('relationship') or '?'
+        return f"{m.get('name','?')} ({age}, {gen}, {rel})"
+
+    summary_lines = []
     if diff.get('added'):
-        parts.append(f"➕ Added {len(diff['added'])}")
+        names = [_fmt_m(m) for m in diff['added'][:5]]
+        extra = len(diff['added']) - 5
+        line  = 'Added: ' + ', '.join(names)
+        if extra > 0:
+            line += f' +{extra} more'
+        summary_lines.append(line)
     if diff.get('removed'):
-        parts.append(f"➖ Removed {len(diff['removed'])}")
+        names = [_fmt_m(m) for m in diff['removed'][:5]]
+        extra = len(diff['removed']) - 5
+        line  = 'Removed: ' + ', '.join(names)
+        if extra > 0:
+            line += f' +{extra} more'
+        summary_lines.append(line)
     if diff.get('changed'):
-        parts.append(f"🔄 Changed {len(diff['changed'])}")
-    if not parts:
-        diff_summary = 'Census identical to quoted'
-    else:
-        diff_summary = ' | '.join(parts)
-        # Append first changed-field details (up to 3 members)
-        detail_lines = []
-        for ch in diff.get('changed', [])[:3]:
-            field_desc = ', '.join(
-                f"{c['field']}: {c['from']}→{c['to']}" for c in ch.get('changes', [])
-            )
-            detail_lines.append(f"{ch['name']}: {field_desc}")
-        if detail_lines:
-            diff_summary += ' (' + '; '.join(detail_lines) + ')'
+        ch_parts = []
+        for ch in diff['changed'][:3]:
+            fld = ', '.join(f"{c['field']} {c['from']}→{c['to']}" for c in ch.get('changes', []))
+            ch_parts.append(f"{ch['name']} ({fld})")
+        extra = len(diff['changed']) - 3
+        line  = 'Changed: ' + ', '.join(ch_parts)
+        if extra > 0:
+            line += f' +{extra} more'
+        summary_lines.append(line)
+
+    diff_summary = ' | '.join(summary_lines) if summary_lines else 'Census identical to quoted'
 
     _store[out_token]['census_diff_summary'] = diff_summary
 
@@ -3094,6 +3107,21 @@ def api_policy_delete(pid):
         if not res.data:
             return jsonify({'error': 'Not found'}), 404
         return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/policies/bulk_delete', methods=['POST'])
+def api_policies_bulk_delete():
+    supa = get_supa()
+    if not supa:
+        return jsonify({'error': 'Database not configured'}), 503
+    ids = request.json.get('ids', [])
+    if not ids:
+        return jsonify({'error': 'No IDs provided'}), 400
+    try:
+        supa.table('policies').delete().in_('id', ids).execute()
+        return jsonify({'ok': True, 'deleted': len(ids)})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

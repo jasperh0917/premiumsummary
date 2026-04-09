@@ -674,9 +674,9 @@ async function safeJson(res) {
   } catch(_) {
     // Server returned a non-JSON error (e.g. "Request Entity Too Large", gateway timeout)
     const status = res.status;
-    if (status === 413) return { error: 'File too large for the server. Try a smaller PDF (under 4 MB).' };
-    if (status === 504 || status === 524) return { error: 'Request timed out — the PDF is taking too long to process. Please try again.' };
-    if (status === 500) return { error: 'Server error. Check that your API key is set correctly in Vercel.' };
+    if (status === 413) return { error: 'File too large. Please use the rates-only PDF (should be under 4 MB).' };
+    if (status === 504 || status === 524) return { error: 'TIMEOUT' };
+    if (status === 500) return { error: 'Server error. Check that the API key is set correctly in Vercel.' };
     return { error: `Server error ${status}: ${text.slice(0, 120)}` };
   }
 }
@@ -913,12 +913,12 @@ function goToStep(n) {
 
 // ── Toast ─────────────────────────────────────────────────────────────────────
 let toastTimer;
-function showToast(msg, type = '') {
+function showToast(msg, type = '', duration = 4000) {
   clearTimeout(toastTimer);
   const t = document.getElementById('toast');
   t.textContent = msg; t.className = 'toast ' + type;
   t.classList.add('show');
-  toastTimer = setTimeout(() => t.classList.remove('show'), 4000);
+  toastTimer = setTimeout(() => t.classList.remove('show'), duration);
 }
 
 // ── Overlay ───────────────────────────────────────────────────────────────────
@@ -1200,7 +1200,14 @@ document.getElementById('intakeForm').addEventListener('submit', async (e) => {
     const data = await safeJson(res);
     hideOverlay();
 
-    if (data.error) { showToast(data.error, 'error-t'); btn.disabled = false; btn.innerHTML = 'Extract Rates &amp; Continue →'; return; }
+    if (data.error) {
+      if (data.error === 'TIMEOUT') {
+        showToast('⏱ Processing timed out. The PDF is large — try uploading a rates-only PDF (just the price pages). Then click Extract again.', 'error-t', 10000);
+      } else {
+        showToast(data.error, 'error-t');
+      }
+      btn.disabled = false; btn.innerHTML = 'Extract Rates &amp; Continue →'; return;
+    }
 
     currentToken  = data.token;
     const td      = data.tool_data || {};

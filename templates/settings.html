@@ -166,6 +166,11 @@
         <input id="add-brokers" type="text" placeholder="New broker name…" onkeydown="if(event.key==='Enter')addPerson('brokers')"/>
         <button class="btn btn-primary" onclick="addPerson('brokers')">+ Add</button>
       </div>
+      <div style="padding:0 0 10px">
+        <input id="search-brokers" type="text" placeholder="🔍 Search brokers…"
+          style="width:100%;border:1.5px solid #e0e7f0;border-radius:7px;padding:7px 12px;font-size:.85rem;box-sizing:border-box;outline:none"
+          oninput="filterList('brokers', this.value)">
+      </div>
       <ul class="people-list" id="list-brokers"><li class="loading">Loading…</li></ul>
     </div>
   </div>
@@ -196,6 +201,16 @@ function toast(msg, type = 'ok') {
   el.className = 'show ' + type;
   clearTimeout(el._t);
   el._t = setTimeout(() => el.className = '', 2800);
+}
+
+// ── Filter list by search term ────────────────────────────────────────────────
+function filterList(table, q) {
+  const ul = document.getElementById('list-' + table);
+  const term = q.trim().toLowerCase();
+  ul.querySelectorAll('li').forEach(li => {
+    const text = li.textContent.toLowerCase();
+    li.style.display = (!term || text.includes(term)) ? '' : 'none';
+  });
 }
 
 // ── Load list ─────────────────────────────────────────────────────────────────
