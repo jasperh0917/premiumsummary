@@ -289,7 +289,13 @@ def parse_rates_pdf(pdf_bytes, plan=''):
         '- Extract all categories (A, B, C …) if multiple exist\n'
         '- confirmed_quote = net premium BEFORE VAT (not grand total)\n'
         '- members = total insured member count\n'
-        '- maternity_rate = annual maternity surcharge per eligible female (look for "Additional Maternity Premium" or similar). This is typically 3,000–8,000 AED. Use 0 only if truly not shown.\n'
+        '- maternity_rate: each category table ends with a summary block that looks like:\n'
+        '    "Maternity Premium  AED X"  ← total already billed (may be 0 if no eligible females in census)\n'
+        '    "Census  N"                 ← count of eligible females\n'
+        '    "Average  AED Y"            ← per-capita maternity loading ← USE THIS VALUE\n'
+        '  Extract Y (the Average) as maternity_rate. NOT X (the Maternity Premium total).\n'
+        '  Even if Maternity Premium is AED 0, the Average can still be non-zero — always use the Average.\n'
+        '  This value is typically 3,000–8,000 AED. Use 0 only if the Average row is truly absent.\n'
         '- age_lo and age_hi must be integers; use 99 for the upper bound of the last bracket\n'
         '- Return ONLY the JSON object'
     )})
@@ -1042,33 +1048,19 @@ def get_member_rate(member, categories_data):
 
 # ── Calculation Engine ────────────────────────────────────────────────────────
 def calculate_premiums(members, categories_data):
-    # Pass 1: compute base premiums and accumulate per-category totals
-    base_data = []
-    cat_sums   = {}
-    cat_counts = {}
-    for m in members:
-        rate, bracket_label, error = get_member_rate(m, categories_data)
-        emirate = m.get('emirate', 'Dubai')
-        mat_age_max = MAT_AGE_MAX_AUH if 'abu dhabi' in emirate.lower() else MAT_AGE_MAX_DXB
-        base_data.append((float(rate), bracket_label, error, mat_age_max))
-        cat = m['category'].upper()
-        cat_sums[cat]   = cat_sums.get(cat, 0.0)   + float(rate)
-        cat_counts[cat] = cat_counts.get(cat, 0)    + 1
-
-    # Per-category average premium = maternity surcharge for that category
-    cat_avg = {cat: cat_sums[cat] / cat_counts[cat]
-               for cat in cat_sums if cat_counts[cat] > 0}
-
-    # Pass 2: build results using per-category average as maternity surcharge
     results = []
     for i, m in enumerate(members):
-        rate, bracket_label, error, mat_age_max = base_data[i]
-        cat = m['category'].upper()
+        rate, bracket_label, error = get_member_rate(m, categories_data)
+        cat      = m['category'].upper()
+        # maternity_rate is the per-capita average extracted from the PDF "Average" row
+        mat_rate = float(categories_data.get(cat, {}).get('maternity_rate') or 0)
+        emirate  = m.get('emirate', 'Dubai')
+        mat_age_max = MAT_AGE_MAX_AUH if 'abu dhabi' in emirate.lower() else MAT_AGE_MAX_DXB
         maternity = 0.0
         if (m['gender'].lower().startswith('f')
                 and m['marital_status'].lower().startswith('m')
                 and MAT_AGE_MIN <= m['age_alb'] <= mat_age_max):
-            maternity = cat_avg.get(cat, 0.0)
+            maternity = mat_rate
 
         results.append({
             **m,
@@ -2502,44 +2494,32 @@ def _recalculate_policy(supa, policy_id):
     mem_res = supa.table('policy_members').select('*').eq('policy_id', policy_id).execute()
     members = mem_res.data or []
 
-    # Pass 1: compute base premiums + per-category averages for maternity
-    base_rates = []
-    cat_sums   = {}
-    cat_counts = {}
+    total_net = 0.0
+    total_mat = 0.0
     for m in members:
         rate, bracket_label, _ = get_member_rate(m, categories_data)
-        emirate = m.get('emirate') or 'Dubai'
+        cat      = (m.get('category') or 'A').upper()
+        mat_rate = float(categories_data.get(cat, {}).get('maternity_rate') or 0)
+        emirate  = m.get('emirate') or 'Dubai'
         mat_age_max = MAT_AGE_MAX_AUH if 'abu dhabi' in emirate.lower() else MAT_AGE_MAX_DXB
-        base_rates.append((float(rate), bracket_label, mat_age_max))
-        cat = (m.get('category') or 'A').upper()
-        cat_sums[cat]   = cat_sums.get(cat, 0.0) + float(rate)
-        cat_counts[cat] = cat_counts.get(cat, 0)  + 1
-
-    total_net = sum(r[0] for r in base_rates)
-    cat_avg   = {cat: cat_sums[cat] / cat_counts[cat]
-                 for cat in cat_sums if cat_counts[cat] > 0}
-
-    total_mat = 0.0
-    for i, m in enumerate(members):
-        rate, bracket_label, mat_age_max = base_rates[i]
-        cat     = (m.get('category') or 'A').upper()
-        gender  = (m.get('gender') or '').lower()
-        marital = (m.get('marital_status') or '').lower()
-        age     = m.get('age_alb') or 0
-        maternity = cat_avg.get(cat, 0.0) if (
+        gender   = (m.get('gender') or '').lower()
+        marital  = (m.get('marital_status') or '').lower()
+        age      = m.get('age_alb') or 0
+        maternity = mat_rate if (
             gender.startswith('f') and marital.startswith('m')
             and MAT_AGE_MIN <= age <= mat_age_max
         ) else 0.0
         gross_load = float(m.get('gross_loading') or 0)
-        final_prem = rate + maternity + gross_load
+        final_prem = float(rate) + maternity + gross_load
 
         supa.table('policy_members').update({
-            'base_premium':      rate,
+            'base_premium':      float(rate),
             'maternity_premium': maternity,
             'final_premium':     final_prem,
             'age_bracket':       bracket_label or m.get('age_bracket', ''),
         }).eq('id', m['id']).execute()
 
+        total_net += float(rate)
         total_mat += maternity
 
     bas_total  = BASMAH_FEE * len(members)
