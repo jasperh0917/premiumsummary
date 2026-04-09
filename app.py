@@ -3524,8 +3524,7 @@ def api_dashboard_take_rate():
     try:
         from collections import defaultdict
         q = supa.table('policies').select(
-            'plan,total_net,total_maternity,'
-            'rm_broker,rm_insurer,rm_wellx,rm_tpa,rm_insurance_tax'
+            'plan,total_net,total_maternity,rm_wellx'
         )
         q = _dash_filter(q, request.args)
         rows = q.execute().data or []
@@ -3534,13 +3533,8 @@ def api_dashboard_take_rate():
         for r in rows:
             plan     = r.get('plan') or 'Unknown'
             gross    = float(r.get('total_net') or 0) + float(r.get('total_maternity') or 0)
-            comm_pct = (
-                float(r.get('rm_broker', 0) or 0) +
-                float(r.get('rm_insurer', 0) or 0) +
-                float(r.get('rm_wellx', 0) or 0) +
-                float(r.get('rm_tpa', 0) or 0) +
-                float(r.get('rm_insurance_tax', 0) or 0)
-            )
+            # Take rate = Healthx / Openx admin share only (rm_wellx)
+            comm_pct = float(r.get('rm_wellx', 0) or 0)
             comm_amt = gross * comm_pct / 100.0
             buckets[plan]['premium']    += gross
             buckets[plan]['commission'] += comm_amt
@@ -3590,8 +3584,7 @@ def api_dashboard_export():
         all_rows  = q_monthly.execute().data or []
 
         q_tr = supa.table('policies').select(
-            'plan,total_net,total_maternity,'
-            'rm_broker,rm_insurer,rm_wellx,rm_tpa,rm_insurance_tax'
+            'plan,total_net,total_maternity,rm_wellx'
         )
         q_tr = _dash_filter(q_tr, args)
         tr_rows = q_tr.execute().data or []
@@ -3701,7 +3694,7 @@ def api_dashboard_export():
         for r in tr_rows:
             plan  = r.get('plan') or 'Unknown'
             gross = float(r.get('total_net') or 0) + float(r.get('total_maternity') or 0)
-            cpct  = sum(float(r.get(k, 0) or 0) for k in ('rm_broker','rm_insurer','rm_wellx','rm_tpa','rm_insurance_tax'))
+            cpct  = float(r.get('rm_wellx', 0) or 0)
             tr_buckets[plan]['premium']    += gross
             tr_buckets[plan]['commission'] += gross * cpct / 100.0
             tr_buckets[plan]['count']      += 1
