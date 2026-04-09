@@ -35,7 +35,47 @@ app = Flask(__name__,
 app.secret_key = os.urandom(24)
 app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100MB
 
-_store = {}  # In-memory: token -> data
+# ── Session helpers (Supabase-backed, survives serverless cold starts) ─────────
+import base64 as _b64
+from datetime import timedelta
+
+def _session_set(token: str, data: dict):
+    """Persist session to Supabase. bytes values are base64-encoded."""
+    def _enc(v):
+        if isinstance(v, (bytes, bytearray)):
+            return {'__b64__': True, 'data': _b64.b64encode(bytes(v)).decode()}
+        return v
+    serialised = {k: _enc(v) for k, v in data.items()}
+    try:
+        # Cleanup sessions older than 6 hours while we're here
+        cutoff = (datetime.utcnow() - timedelta(hours=6)).isoformat()
+        supa.table('sessions').delete().lt('created_at', cutoff).execute()
+    except Exception:
+        pass
+    supa.table('sessions').upsert({'token': token, 'data': serialised}).execute()
+
+def _session_get(token: str):
+    """Retrieve session from Supabase. Decodes base64 binary values."""
+    try:
+        res = supa.table('sessions').select('data').eq('token', token).limit(1).execute()
+    except Exception:
+        return None
+    if not res.data:
+        return None
+    raw = res.data[0]['data']
+    def _dec(v):
+        if isinstance(v, dict) and v.get('__b64__'):
+            return _b64.b64decode(v['data'])
+        return v
+    return {k: _dec(v) for k, v in raw.items()}
+
+def _session_patch(token: str, updates: dict):
+    """Update specific keys in an existing session without overwriting the rest."""
+    stored = _session_get(token)
+    if stored is None:
+        return
+    stored.update(updates)
+    _session_set(token, stored)
 
 # ── Constants ────────────────────────────────────────────────────────────────
 BASMAH_FEE       = 37.0
@@ -2155,13 +2195,13 @@ def api_upload():
         cat_counts[m['category']] = cat_counts.get(m['category'], 0) + 1
 
     token = str(uuid.uuid4())
-    _store[token] = {
+    _session_set(token, {
         'plan':            plan,
         'census_bytes':    census_bytes,
         'census_filename': census_filename,
         'members_preview': sorted_members,   # user-correctable
         'tool_data':       tool_data,
-    }
+    })
 
     return jsonify({
         'token':             token,
@@ -2184,14 +2224,14 @@ def api_upload():
 @app.route('/api/update_census/<token>', methods=['POST'])
 def api_update_census(token):
     """Accept user-corrected census members list and store for use in calculate."""
-    stored = _store.get(token)
+    stored = _session_get(token)
     if not stored:
         return jsonify({'error': 'Session not found'}), 404
     body = request.get_json(force=True) or {}
     members = body.get('members', [])
     if not isinstance(members, list):
         return jsonify({'error': 'members must be a list'}), 400
-    stored['members_preview'] = members
+    _session_patch(token, {'members_preview': members})
     return jsonify({'ok': True, 'count': len(members)})
 
 
@@ -2235,7 +2275,7 @@ def compare_censuses(confirmed_members, quoted_members):
 @app.route('/api/compare_census/<out_token>', methods=['POST'])
 def api_compare_census(out_token):
     """Compare confirmed vs quoted census and attribute premium differences per member."""
-    stored = _store.get(out_token)
+    stored = _session_get(out_token)
     if not stored or 'members_data' not in stored:
         return jsonify({'error': 'Session not found or expired'}), 404
 
@@ -2399,16 +2439,16 @@ def api_compare_census(out_token):
         line  = 'Changed: ' + ', '.join(ch_parts) + (f' +{extra} more' if extra > 0 else '')
         summary_lines.append(line)
 
-    _store[out_token]['census_diff_summary'] = (
+    _session_patch(out_token, {'census_diff_summary': (
         ' | '.join(summary_lines) if summary_lines else 'Census identical to quoted'
-    )
+    )})
 
     return jsonify(diff)
 
 
 @app.route('/api/page/<token>/<int:page_idx>')
 def api_page(token, page_idx):
-    stored = _store.get(token)
+    stored = _session_get(token)
     if not stored:
         return jsonify({'error': 'Session not found'}), 404
     img, total = pdf_page_image(stored['pdf_bytes'], page_idx, scale=2.0)
@@ -2423,7 +2463,7 @@ def api_calculate():
     maternity_rates= body.get('maternity_rates', {})  # {cat: amount}
     quote_totals   = body.get('quote_totals', {})
 
-    stored = _store.get(token)
+    stored = _session_get(token)
     if not stored:
         return jsonify({'error': 'Session expired. Please re-upload files.'}), 400
 
@@ -2485,7 +2525,7 @@ def api_calculate():
     company_name         = form_data.get('company_name', 'Company')
 
     out_token = str(uuid.uuid4())
-    _store[out_token] = {
+    _session_set(out_token, {
         'company_name':   company_name,
         'members_data':   members_data,
         'verified_rates': verified_rates,
@@ -2496,7 +2536,7 @@ def api_calculate():
         'plan':           stored.get('plan', ''),
         'start_date':     start_date,
         'age_method':     age_method,
-    }
+    })
 
     q_premium = float(quote_totals.get('total_premium', 0) or 0)
     c_premium = totals['total_net'] + totals['total_maternity']
@@ -2538,7 +2578,7 @@ def api_finalize_summary():
     loading_members = body.get('loading_members', [])
     has_lsb         = bool(body.get('has_lsb', False))
 
-    stored = _store.get(out_token)
+    stored = _session_get(out_token)
     if not stored or 'members_data' not in stored:
         return jsonify({'error': 'Session expired. Please recalculate.'}), 400
 
@@ -2580,10 +2620,10 @@ def api_finalize_summary():
     wb.save(buf)
 
     prd_token = str(uuid.uuid4())
-    _store[prd_token] = {
+    _session_set(prd_token, {
         'prd_bytes':    buf.getvalue(),
         'company_name': stored.get('company_name', 'Company'),
-    }
+    })
 
     # ── Persist to Supabase ───────────────────────────────────────────────────
     policy_id = save_policy(
@@ -2601,7 +2641,7 @@ def api_finalize_summary():
 
 @app.route('/download/<token>/<file_type>')
 def download(token, file_type):
-    stored = _store.get(token)
+    stored = _session_get(token)
     if not stored:
         return "File not found or expired", 404
     company = re.sub(r'[^\w\s-]', '', stored.get('company_name', 'Company')).strip()
