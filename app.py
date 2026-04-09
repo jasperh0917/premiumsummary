@@ -1191,7 +1191,7 @@ def build_mismatch_analysis(members_data, q_premium, c_premium, q_members, gross
 def make_combined_excel(form_data, members_data, verified_rates, maternity_rates,
                         loading_members, has_lsb, totals, quote_totals,
                         quoted_totals_calc=None, quoted_member_count=None,
-                        census_diff_summary=''):
+                        census_diff_summary='', hide_commissions=False):
     from collections import defaultdict as _dd
 
     plan        = form_data.get('plan', '')
@@ -1893,7 +1893,10 @@ def make_combined_excel(form_data, members_data, verified_rates, maternity_rates
     summary_block = [
         ('Company Name',                  company),
         ('Broker',                        broker_name),
-        ('Commission Structure',          comm_str),
+    ]
+    if not hide_commissions:
+        summary_block.append(('Commission Structure', comm_str))
+    summary_block += [
         ('Confirmed Premium',             f'AED {q_premium:,.2f}'),
         ('Final Premium (incl. loading)', None),
         ('Premium Analysis',              analysis_txt),
@@ -1926,6 +1929,17 @@ def make_combined_excel(form_data, members_data, verified_rates, maternity_rates
         mem_row += 1
 
     apply_borders(ws2)
+
+    # ── Wellx branding: logo in ws1 title cell + powered-by footer ────────────
+    _xl_add_logo(ws1, 'A1', _WELLX_LOGO_PATH, w=110, h=36)
+    footer_row2 = mem_row + 1
+    ws.merge_cells(start_row=footer_row2, start_column=1,
+                   end_row=footer_row2, end_column=5)
+    fc = ws.cell(row=footer_row2, column=1,
+                 value=f'Powered by Wellx Labs  ·  Generated {datetime.now().strftime("%d %b %Y %H:%M")}')
+    fc.font      = Font(name='Inter', size=8, italic=True, color='9aa5b4')
+    fc.alignment = Alignment(horizontal='center', vertical='center')
+    _xl_add_logo(ws, f'F{footer_row2}', _POWERED_LOGO_PATH, w=100, h=24)
 
     return wb
 
@@ -2969,6 +2983,7 @@ def api_policy_export(pid):
         wb = make_combined_excel(
             form_data, members_data, verified_rates, maternity_rates,
             loading_members, has_lsb, totals, quote_totals,
+            hide_commissions=True,
         )
         buf = io.BytesIO()
         wb.save(buf)
@@ -3400,6 +3415,390 @@ def api_upsert_rm_target():
             'rm_name': rm_name, 'year': year, 'month': month, 'target_amount': target_amount
         }, on_conflict='rm_name,year,month').execute()
         return jsonify({'ok': True, 'id': res.data[0]['id'] if res.data else None})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# ── Logo helper ───────────────────────────────────────────────────────────────
+_WELLX_LOGO_PATH   = os.path.join(_ROOT, 'Style', 'wellx-logo-light-bg_de94776e.png')
+_POWERED_LOGO_PATH = BRAND_LOGO_PATH   # "Powered by Wellx Labs no background.png"
+
+def _xl_add_logo(ws, cell='A1', path=None, w=130, h=38):
+    """Insert Wellx logo image into ws at cell. Silently skips if Pillow unavailable."""
+    try:
+        from openpyxl.drawing.image import Image as _XLImg
+        p = path or _WELLX_LOGO_PATH
+        if os.path.isfile(p):
+            img = _XLImg(p)
+            img.width  = w
+            img.height = h
+            ws.add_image(img, cell)
+    except Exception:
+        pass   # Pillow not installed or file missing — degrade gracefully
+
+
+def _xl_powered_row(ws, row, col=1, last_col=8):
+    """Write 'Powered by Wellx Labs' text in the footer row."""
+    ws.merge_cells(start_row=row, start_column=col, end_row=row, end_column=last_col)
+    c = ws.cell(row=row, column=col,
+                value=f'Powered by Wellx Labs  ·  Generated {datetime.now().strftime("%d %b %Y %H:%M")}')
+    c.font      = Font(name='Inter', size=8, italic=True, color='9aa5b4')
+    c.alignment = Alignment(horizontal='center', vertical='center')
+
+
+def _make_report_header(ws, title, subtitle='', logo=True, col_count=8):
+    """Write a branded header (logo + title) into rows 1-2 of ws. Returns next free row."""
+    from openpyxl.styles import PatternFill as _PF
+    PRI = '003780'
+    ws.row_dimensions[1].height = 48
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=col_count)
+    c = ws.cell(row=1, column=1, value=title)
+    c.font      = Font(name='Raleway', bold=True, size=16, color='FFFFFF')
+    c.fill      = _PF('solid', fgColor=PRI)
+    c.alignment = Alignment(horizontal='center', vertical='center')
+    if logo:
+        _xl_add_logo(ws, 'A1', _WELLX_LOGO_PATH, w=110, h=36)
+
+    if subtitle:
+        ws.row_dimensions[2].height = 20
+        ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=col_count)
+        s = ws.cell(row=2, column=1, value=subtitle)
+        s.font      = Font(name='Inter', size=9.5, italic=True, color='6b7280')
+        s.fill      = _PF('solid', fgColor='f8fafc')
+        s.alignment = Alignment(horizontal='center', vertical='center')
+        return 3
+    return 2
+
+
+# ── Take Rate API ─────────────────────────────────────────────────────────────
+@app.route('/api/dashboard/take_rate')
+def api_dashboard_take_rate():
+    supa = get_supa()
+    if not supa:
+        return jsonify({'error': 'Database not configured'}), 503
+    try:
+        from collections import defaultdict
+        q = supa.table('policies').select(
+            'plan,total_net,total_maternity,'
+            'rm_broker,rm_insurer,rm_wellx,rm_tpa,rm_insurance_tax'
+        )
+        q = _dash_filter(q, request.args)
+        rows = q.execute().data or []
+
+        buckets = defaultdict(lambda: {'premium': 0.0, 'commission': 0.0, 'count': 0})
+        for r in rows:
+            plan     = r.get('plan') or 'Unknown'
+            gross    = float(r.get('total_net') or 0) + float(r.get('total_maternity') or 0)
+            comm_pct = (
+                float(r.get('rm_broker', 0) or 0) +
+                float(r.get('rm_insurer', 0) or 0) +
+                float(r.get('rm_wellx', 0) or 0) +
+                float(r.get('rm_tpa', 0) or 0) +
+                float(r.get('rm_insurance_tax', 0) or 0)
+            )
+            comm_amt = gross * comm_pct / 100.0
+            buckets[plan]['premium']    += gross
+            buckets[plan]['commission'] += comm_amt
+            buckets[plan]['count']      += 1
+
+        rows_out = []
+        total_prem = total_comm = 0.0
+        for plan, v in sorted(buckets.items()):
+            prem  = round(v['premium'],    2)
+            comm  = round(v['commission'], 2)
+            rate  = round(comm / prem * 100, 2) if prem else 0.0
+            rows_out.append({'plan': plan, 'policy_count': v['count'],
+                             'total_premium': prem, 'commission_amount': comm,
+                             'take_rate_pct': rate})
+            total_prem += prem
+            total_comm += comm
+
+        total_rate = round(total_comm / total_prem * 100, 2) if total_prem else 0.0
+        return jsonify({
+            'plans': rows_out,
+            'total': {
+                'total_premium':     round(total_prem, 2),
+                'commission_amount': round(total_comm, 2),
+                'take_rate_pct':     total_rate,
+            },
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# ── Dashboard Excel Export ────────────────────────────────────────────────────
+@app.route('/api/dashboard/export')
+def api_dashboard_export():
+    supa = get_supa()
+    if not supa:
+        return jsonify({'error': 'Database not configured'}), 503
+    try:
+        from collections import defaultdict
+        today_str = datetime.now().strftime('%d %b %Y')
+        args = request.args
+
+        # ── Fetch data ──────────────────────────────────────────────────────
+        q_monthly = supa.table('policies').select(
+            'created_at,plan,plan_type,total_net,total_maternity,grand_total,member_count'
+        )
+        q_monthly = _dash_filter(q_monthly, args)
+        all_rows  = q_monthly.execute().data or []
+
+        q_tr = supa.table('policies').select(
+            'plan,total_net,total_maternity,'
+            'rm_broker,rm_insurer,rm_wellx,rm_tpa,rm_insurance_tax'
+        )
+        q_tr = _dash_filter(q_tr, args)
+        tr_rows = q_tr.execute().data or []
+
+        q_br = supa.table('policies').select(
+            'broker,member_count,total_net,total_maternity,grand_total'
+        )
+        q_br = _dash_filter(q_br, args)
+        br_rows = q_br.execute().data or []
+
+        # ── Build workbook ──────────────────────────────────────────────────
+        from openpyxl import Workbook as _WB
+        from openpyxl.styles import PatternFill as _PF
+        wb  = _WB()
+        ws  = wb.active
+        ws.title = 'Wellx Policies Report'
+        PRI = '003780'; ORG = 'E86F2C'; LGT = 'EFF4FB'; HDR = 'DBEAFE'
+
+        col_widths = [18, 12, 14, 18, 16, 14, 12]
+        for i, w in enumerate(col_widths, 1):
+            ws.column_dimensions[get_column_letter(i)].width = w
+
+        row = _make_report_header(ws,
+            f'Wellx Policies Report — as of {today_str}',
+            subtitle='Auto-generated · Wellx Labs',
+            col_count=7) + 1
+
+        def hdr_cell(r, c, val, bg=PRI, fg='FFFFFF', bold=True, size=9.5):
+            cell = ws.cell(row=r, column=c, value=val)
+            cell.font      = Font(name='Inter', bold=bold, size=size, color=fg)
+            cell.fill      = _PF('solid', fgColor=bg)
+            cell.alignment = Alignment(horizontal='center', vertical='center')
+            return cell
+
+        def val_cell(r, c, val, bg='FFFFFF', bold=False, num_fmt=None, halign='right'):
+            cell = ws.cell(row=r, column=c, value=val)
+            cell.font      = Font(name='Inter', size=9.5, bold=bold, color='1e293b')
+            cell.fill      = _PF('solid', fgColor=bg)
+            cell.alignment = Alignment(horizontal=halign, vertical='center')
+            if num_fmt:
+                cell.number_format = num_fmt
+            return cell
+
+        # ── Monthly summary table ───────────────────────────────────────────
+        monthly = defaultdict(lambda: {'policy_count': 0, 'gross_premium': 0.0, 'grand_total': 0.0, 'member_count': 0})
+        for r in all_rows:
+            m     = (r.get('created_at') or '')[:7]
+            gross = float(r.get('total_net') or 0) + float(r.get('total_maternity') or 0)
+            monthly[m]['policy_count']  += 1
+            monthly[m]['gross_premium'] += gross
+            monthly[m]['grand_total']   += float(r.get('grand_total') or 0)
+            monthly[m]['member_count']  += int(r.get('member_count') or 0)
+
+        ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=5)
+        ws.cell(row=row, column=1, value='Monthly Summary').font = Font(name='Raleway', bold=True, size=11, color=PRI)
+        row += 1
+        for c, h in enumerate(['Month', 'Policies', 'Members', 'Gross Premium', 'Grand Total'], 1):
+            hdr_cell(row, c, h)
+        row += 1
+        sg = st = sm = 0.0; sc = 0
+        for month_key in sorted(monthly):
+            v   = monthly[month_key]
+            alt = _PF('solid', fgColor=LGT if row % 2 == 0 else 'FFFFFF')
+            val_cell(row, 1, month_key,              bg=alt.fgColor.rgb if hasattr(alt.fgColor, 'rgb') else 'FFFFFF', halign='left')
+            val_cell(row, 2, v['policy_count'],      halign='center')
+            val_cell(row, 3, v['member_count'],      halign='center')
+            val_cell(row, 4, round(v['gross_premium'], 0), num_fmt='#,##0')
+            val_cell(row, 5, round(v['grand_total'],  0),  num_fmt='#,##0')
+            sg += v['gross_premium']; st += v['grand_total']
+            sc += v['policy_count']; sm += v['member_count']
+            row += 1
+        for c, v in enumerate([('TOTAL', sc, sm, round(sg,0), round(st,0))][0], 1):
+            cell = ws.cell(row=row, column=c, value=v)
+            cell.font = Font(name='Raleway', bold=True, size=9.5, color='FFFFFF')
+            cell.fill = _PF('solid', fgColor=PRI)
+            cell.alignment = Alignment(horizontal='right' if c > 1 else 'left', vertical='center')
+            if c >= 4:
+                cell.number_format = '#,##0'
+        row += 2
+
+        # ── Broker performance ──────────────────────────────────────────────
+        brokers = defaultdict(lambda: {'count': 0, 'members': 0, 'gross': 0.0, 'grand': 0.0})
+        for r in br_rows:
+            b = r.get('broker') or 'Unknown'
+            brokers[b]['count']   += 1
+            brokers[b]['members'] += int(r.get('member_count') or 0)
+            brokers[b]['gross']   += float(r.get('total_net') or 0) + float(r.get('total_maternity') or 0)
+            brokers[b]['grand']   += float(r.get('grand_total') or 0)
+
+        ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=5)
+        ws.cell(row=row, column=1, value='Broker Performance').font = Font(name='Raleway', bold=True, size=11, color=PRI)
+        row += 1
+        for c, h in enumerate(['Broker', 'Policies', 'Members', 'Gross Premium', 'Grand Total'], 1):
+            hdr_cell(row, c, h)
+        row += 1
+        for bname, v in sorted(brokers.items(), key=lambda x: -x[1]['grand']):
+            val_cell(row, 1, bname, halign='left')
+            val_cell(row, 2, v['count'],  halign='center')
+            val_cell(row, 3, v['members'], halign='center')
+            val_cell(row, 4, round(v['gross'], 0), num_fmt='#,##0')
+            val_cell(row, 5, round(v['grand'], 0), num_fmt='#,##0')
+            row += 1
+        row += 1
+
+        # ── Take Rate by Plan ───────────────────────────────────────────────
+        tr_buckets = defaultdict(lambda: {'premium': 0.0, 'commission': 0.0, 'count': 0})
+        for r in tr_rows:
+            plan  = r.get('plan') or 'Unknown'
+            gross = float(r.get('total_net') or 0) + float(r.get('total_maternity') or 0)
+            cpct  = sum(float(r.get(k, 0) or 0) for k in ('rm_broker','rm_insurer','rm_wellx','rm_tpa','rm_insurance_tax'))
+            tr_buckets[plan]['premium']    += gross
+            tr_buckets[plan]['commission'] += gross * cpct / 100.0
+            tr_buckets[plan]['count']      += 1
+
+        ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=5)
+        ws.cell(row=row, column=1, value='Take Rate by Plan').font = Font(name='Raleway', bold=True, size=11, color=PRI)
+        row += 1
+        for c, h in enumerate(['Plan', 'Policies', 'Total Premium', 'Commission Amount', 'Take Rate %'], 1):
+            hdr_cell(row, c, h, bg=ORG)
+        row += 1
+        tp = tc = 0.0
+        for plan, v in sorted(tr_buckets.items()):
+            prem = round(v['premium'], 0); comm = round(v['commission'], 0)
+            rate = round(v['commission'] / v['premium'] * 100, 2) if v['premium'] else 0
+            val_cell(row, 1, plan, halign='left')
+            val_cell(row, 2, v['count'], halign='center')
+            val_cell(row, 3, prem, num_fmt='#,##0')
+            val_cell(row, 4, comm, num_fmt='#,##0')
+            val_cell(row, 5, rate, num_fmt='0.00"%"')
+            tp += v['premium']; tc += v['commission']
+            row += 1
+        total_rate = round(tc / tp * 100, 2) if tp else 0
+        for c, v in enumerate([('TOTAL', '', round(tp,0), round(tc,0), total_rate)][0], 1):
+            cell = ws.cell(row=row, column=c, value=v)
+            cell.font = Font(name='Raleway', bold=True, size=9.5, color='FFFFFF')
+            cell.fill = _PF('solid', fgColor=ORG)
+            cell.alignment = Alignment(horizontal='right' if c > 1 else 'left', vertical='center')
+            if c in (3, 4):
+                cell.number_format = '#,##0'
+            elif c == 5:
+                cell.number_format = '0.00"%"'
+        row += 2
+
+        # ── Powered by footer ───────────────────────────────────────────────
+        _xl_powered_row(ws, row, last_col=5)
+        _xl_add_logo(ws, f'F{row}', _POWERED_LOGO_PATH, w=110, h=28)
+
+        buf = io.BytesIO()
+        wb.save(buf); buf.seek(0)
+        fname = f"Wellx Policies Report {today_str}.xlsx"
+        return send_file(buf, as_attachment=True, download_name=fname,
+                         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# ── Policy List Excel Export (filtered) ───────────────────────────────────────
+@app.route('/api/policies/export')
+def api_policies_export():
+    supa = get_supa()
+    if not supa:
+        return jsonify({'error': 'Database not configured'}), 503
+    try:
+        from openpyxl import Workbook as _WB
+        from openpyxl.styles import PatternFill as _PF
+
+        # Reuse same filter logic as /api/policies
+        q = supa.table('policies').select(
+            'id,created_at,company_name,broker,rm_person,plan,plan_type,'
+            'member_count,total_net,total_maternity,grand_total,recon_match'
+        )
+        search    = request.args.get('search', '').strip().lower()
+        broker    = request.args.get('broker', '').strip()
+        rm        = request.args.get('rm', '').strip()
+        plan      = request.args.get('plan', '').strip()
+        plan_type = request.args.get('plan_type', '').strip()
+        date_from = request.args.get('date_from', '').strip()
+        date_to   = request.args.get('date_to', '').strip()
+        if broker:
+            q = q.eq('broker', broker)
+        if rm:
+            q = q.eq('rm_person', rm)
+        if plan:
+            q = q.eq('plan', plan)
+        if plan_type:
+            q = q.eq('plan_type', plan_type)
+        if date_from:
+            q = q.gte('created_at', date_from)
+        if date_to:
+            q = q.lte('created_at', date_to + 'T23:59:59')
+        rows = q.order('created_at', desc=True).execute().data or []
+        if search:
+            rows = [r for r in rows
+                    if search in (r.get('company_name') or '').lower()
+                    or search in (r.get('broker') or '').lower()
+                    or search in (r.get('rm_person') or '').lower()]
+
+        today_str = datetime.now().strftime('%d %b %Y')
+        wb = _WB()
+        ws = wb.active
+        ws.title = 'Policies'
+        PRI = '003780'; ORG = 'E86F2C'; LGT = 'EFF4FB'
+
+        col_widths = [6, 14, 30, 20, 18, 14, 12, 10, 18, 10]
+        for i, w in enumerate(col_widths, 1):
+            ws.column_dimensions[get_column_letter(i)].width = w
+
+        row = _make_report_header(ws,
+            f'Wellx Policies List — as of {today_str}',
+            subtitle=f'{len(rows)} policies · Filtered export',
+            col_count=10) + 1
+
+        hdrs = ['#', 'Date Saved', 'Company', 'Broker', 'RM', 'Plan', 'Type', 'Members', 'Total Premium', 'Match']
+        for c, h in enumerate(hdrs, 1):
+            cell = ws.cell(row=row, column=c, value=h)
+            cell.font      = Font(name='Inter', bold=True, size=9, color='FFFFFF')
+            cell.fill      = _PF('solid', fgColor=PRI)
+            cell.alignment = Alignment(horizontal='center', vertical='center')
+        row += 1
+
+        for i, r in enumerate(rows, 1):
+            bg = LGT if i % 2 == 0 else 'FFFFFF'
+            gross = float(r.get('total_net') or 0) + float(r.get('total_maternity') or 0)
+            match_txt = '✅ Match' if r.get('recon_match') is True else ('❌ Mismatch' if r.get('recon_match') is False else '—')
+            dt_str = (r.get('created_at') or '')[:10]
+            try:
+                dt_val = datetime.strptime(dt_str, '%Y-%m-%d').strftime('%d %b %Y')
+            except Exception:
+                dt_val = dt_str
+            vals = [i, dt_val, r.get('company_name',''), r.get('broker',''),
+                    r.get('rm_person',''), r.get('plan',''), r.get('plan_type',''),
+                    int(r.get('member_count') or 0), round(gross, 0), match_txt]
+            for c, v in enumerate(vals, 1):
+                cell = ws.cell(row=row, column=c, value=v)
+                cell.font      = Font(name='Inter', size=9, color='1e293b')
+                cell.fill      = _PF('solid', fgColor=bg)
+                cell.alignment = Alignment(
+                    horizontal='center' if c in (1,6,7,8,10) else ('right' if c == 9 else 'left'),
+                    vertical='center')
+                if c == 9:
+                    cell.number_format = '#,##0'
+            row += 1
+
+        row += 1
+        _xl_powered_row(ws, row, last_col=10)
+        _xl_add_logo(ws, f'I{row}', _POWERED_LOGO_PATH, w=110, h=26)
+
+        buf = io.BytesIO()
+        wb.save(buf); buf.seek(0)
+        fname = f"Wellx Policies {today_str}.xlsx"
+        return send_file(buf, as_attachment=True, download_name=fname,
+                         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

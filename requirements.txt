@@ -6,3 +6,4 @@ anthropic
 xlrd
 msoffcrypto-tool
 supabase
+Pillow

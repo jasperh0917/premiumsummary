@@ -144,7 +144,10 @@ tbody td{padding:11px 14px;font-size:.83rem;color:var(--dark);white-space:nowrap
   <div class="stats-bar" id="statsBar">
     <div class="stat-chip"><div class="sv" id="sTotal">—</div><div class="sl">Total Policies</div></div>
     <div class="stat-chip"><div class="sv" id="sPage">—</div><div class="sl">Showing</div></div>
-    <button id="bulkDeleteBtn" style="display:none;margin-left:auto;background:#dc2626;color:#fff;border:none;border-radius:7px;padding:6px 14px;font-size:.82rem;font-weight:600;cursor:pointer" onclick="bulkDelete()">🗑 Delete Selected (<span id="selectedCount">0</span>)</button>
+    <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+      <button id="bulkDeleteBtn" style="display:none;background:#dc2626;color:#fff;border:none;border-radius:7px;padding:6px 14px;font-size:.82rem;font-weight:600;cursor:pointer" onclick="bulkDelete()">🗑 Delete Selected (<span id="selectedCount">0</span>)</button>
+      <button id="exportBtn" class="dl-btn" onclick="downloadList()" style="padding:6px 14px;font-size:.8rem">⬇ Download Excel</button>
+    </div>
   </div>
 
   <!-- Table -->
@@ -339,6 +342,46 @@ async function downloadSummary(pid, btn) {
   } finally {
     btn.classList.remove('loading');
     btn.textContent = '⬇ Download';
+  }
+}
+
+// ── Download Filtered List ────────────────────────────────────────────────────
+async function downloadList() {
+  const btn = document.getElementById('exportBtn');
+  btn.classList.add('loading');
+  btn.textContent = '⏳ Generating…';
+  try {
+    const params = new URLSearchParams({
+      search:    document.getElementById('fSearch').value,
+      broker:    document.getElementById('fBroker').value,
+      rm:        document.getElementById('fRm').value,
+      plan:      document.getElementById('fPlan').value,
+      plan_type: document.getElementById('fType').value,
+      date_from: document.getElementById('fFrom').value,
+      date_to:   document.getElementById('fTo').value,
+    });
+    const res = await fetch(`/api/policies/export?${params}`);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert('Export failed: ' + (err.error || res.statusText));
+      return;
+    }
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    const cd   = res.headers.get('Content-Disposition') || '';
+    const match = cd.match(/filename="?([^"]+)"?/);
+    a.download = match ? match[1] : `Wellx Policies Report.xlsx`;
+    a.href = url;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch(e) {
+    alert('Network error generating export.');
+  } finally {
+    btn.classList.remove('loading');
+    btn.textContent = '⬇ Download Excel';
   }
 }
 
