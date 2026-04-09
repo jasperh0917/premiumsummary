@@ -266,11 +266,19 @@ def parse_rates_pdf(pdf_bytes, plan=''):
         '  }\n'
         '}\n\n'
         'Rules:\n'
-        '- Extract ALL age bracket rows with exact premium figures — do not round or modify the numbers\n'
-        '- If the table has 4 rate columns (Principal Male, Principal Female, Dependent Male, Dependent Female):\n'
-        '  - male/female = Principal Male/Female rates\n'
-        '  - dep_male/dep_female = Dependent Male/Female rates\n'
-        '  - set rate_columns to "4col"\n'
+        '- Extract ALL age bracket rows with exact premium figures — do not round or modify the numbers\n\n'
+        'TABLE STRUCTURE GUIDE:\n'
+        'Many tables have a PRINCIPAL section and a DEPENDENTS section side by side.\n'
+        'Each section typically has interleaved RATE and COUNT columns like:\n'
+        '  PRINCIPAL: [Male Premium/Rate] [Male Count] [Female Premium/Rate] [Female Count]\n'
+        '  DEPENDENTS: [Male Premium/Rate] [Male Count] [Female Premium/Rate] [Female Count]\n'
+        'IMPORTANT: Extract ONLY the RATE (Premium) columns — ignore the COUNT columns.\n'
+        '  male     = the Male RATE column under PRINCIPAL (may be 0 for child-only age bands)\n'
+        '  female   = the Female RATE column under PRINCIPAL (may be 0 for child-only age bands)\n'
+        '  dep_male   = the Male RATE column under DEPENDENTS (NEVER copy from principal male)\n'
+        '  dep_female = the Female RATE column under DEPENDENTS (NEVER copy from principal female)\n'
+        'If an age band has no principal rate shown (e.g. 0-10, 11-17 for principals), use 0 for male/female.\n'
+        'But the DEPENDENT rates for those same age bands may still be non-zero — always read them from the DEPENDENTS column.\n\n'
         '- If the table has only 2 rate columns (Male/Female with no Principal/Dependent split):\n'
         '  - male/female = those rates; dep_male/dep_female = same as male/female\n'
         '  - set rate_columns to "2col"\n'
@@ -308,11 +316,16 @@ def parse_rates_pdf(pdf_bytes, plan=''):
         cat_data.setdefault('maternity_rate', 0.0)
         cat_data.setdefault('brackets', [])
         for b in cat_data['brackets']:
-            b['male']      = float(b.get('male', 0))
-            b['female']    = float(b.get('female', 0))
-            # dep rates — fall back to principal rates when not present (2-col tables)
-            b['dep_male']  = float(b.get('dep_male') or b['male'])
-            b['dep_female']= float(b.get('dep_female') or b['female'])
+            b['male']   = float(b.get('male', 0) or 0)
+            b['female'] = float(b.get('female', 0) or 0)
+            if four_col:
+                # 4-col table: dep rates are independent — never fall back to principal
+                b['dep_male']  = float(b.get('dep_male', 0) or 0)
+                b['dep_female']= float(b.get('dep_female', 0) or 0)
+            else:
+                # 2-col table: dep rates mirror principal rates
+                b['dep_male']  = float(b.get('dep_male') or b['male'])
+                b['dep_female']= float(b.get('dep_female') or b['female'])
             b['age_lo'] = int(b.get('age_lo', 0))
             b['age_hi'] = int(b.get('age_hi', 99))
     result['four_col_rates'] = four_col
@@ -1408,8 +1421,9 @@ def make_combined_excel(form_data, members_data, verified_rates, maternity_rates
         for bi, b in enumerate(brackets):
             age_lo    = b.get('age_lo', 0)
             age_label = f"{age_lo} - {b.get('age_hi', 99)}"
-            male_g    = b.get('male', 0)
-            female_g  = b.get('female', 0)
+            # Use dep_male/dep_female when available (4-col tables), else fall back to principal rates
+            male_g    = b.get('dep_male') or b.get('male', 0)
+            female_g  = b.get('dep_female') or b.get('female', 0)
             fill_c    = DEP_FILL if bi % 2 == 0 else 'EBEBEB'
 
             for ci, val in enumerate([f'Cat {cat} (DEP)', age_label, male_g, female_g, None, None], 1):
