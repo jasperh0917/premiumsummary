@@ -253,40 +253,43 @@ def parse_rates_pdf(pdf_bytes, plan=''):
         '  "start_date": "YYYY-MM-DD or empty",\n'
         '  "confirmed_quote": <net premium before VAT as number, 0 if not found>,\n'
         '  "members": <total insured count as integer, 0 if not found>,\n'
-        '  "rate_columns": <"2col" if only Male/Female, "4col" if Principal Male/Female AND Dependent Male/Female>,\n'
+        '  "rate_columns": <"2col" if only Male/Female, "4col" if Employee+Dependent split>,\n'
         '  "categories": {\n'
         '    "A": {\n'
         '      "brackets": [\n'
         '        {"label": "18-25", "age_lo": 18, "age_hi": 25,\n'
-        '         "male": 123.45, "female": 134.56,\n'
-        '         "dep_male": 110.00, "dep_female": 120.00}\n'
+        '         "male": 7665.00, "female": 8410.00,\n'
+        '         "dep_male": 8332.00, "dep_female": 8783.00}\n'
         '      ],\n'
-        '      "maternity_rate": 45.00\n'
+        '      "maternity_rate": 4500.00\n'
         '    }\n'
         '  }\n'
         '}\n\n'
-        'Rules:\n'
-        '- Extract ALL age bracket rows with exact premium figures — do not round or modify the numbers\n\n'
-        'TABLE STRUCTURE GUIDE:\n'
-        'Many tables have a PRINCIPAL section and a DEPENDENTS section side by side.\n'
-        'Each section typically has interleaved RATE and COUNT columns like:\n'
-        '  PRINCIPAL: [Male Premium/Rate] [Male Count] [Female Premium/Rate] [Female Count]\n'
-        '  DEPENDENTS: [Male Premium/Rate] [Male Count] [Female Premium/Rate] [Female Count]\n'
-        'IMPORTANT: Extract ONLY the RATE (Premium) columns — ignore the COUNT columns.\n'
-        '  male     = the Male RATE column under PRINCIPAL (may be 0 for child-only age bands)\n'
-        '  female   = the Female RATE column under PRINCIPAL (may be 0 for child-only age bands)\n'
-        '  dep_male   = the Male RATE column under DEPENDENTS (NEVER copy from principal male)\n'
-        '  dep_female = the Female RATE column under DEPENDENTS (NEVER copy from principal female)\n'
-        'If an age band has no principal rate shown (e.g. 0-10, 11-17 for principals), use 0 for male/female.\n'
-        'But the DEPENDENT rates for those same age bands may still be non-zero — always read them from the DEPENDENTS column.\n\n'
-        '- If the table has only 2 rate columns (Male/Female with no Principal/Dependent split):\n'
-        '  - male/female = those rates; dep_male/dep_female = same as male/female\n'
-        '  - set rate_columns to "2col"\n'
-        '- If only one rate column exists (no gender split), use the same value for male, female, dep_male, dep_female\n'
+        '════ CRITICAL: COLUMN ORDER ════\n'
+        'The rate table columns from LEFT TO RIGHT are ALWAYS in this fixed order:\n'
+        '  Column 1: Employee Male PREMIUM  ← extract as "male"\n'
+        '  Column 2: Employee Male COUNT    ← IGNORE (small integer, e.g. 0,1,2,3)\n'
+        '  Column 3: Employee Female PREMIUM ← extract as "female"\n'
+        '  Column 4: Employee Female COUNT  ← IGNORE\n'
+        '  Column 5: Dependent Male PREMIUM ← extract as "dep_male"\n'
+        '  Column 6: Dependent Male COUNT   ← IGNORE\n'
+        '  Column 7: Dependent Female PREMIUM ← extract as "dep_female"\n'
+        '  Column 8: Dependent Female COUNT ← IGNORE\n\n'
+        'PREMIUM values are large numbers (typically 1,000–100,000 AED for UAE insurance).\n'
+        'COUNT values are small integers (0, 1, 2, 3 … representing number of members).\n'
+        'NEVER use a COUNT column value as a premium rate.\n'
+        'If you are unsure, pick the LARGER of the two adjacent values — the large one is always the premium.\n\n'
+        'AGE BANDS WITH NO EMPLOYEE:\n'
+        '  For age bands 0-10 and 11-17, employee (principal) premiums are often 0 or blank.\n'
+        '  Set male=0, female=0 for those bands.\n'
+        '  The DEPENDENT columns (dep_male, dep_female) may still have large non-zero values — always read them.\n\n'
+        '════ OTHER RULES ════\n'
+        '- Extract ALL age bracket rows — do not skip any\n'
+        '- If only 2 rate columns (no Employee/Dependent split): male/female = rates; dep_male=male, dep_female=female; rate_columns="2col"\n'
         '- Extract all categories (A, B, C …) if multiple exist\n'
-        '- confirmed_quote is the total net premium BEFORE VAT — not the grand total\n'
-        '- members is the total insured member count shown in the quote\n'
-        '- maternity_rate is the annual maternity surcharge per eligible female (0 if not shown)\n'
+        '- confirmed_quote = net premium BEFORE VAT (not grand total)\n'
+        '- members = total insured member count\n'
+        '- maternity_rate = annual maternity surcharge per eligible female (look for "Additional Maternity Premium" or similar). This is typically 3,000–8,000 AED. Use 0 only if truly not shown.\n'
         '- age_lo and age_hi must be integers; use 99 for the upper bound of the last bracket\n'
         '- Return ONLY the JSON object'
     )})
@@ -312,22 +315,51 @@ def parse_rates_pdf(pdf_bytes, plan=''):
     result.setdefault('categories', {})
 
     four_col = result.get('rate_columns') == '4col'
+
+    # ── Sanity-check extracted rates ──────────────────────────────────────────
+    # UAE health insurance premiums are always ≥ 500 AED.
+    # Any non-zero value below this threshold is almost certainly a census count,
+    # not a premium — clamp it to 0 to prevent count columns polluting rates.
+    RATE_MIN = 500.0
+
+    # Also compute per-category median of all non-zero rates so we can catch
+    # outliers that are tiny relative to the rest (e.g., "1" slipping through).
     for cat_data in result['categories'].values():
         cat_data.setdefault('maternity_rate', 0.0)
         cat_data.setdefault('brackets', [])
+
+        # Collect all non-zero candidate rates for this category
+        all_vals = []
         for b in cat_data['brackets']:
-            b['male']   = float(b.get('male', 0) or 0)
-            b['female'] = float(b.get('female', 0) or 0)
+            for key in ('male', 'female', 'dep_male', 'dep_female'):
+                v = float(b.get(key, 0) or 0)
+                if v > 0:
+                    all_vals.append(v)
+
+        # Dynamic threshold: anything < 1% of the median is a mis-read count
+        if all_vals:
+            all_vals.sort()
+            median_rate = all_vals[len(all_vals) // 2]
+            dynamic_min = max(RATE_MIN, median_rate * 0.01)
+        else:
+            dynamic_min = RATE_MIN
+
+        def _clamp_rate(v):
+            v = float(v or 0)
+            return 0.0 if 0 < v < dynamic_min else v
+
+        for b in cat_data['brackets']:
+            b['male']   = _clamp_rate(b.get('male', 0))
+            b['female'] = _clamp_rate(b.get('female', 0))
             if four_col:
-                # 4-col table: dep rates are independent — never fall back to principal
-                b['dep_male']  = float(b.get('dep_male', 0) or 0)
-                b['dep_female']= float(b.get('dep_female', 0) or 0)
+                b['dep_male']  = _clamp_rate(b.get('dep_male', 0))
+                b['dep_female']= _clamp_rate(b.get('dep_female', 0))
             else:
-                # 2-col table: dep rates mirror principal rates
                 b['dep_male']  = float(b.get('dep_male') or b['male'])
                 b['dep_female']= float(b.get('dep_female') or b['female'])
             b['age_lo'] = int(b.get('age_lo', 0))
             b['age_hi'] = int(b.get('age_hi', 99))
+
     result['four_col_rates'] = four_col
 
     # Fields expected by the frontend tool_data shape
@@ -2227,6 +2259,21 @@ def api_calculate():
 
     if not categories_data:
         return jsonify({'error': 'No rate data provided'}), 400
+
+    # ── Maternity validation for Healthx / Healthxclusive ─────────────────────
+    plan_lower = form_data.get('plan', '').lower()
+    if plan_lower in ('healthx', 'healthxclusive'):
+        missing_mat = [cat for cat, data in categories_data.items()
+                       if not float(data.get('maternity_rate') or 0)]
+        if missing_mat:
+            cats_str = ', '.join(sorted(missing_mat))
+            return jsonify({
+                'error': (
+                    f'Maternity premium is required for {plan_lower.capitalize()} but is missing '
+                    f'for category/categories: {cats_str}. '
+                    f'Please enter the maternity surcharge in the rate panel before calculating.'
+                )
+            }), 400
 
     # Ensure all census categories have a rate (fallback)
     first_cat = sorted(categories_data.keys())[0]
