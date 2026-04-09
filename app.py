@@ -268,6 +268,24 @@ def parse_rates_pdf(pdf_bytes, plan=''):
             'source': {'type': 'base64', 'media_type': 'image/png', 'data': img_b64},
         })
 
+    if plan.lower() == 'healthxclusive':
+        maternity_rule = (
+            '- maternity_rate: look for "Additional Maternity Premium" or\n'
+            '  "Additional Maternity Premium / Married Females". The FIRST numeric value\n'
+            '  shown for that label is the PER-ELIGIBLE-FEMALE rate (e.g. AED 5,264).\n'
+            '  A "Total Maternity Premium" line (e.g. AED 21,055) is the SUM — do NOT use it.\n'
+            '  Use 0 only if the label is entirely absent.\n'
+        )
+    else:
+        maternity_rule = (
+            '- maternity_rate: each category table ends with a summary block:\n'
+            '    "Maternity Premium  AED X"  ← total (may be 0)\n'
+            '    "Census  N"                 ← count of eligible females\n'
+            '    "Average  AED Y"            ← per-capita loading ← USE THIS VALUE\n'
+            '  Extract Y as maternity_rate. NOT X. Use 0 only if Average row is absent.\n'
+            '  Typical range 3,000–8,000 AED.\n'
+        )
+
     content.append({'type': 'text', 'text': (
         'Extract the following from this insurance rates/quote PDF and return ONLY valid JSON '
         '(no markdown fences, no explanation):\n\n'
@@ -312,21 +330,7 @@ def parse_rates_pdf(pdf_bytes, plan=''):
         '- Extract all categories (A, B, C …) if multiple exist\n'
         '- confirmed_quote = net premium BEFORE VAT (not grand total)\n'
         '- members = total insured member count\n'
-        + (
-        '- maternity_rate: look for a line labelled "Additional Maternity Premium" or\n'
-        '  "Additional Maternity Premium / Married Females". The FIRST numeric value on that\n'
-        '  line (or immediately after it) is the PER-ELIGIBLE-FEMALE rate (e.g. AED 5,264).\n'
-        '  A separate "Total Maternity Premium" line (e.g. AED 21,055) is the SUM across all\n'
-        '  eligible females — do NOT use it. Use 0 only if the label is entirely absent.\n'
-        if plan.lower() in ('healthxclusive',) else
-        '- maternity_rate: each category table ends with a summary block that looks like:\n'
-        '    "Maternity Premium  AED X"  ← total already billed (may be 0 if no eligible females in census)\n'
-        '    "Census  N"                 ← count of eligible females\n'
-        '    "Average  AED Y"            ← per-capita maternity loading ← USE THIS VALUE\n'
-        '  Extract Y (the Average) as maternity_rate. NOT X (the Maternity Premium total).\n'
-        '  Even if Maternity Premium is AED 0, the Average can still be non-zero — always use the Average.\n'
-        '  This value is typically 3,000–8,000 AED. Use 0 only if the Average row is truly absent.\n'
-        )
+        + maternity_rule +
         '- age_lo and age_hi must be integers; use 99 for the upper bound of the last bracket\n'
         '- Return ONLY the JSON object'
     )})
