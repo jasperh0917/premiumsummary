@@ -666,6 +666,21 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0a0a0a;min-height:100v
 </div><!-- /card -->
 
 <script>
+// ── Safe JSON helper — handles non-JSON server responses (413, 504, etc.) ─────
+async function safeJson(res) {
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch(_) {
+    // Server returned a non-JSON error (e.g. "Request Entity Too Large", gateway timeout)
+    const status = res.status;
+    if (status === 413) return { error: 'File too large for the server. Try a smaller PDF (under 4 MB).' };
+    if (status === 504 || status === 524) return { error: 'Request timed out — the PDF is taking too long to process. Please try again.' };
+    if (status === 500) return { error: 'Server error. Check that your API key is set correctly in Vercel.' };
+    return { error: `Server error ${status}: ${text.slice(0, 120)}` };
+  }
+}
+
 // ── Dropdown data — loaded from DB ────────────────────────────────────────────
 const DEFAULT_BRACKETS = ["0-10","11-17","18-25","26-30","31-35","36-40","41-45","46-50","51-55","56-59","60-64","65-99"];
 
@@ -1160,7 +1175,7 @@ document.getElementById('intakeForm').addEventListener('submit', async (e) => {
     fd.append('tool', document.getElementById('toolFile').files[0]);
 
     const res  = await fetch('/api/upload', { method: 'POST', body: fd });
-    const data = await res.json();
+    const data = await safeJson(res);
     hideOverlay();
 
     if (data.error) { showToast(data.error, 'error-t'); btn.disabled = false; btn.innerHTML = 'Extract Rates &amp; Continue →'; return; }
@@ -1352,7 +1367,7 @@ async function runCensusComparison() {
   showOverlay('Analysing Census', 'Comparing quoted vs confirmed census…');
   try {
     const res  = await fetch(`/api/compare_census/${currentOutToken}`, { method:'POST', body:fd });
-    const diff = await res.json();
+    const diff = await safeJson(res);
     hideOverlay();
     if (diff.error) { showToast(diff.error, 'error-t'); return; }
     renderCensusDiff(diff);
@@ -1472,7 +1487,7 @@ async function calculatePremium() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token: currentToken, form_data: formData, verified_rates, maternity_rates, quote_totals })
     });
-    const data = await res.json();
+    const data = await safeJson(res);
     hideOverlay();
 
     if (data.error) { showToast(data.error, 'error-t'); btn.disabled = false; btn.innerHTML = 'Calculate Premium →'; return; }
@@ -1651,7 +1666,7 @@ async function downloadSummary() {
         recon_note:        (document.getElementById('reconNoteInput') || {}).value || null,
       })
     });
-    const data = await res.json();
+    const data = await safeJson(res);
     if (data.error) { showToast(data.error, 'error-t'); return; }
 
     // Trigger download

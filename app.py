@@ -229,16 +229,39 @@ def try_parse_quote_totals(text):
     return totals
 
 # ── PDF Rates Parser (Claude Vision) ─────────────────────────────────────────
+def _find_rate_table_pages(pdf_bytes, max_pages=4):
+    """
+    Return indices of pages that contain the rate table (age brackets, premiums).
+    Falls back to the last few pages if none found via keywords.
+    """
+    KEYWORDS = ['age range', 'premium', 'male', 'female', 'subtotal',
+                'category', 'maternity', 'average', 'total premium']
+    doc = fitz.open(stream=pdf_bytes, filetype='pdf')
+    page_count = len(doc)
+    scores = []
+    for i in range(page_count):
+        text = doc[i].get_text().lower()
+        score = sum(1 for kw in KEYWORDS if kw in text)
+        scores.append((score, i))
+    doc.close()
+
+    # Sort by score descending, take top pages, return sorted by page order
+    scores.sort(key=lambda x: -x[0])
+    top = sorted([idx for _, idx in scores[:max_pages] if scores[0][0] > 2])
+    if not top:
+        # Fallback: last few pages (rate tables are usually near the end)
+        top = list(range(max(0, page_count - max_pages), page_count))
+    return top
+
+
 def parse_rates_pdf(pdf_bytes, plan=''):
     """Use Claude vision to extract age bracket rates, quote totals, and member count from a PDF rates table."""
     client = anthropic.Anthropic(api_key=os.environ.get('ANTHROPIC_API_KEY', ''))
 
-    doc = fitz.open(stream=pdf_bytes, filetype='pdf')
-    page_count = len(doc)
-    doc.close()
+    rate_pages = _find_rate_table_pages(pdf_bytes, max_pages=4)
 
     content = []
-    for i in range(min(page_count, 3)):
+    for i in rate_pages:
         img_b64, _ = pdf_page_image(pdf_bytes, i, scale=1.5)
         content.append({
             'type': 'image',
