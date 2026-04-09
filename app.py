@@ -773,7 +773,7 @@ def calculate_alb(dob, start_date):
     return max(0, age)
 
 def calculate_anb(dob, start_date):
-    """Age Next Birthday = Age Last Birthday + 1 (used for Healthx plans)."""
+    """Age Next Birthday = Age Last Birthday + 1 (used for Healthx only)."""
     return calculate_alb(dob, start_date) + 1
 
 def parse_census(file_bytes, filename, start_date_str, age_method='alb'):
@@ -2131,7 +2131,7 @@ def api_upload():
 
     # Use start_date from form or from extracted tool_data
     effective_start = start_date or tool_data.get('start_date', '')
-    age_method = 'anb' if plan.lower() in ('healthx', 'healthxclusive') else 'alb'
+    age_method = 'anb' if plan.lower() == 'healthx' else 'alb'
 
     # ── Parse census ──────────────────────────────────────────────────────────
     census_members = []
@@ -2793,7 +2793,7 @@ def api_policy_census_replace(pid):
         pol        = pol_res.data[0]
         start_date = str(pol.get('start_date') or '')
         plan_lower = (pol.get('plan') or '').lower()
-        age_method = 'anb' if plan_lower in ('healthx', 'healthxclusive') else 'alb'
+        age_method = 'anb' if plan_lower == 'healthx' else 'alb'
 
         file_bytes = census_file.read()
         filename   = census_file.filename or 'census.xlsx'
@@ -3080,7 +3080,7 @@ def _member_from_body(body, supa, policy_id, start_date, plan_lower):
         raise ValueError(f'Cannot parse date of birth: {dob_str}')
 
     # Calculate age
-    age_method = 'anb' if plan_lower in ('healthx', 'healthxclusive') else 'alb'
+    age_method = 'anb' if plan_lower == 'healthx' else 'alb'
     age_fn     = calculate_anb if age_method == 'anb' else calculate_alb
     try:
         sd = datetime.strptime(str(start_date), '%Y-%m-%d').date()
