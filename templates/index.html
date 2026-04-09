@@ -1410,10 +1410,71 @@ function renderCensusDiff(diff) {
   const added   = diff.added   || [];
   const removed = diff.removed || [];
   const changed = diff.changed || [];
+  const impacts = diff.premium_impacts || [];
+  const recon   = diff.reconciliation  || {};
 
-  const fmtMember = m => `${m.name} (Cat ${m.category} · ${m.relation} · ${m.dob})`;
+  const fmtAED = v => Number(v).toLocaleString('en-AE', {minimumFractionDigits:0, maximumFractionDigits:0});
+  const fmtSign = v => (v >= 0 ? '+' : '') + 'AED ' + fmtAED(Math.abs(v));
+  const impactColor = v => v > 0 ? '#16a34a' : v < 0 ? '#dc2626' : '#6b7280';
 
   let html = '';
+
+  // ── Premium reconciliation banner ──────────────────────────────────────────
+  if (recon.conf_quote > 0) {
+    const gap = recon.total_gap;
+    const matchIcon = Math.abs(gap) < 20 ? '✅' : '❌';
+    const matchClr  = Math.abs(gap) < 20 ? '#155724' : '#721c24';
+    const matchBg   = Math.abs(gap) < 20 ? '#d4edda' : '#f8d7da';
+    html += `
+    <div style="background:${matchBg};border-radius:9px;padding:12px 16px;margin-bottom:14px;font-size:.82rem">
+      <div style="font-weight:700;color:${matchClr};margin-bottom:8px;font-size:.88rem">
+        ${matchIcon} Premium Check — Confirmed Census vs Quote
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px">
+        <div><div style="font-size:.72rem;color:#6b7280;text-transform:uppercase;letter-spacing:.04em">Calculated (confirmed)</div>
+             <div style="font-weight:700;color:#1e3a5f">AED ${fmtAED(recon.calc_premium)}</div></div>
+        <div><div style="font-size:.72rem;color:#6b7280;text-transform:uppercase;letter-spacing:.04em">Confirmed Quote</div>
+             <div style="font-weight:700;color:#1e3a5f">AED ${fmtAED(recon.conf_quote)}</div></div>
+        <div><div style="font-size:.72rem;color:#6b7280;text-transform:uppercase;letter-spacing:.04em">Total gap</div>
+             <div style="font-weight:700;color:${impactColor(gap)}">${fmtSign(gap)}</div></div>
+        ${Math.abs(recon.unexplained) > 1 ? `
+        <div><div style="font-size:.72rem;color:#6b7280;text-transform:uppercase;letter-spacing:.04em">Explained by members</div>
+             <div style="font-weight:700;color:${impactColor(recon.explained)}">${fmtSign(recon.explained)}</div></div>
+        <div><div style="font-size:.72rem;color:#6b7280;text-transform:uppercase;letter-spacing:.04em">Unexplained</div>
+             <div style="font-weight:700;color:${impactColor(recon.unexplained)}">${fmtSign(recon.unexplained)}</div></div>` : ''}
+      </div>
+    </div>`;
+  }
+
+  // ── Per-member premium impact sentences ────────────────────────────────────
+  if (impacts.length) {
+    html += `<div class="section-label" style="font-size:.78rem;margin-top:0;color:#1e3a5f">💰 Premium Impact by Member</div>`;
+    html += '<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">';
+    impacts.forEach(p => {
+      let sentence = '';
+      const clr = impactColor(p.impact);
+      const impStr = `<strong style="color:${clr}">${p.impact >= 0 ? '+' : ''}AED ${fmtAED(Math.abs(p.impact))}</strong>`;
+      if (p.type === 'changed') {
+        const q = p.quoted, c = p.confirmed;
+        sentence = `<strong>${escHtml(p.name)}</strong> was quoted ${q.age}, ${q.gender} `
+          + `(AED ${fmtAED(q.premium)}) but confirmed as ${c.age}, ${c.gender} `
+          + `(AED ${fmtAED(c.premium)}) = ${impStr}`;
+      } else if (p.type === 'added') {
+        const c = p.confirmed;
+        sentence = `<strong>${escHtml(p.name)}</strong> added to confirmed census — `
+          + `${c.age}, ${c.gender}, Cat ${p.category} (AED ${fmtAED(c.premium)}) = ${impStr}`;
+      } else {
+        const q = p.quoted;
+        sentence = `<strong>${escHtml(p.name)}</strong> was in quoted census but removed — `
+          + `${q.age}, ${q.gender}, Cat ${p.category} (AED ${fmtAED(q.premium)}) = ${impStr}`;
+      }
+      html += `<div style="background:#f8fafc;border-left:3px solid ${clr};border-radius:0 6px 6px 0;padding:7px 12px;font-size:.8rem;line-height:1.5">${sentence}</div>`;
+    });
+    html += '</div>';
+  }
+
+  // ── Member field diffs table ───────────────────────────────────────────────
+  const fmtMember = m => `${m.name || ''} (Cat ${m.category || ''} · ${m.relation || ''} · ${m.dob || ''})`;
 
   if (added.length) {
     html += `<div class="section-label" style="color:#155724;font-size:.78rem;margin-top:0">➕ Added (${added.length}) — in confirmed, not in quoted</div>`;
@@ -1421,14 +1482,12 @@ function renderCensusDiff(diff) {
     added.forEach(m => { html += `<li style="color:#155724">${escHtml(fmtMember(m))}</li>`; });
     html += '</ul>';
   }
-
   if (removed.length) {
     html += `<div class="section-label" style="color:#721c24;font-size:.78rem;margin-top:0">➖ Removed (${removed.length}) — in quoted, not in confirmed</div>`;
     html += '<ul style="margin:0 0 12px;padding-left:18px;font-size:.8rem">';
     removed.forEach(m => { html += `<li style="color:#721c24">${escHtml(fmtMember(m))}</li>`; });
     html += '</ul>';
   }
-
   if (changed.length) {
     html += `<div class="section-label" style="color:#7c3aed;font-size:.78rem;margin-top:0">🔄 Changed (${changed.length}) — field differences</div>`;
     html += '<table class="diff-table" style="font-size:.78rem;margin-bottom:12px"><thead><tr><th>Member</th><th>Field</th><th>Confirmed</th><th>Quoted</th></tr></thead><tbody>';
@@ -1437,16 +1496,16 @@ function renderCensusDiff(diff) {
         html += `<tr>
           ${ci === 0 ? `<td rowspan="${c.changes.length}">${escHtml(c.name)} (Cat ${c.category})</td>` : ''}
           <td style="text-transform:capitalize">${ch.field.replace('_',' ')}</td>
-          <td style="color:#059669">${escHtml(ch.confirmed)}</td>
-          <td style="color:#dc2626">${escHtml(ch.quoted)}</td>
+          <td style="color:#059669">${escHtml(String(ch.confirmed))}</td>
+          <td style="color:#dc2626">${escHtml(String(ch.quoted))}</td>
         </tr>`;
       });
     });
     html += '</tbody></table>';
   }
 
-  if (!added.length && !removed.length && !changed.length) {
-    html = '<div style="color:#059669;font-size:.82rem;padding:10px 0">✅ No differences found in the fields checked (Name, Category, Relation, DOB, Gender, Marital Status).</div>';
+  if (!added.length && !removed.length && !changed.length && !impacts.length) {
+    html += '<div style="color:#059669;font-size:.82rem;padding:10px 0">✅ No differences found. Censuses are identical.</div>';
   }
 
   const box = document.getElementById('censusCompareResult');

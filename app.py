@@ -2220,7 +2220,7 @@ def compare_censuses(confirmed_members, quoted_members):
 
 @app.route('/api/compare_census/<out_token>', methods=['POST'])
 def api_compare_census(out_token):
-    """Compare the confirmed census with an uploaded quoted census to explain a mismatch."""
+    """Compare confirmed vs quoted census and attribute premium differences per member."""
     stored = _store.get(out_token)
     if not stored or 'members_data' not in stored:
         return jsonify({'error': 'Session not found or expired'}), 404
@@ -2242,27 +2242,139 @@ def api_compare_census(out_token):
     confirmed_members = stored['members_data']
     diff = compare_censuses(confirmed_members, quoted_members)
 
-    # Build a detailed summary string and cache it so the Excel can include it
+    # ── Reconstruct categories_data from stored rates ──────────────────────────
+    categories_data = {}
+    for cat, brackets in (stored.get('verified_rates') or {}).items():
+        categories_data[cat.upper()] = {
+            'brackets':      brackets,
+            'maternity_rate': float((stored.get('maternity_rates') or {}).get(cat, 0) or 0),
+        }
+
+    def _member_premium(m, cats):
+        """Return (base_rate, maternity, total) for a member given categories_data."""
+        rate, _, _ = get_member_rate(m, cats)
+        rate = float(rate or 0)
+        cat  = m.get('category', '').upper()
+        mat_rate = float(cats.get(cat, {}).get('maternity_rate', 0) or 0)
+        emirate  = m.get('emirate', 'Dubai')
+        mat_max  = MAT_AGE_MAX_AUH if 'abu dhabi' in emirate.lower() else MAT_AGE_MAX_DXB
+        age      = float(m.get('age_alb') or 0)
+        mat = (mat_rate
+               if (m.get('gender', '').lower().startswith('f')
+                   and m.get('marital_status', '').lower().startswith('m')
+                   and MAT_AGE_MIN <= age <= mat_max)
+               else 0.0)
+        return rate, mat, rate + mat
+
+    # ── Build quick lookups ────────────────────────────────────────────────────
+    def _key(m):
+        return (m.get('name', '').lower().strip(), m.get('category', '').upper())
+
+    conf_map = {_key(m): m for m in confirmed_members}
+    quot_map = {_key(m): m for m in quoted_members}
+
+    # ── Premium impact per member ──────────────────────────────────────────────
+    premium_impacts = []   # list of dicts for the frontend
+
+    # Changed members: same person, different attributes → different rate
+    for ch in diff.get('changed', []):
+        name = ch.get('name', '')
+        cat  = ch.get('category', '')
+        cm   = conf_map.get((name.lower().strip(), cat.upper()))
+        qm   = quot_map.get((name.lower().strip(), cat.upper()))
+        if not cm or not qm:
+            continue
+
+        # Confirmed premium already calculated and stored
+        c_base  = float(cm.get('base_premium', 0) or 0)
+        c_mat   = float(cm.get('maternity_premium', 0) or 0)
+        c_total = c_base + c_mat
+        c_age   = cm.get('age_alb') or cm.get('age_anb') or '?'
+        c_gen   = (cm.get('gender') or '?')[:1].upper()
+
+        # Quoted premium — recalculate using stored rates
+        q_base, q_mat, q_total = _member_premium(qm, categories_data)
+        q_age   = qm.get('age_alb') or qm.get('age_anb') or '?'
+        q_gen   = (qm.get('gender') or '?')[:1].upper()
+
+        impact  = c_total - q_total
+        if abs(impact) < 0.01 and c_age == q_age and c_gen == q_gen:
+            continue  # attribute changed but same price band
+
+        premium_impacts.append({
+            'type':     'changed',
+            'name':     name,
+            'category': cat,
+            'quoted':   {'age': q_age, 'gender': q_gen, 'premium': round(q_total, 2)},
+            'confirmed':{'age': c_age, 'gender': c_gen, 'premium': round(c_total, 2)},
+            'impact':   round(impact, 2),
+        })
+
+    # Added members (in confirmed, not in quoted) → they increase confirmed total
+    for m in diff.get('added', []):
+        c_base  = float(m.get('base_premium', 0) or 0)
+        c_mat   = float(m.get('maternity_premium', 0) or 0)
+        c_total = c_base + c_mat
+        age     = m.get('age_alb') or m.get('age_anb') or '?'
+        gen     = (m.get('gender') or '?')[:1].upper()
+        premium_impacts.append({
+            'type':     'added',
+            'name':     m.get('name', ''),
+            'category': m.get('category', ''),
+            'confirmed':{'age': age, 'gender': gen, 'premium': round(c_total, 2)},
+            'impact':   round(c_total, 2),
+        })
+
+    # Removed members (in quoted, not in confirmed) → they reduce confirmed vs quoted
+    for m in diff.get('removed', []):
+        q_base, q_mat, q_total = _member_premium(m, categories_data)
+        age = m.get('age_alb') or m.get('age_anb') or '?'
+        gen = (m.get('gender') or '?')[:1].upper()
+        premium_impacts.append({
+            'type':     'removed',
+            'name':     m.get('name', ''),
+            'category': m.get('category', ''),
+            'quoted':   {'age': age, 'gender': gen, 'premium': round(q_total, 2)},
+            'impact':   round(-q_total, 2),
+        })
+
+    # ── Overall premium reconciliation ─────────────────────────────────────────
+    totals       = stored.get('totals', {})
+    quote_totals = stored.get('quote_totals', {})
+    calc_premium = float(totals.get('total_net', 0) or 0) + float(totals.get('total_maternity', 0) or 0)
+    conf_quote   = float(quote_totals.get('total_premium', 0) or 0)
+    total_gap    = calc_premium - conf_quote
+    explained    = sum(p['impact'] for p in premium_impacts)
+    unexplained  = total_gap - explained
+
+    reconciliation = {
+        'calc_premium':  round(calc_premium, 2),
+        'conf_quote':    round(conf_quote, 2),
+        'total_gap':     round(total_gap, 2),
+        'explained':     round(explained, 2),
+        'unexplained':   round(unexplained, 2),
+    }
+
+    diff['premium_impacts']  = premium_impacts
+    diff['reconciliation']   = reconciliation
+
+    # ── Excel diff summary (compact text) ─────────────────────────────────────
     def _fmt_m(m):
-        age  = m.get('age_alb') or m.get('age_anb') or '?'
-        gen  = (m.get('gender') or '?')[:1].upper()
-        rel  = m.get('relation') or m.get('relationship') or '?'
+        age = m.get('age_alb') or m.get('age_anb') or '?'
+        gen = (m.get('gender') or '?')[:1].upper()
+        rel = m.get('relation') or '?'
         return f"{m.get('name','?')} ({age}, {gen}, {rel})"
 
     summary_lines = []
     if diff.get('added'):
         names = [_fmt_m(m) for m in diff['added'][:5]]
         extra = len(diff['added']) - 5
-        line  = 'Added: ' + ', '.join(names)
-        if extra > 0:
-            line += f' +{extra} more'
+        line  = 'Added: ' + ', '.join(names) + (f' +{extra} more' if extra > 0 else '')
         summary_lines.append(line)
     if diff.get('removed'):
         names = [_fmt_m(m) for m in diff['removed'][:5]]
         extra = len(diff['removed']) - 5
-        line  = 'Removed: ' + ', '.join(names)
-        if extra > 0:
-            line += f' +{extra} more'
+        line  = 'Removed: ' + ', '.join(names) + (f' +{extra} more' if extra > 0 else '')
         summary_lines.append(line)
     if diff.get('changed'):
         ch_parts = []
@@ -2270,14 +2382,12 @@ def api_compare_census(out_token):
             fld = ', '.join(f"{c['field']} {c['from']}→{c['to']}" for c in ch.get('changes', []))
             ch_parts.append(f"{ch['name']} ({fld})")
         extra = len(diff['changed']) - 3
-        line  = 'Changed: ' + ', '.join(ch_parts)
-        if extra > 0:
-            line += f' +{extra} more'
+        line  = 'Changed: ' + ', '.join(ch_parts) + (f' +{extra} more' if extra > 0 else '')
         summary_lines.append(line)
 
-    diff_summary = ' | '.join(summary_lines) if summary_lines else 'Census identical to quoted'
-
-    _store[out_token]['census_diff_summary'] = diff_summary
+    _store[out_token]['census_diff_summary'] = (
+        ' | '.join(summary_lines) if summary_lines else 'Census identical to quoted'
+    )
 
     return jsonify(diff)
 
