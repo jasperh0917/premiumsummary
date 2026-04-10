@@ -41,6 +41,9 @@ from datetime import timedelta
 
 def _session_set(token: str, data: dict):
     """Persist session to Supabase. bytes values are base64-encoded."""
+    supa = get_supa()
+    if not supa:
+        return
     def _enc(v):
         if isinstance(v, (bytes, bytearray)):
             return {'__b64__': True, 'data': _b64.b64encode(bytes(v)).decode()}
@@ -56,6 +59,9 @@ def _session_set(token: str, data: dict):
 
 def _session_get(token: str):
     """Retrieve session from Supabase. Decodes base64 binary values."""
+    supa = get_supa()
+    if not supa:
+        return None
     try:
         res = supa.table('sessions').select('data').eq('token', token).limit(1).execute()
     except Exception:
