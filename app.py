@@ -2682,10 +2682,10 @@ def api_policies():
     if not supa:
         return jsonify({'error': 'Database not configured'}), 503
     search    = request.args.get('search', '').strip()
-    broker    = request.args.get('broker', '').strip()
-    rm        = request.args.get('rm', '').strip()
-    plan      = request.args.get('plan', '').strip()
-    ptype     = request.args.get('plan_type', '').strip()
+    brokers   = _multi(request.args, 'broker')
+    rms       = _multi(request.args, 'rm')
+    plans     = _multi(request.args, 'plan')
+    ptypes    = _multi(request.args, 'plan_type')
     date_from = request.args.get('date_from', '').strip()
     date_to   = request.args.get('date_to', '').strip()
     page      = max(1, int(request.args.get('page', 1)))
@@ -2699,14 +2699,13 @@ def api_policies():
         )
         if search:
             q = q.ilike('company_name', f'%{search}%')
-        if broker:
-            q = q.eq('broker', broker)
-        if rm:
-            q = q.eq('rm_person', rm)
-        if plan:
-            q = q.eq('plan', plan)
-        if ptype:
-            q = q.eq('plan_type', ptype)
+        def _apply(col, vals):
+            return (lambda qq: qq.eq(col, vals[0]) if len(vals) == 1
+                    else qq.in_(col, vals) if vals else qq)
+        if brokers: q = _apply('broker', brokers)(q)
+        if rms:     q = _apply('rm_person', rms)(q)
+        if plans:   q = _apply('plan', plans)(q)
+        if ptypes:  q = _apply('plan_type', ptypes)(q)
         if date_from:
             q = q.gte('start_date', date_from)
         if date_to:
@@ -3322,22 +3321,42 @@ def api_policy_detail(pid):
         return jsonify({'error': str(e)}), 500
 
 
+def _multi(args, key):
+    """Read a multi-value query param (comma-separated) into a list."""
+    raw = (args.get(key, '') or '').strip()
+    if not raw:
+        return []
+    return [v.strip() for v in raw.split(',') if v.strip()]
+
+
 def _dash_filter(q, args):
-    """Apply shared dashboard filters to a supabase query."""
-    from collections import defaultdict as _dd
-    plan      = args.get('plan', '').strip()
-    plan_type = args.get('plan_type', '').strip()
-    rm        = args.get('rm', '').strip()
-    broker    = args.get('broker', '').strip()
-    if plan:
-        q = q.eq('plan', plan)
-    if plan_type:
-        q = q.eq('plan_type', plan_type)
-    if rm:
-        q = q.eq('rm_person', rm)
-    if broker:
-        q = q.eq('broker', broker)
+    """Apply shared dashboard filters to a supabase query.
+    Supports single or multi values (comma-separated) for each filter.
+    Month filter is NOT applied here — use _filter_rows_by_month() post-fetch.
+    """
+    mapping = (
+        ('plan',      'plan'),
+        ('plan_type', 'plan_type'),
+        ('rm',        'rm_person'),
+        ('broker',    'broker'),
+    )
+    for param, col in mapping:
+        vals = _multi(args, param)
+        if not vals:
+            continue
+        if len(vals) == 1:
+            q = q.eq(col, vals[0])
+        else:
+            q = q.in_(col, vals)
     return q
+
+
+def _filter_rows_by_month(rows, args):
+    """Post-filter rows whose created_at[:7] is in the selected months list."""
+    months = set(_multi(args, 'month'))
+    if not months:
+        return rows
+    return [r for r in rows if (r.get('created_at') or '')[:7] in months]
 
 
 @app.route('/api/dashboard/monthly')
@@ -3351,7 +3370,7 @@ def api_dashboard_monthly():
             'created_at,plan,plan_type,total_net,total_maternity,grand_total,member_count'
         )
         q = _dash_filter(q, request.args)
-        rows = q.execute().data or []
+        rows = _filter_rows_by_month(q.execute().data or [], request.args)
 
         # Per-month summary (for the table)
         monthly = defaultdict(lambda: {'policy_count': 0, 'gross_premium': 0.0, 'grand_total': 0.0, 'member_count': 0})
@@ -3393,9 +3412,9 @@ def api_dashboard_brokers():
         return jsonify({'error': 'Database not configured'}), 503
     try:
         from collections import defaultdict
-        q = supa.table('policies').select('broker,member_count,total_net,total_maternity,grand_total')
+        q = supa.table('policies').select('broker,member_count,total_net,total_maternity,grand_total,created_at')
         q = _dash_filter(q, request.args)
-        rows = q.execute().data or []
+        rows = _filter_rows_by_month(q.execute().data or [], request.args)
         buckets = defaultdict(lambda: {'policy_count': 0, 'total_members': 0, 'gross_premium': 0.0, 'total_grand': 0.0})
         for r in rows:
             b = r.get('broker') or 'Unknown'
@@ -3421,10 +3440,12 @@ def api_dashboard_rm():
         return jsonify({'error': 'Database not configured'}), 503
     try:
         from collections import defaultdict
-        q = supa.table('policies').select('rm_person,created_at,grand_total')
+        q = supa.table('policies').select(
+            'rm_person,created_at,grand_total,total_net,total_maternity,rm_wellx'
+        )
         q = _dash_filter(q, request.args)
-        rows = q.execute().data or []
-        buckets = defaultdict(lambda: {'policy_count': 0, 'actual_amount': 0.0})
+        rows = _filter_rows_by_month(q.execute().data or [], request.args)
+        buckets = defaultdict(lambda: {'policy_count': 0, 'actual_amount': 0.0, 'revenue': 0.0})
         for r in rows:
             rm_name = r.get('rm_person') or 'Unassigned'
             dt = r.get('created_at', '')[:10]
@@ -3433,8 +3454,12 @@ def api_dashboard_rm():
                 key = (rm_name, d.year, d.month)
             except Exception:
                 continue
+            gross   = float(r.get('total_net') or 0) + float(r.get('total_maternity') or 0)
+            wellx   = float(r.get('rm_wellx') or 0)
+            revenue = gross * wellx / 100.0
             buckets[key]['policy_count']  += 1
             buckets[key]['actual_amount'] += float(r.get('grand_total') or 0)
+            buckets[key]['revenue']       += revenue
         actuals = [{'rm_name': k[0], 'year': k[1], 'month': k[2], **v} for k, v in buckets.items()]
         actuals.sort(key=lambda x: (x['rm_name'], x['year'], x['month']))
         tgt_res = supa.table('rm_targets').select('*').order('rm_name').execute()
@@ -3524,10 +3549,10 @@ def api_dashboard_take_rate():
     try:
         from collections import defaultdict
         q = supa.table('policies').select(
-            'plan,total_net,total_maternity,rm_wellx'
+            'plan,total_net,total_maternity,rm_wellx,created_at'
         )
         q = _dash_filter(q, request.args)
-        rows = q.execute().data or []
+        rows = _filter_rows_by_month(q.execute().data or [], request.args)
 
         buckets = defaultdict(lambda: {'premium': 0.0, 'commission': 0.0, 'count': 0})
         for r in rows:
@@ -3581,19 +3606,19 @@ def api_dashboard_export():
             'created_at,plan,plan_type,total_net,total_maternity,grand_total,member_count'
         )
         q_monthly = _dash_filter(q_monthly, args)
-        all_rows  = q_monthly.execute().data or []
+        all_rows  = _filter_rows_by_month(q_monthly.execute().data or [], args)
 
         q_tr = supa.table('policies').select(
-            'plan,total_net,total_maternity,rm_wellx'
+            'plan,total_net,total_maternity,rm_wellx,created_at'
         )
         q_tr = _dash_filter(q_tr, args)
-        tr_rows = q_tr.execute().data or []
+        tr_rows = _filter_rows_by_month(q_tr.execute().data or [], args)
 
         q_br = supa.table('policies').select(
-            'broker,member_count,total_net,total_maternity,grand_total'
+            'broker,member_count,total_net,total_maternity,grand_total,created_at'
         )
         q_br = _dash_filter(q_br, args)
-        br_rows = q_br.execute().data or []
+        br_rows = _filter_rows_by_month(q_br.execute().data or [], args)
 
         # ── Build workbook ──────────────────────────────────────────────────
         from openpyxl import Workbook as _WB
@@ -3869,18 +3894,20 @@ def api_db_check():
 def api_policies_meta():
     supa = get_supa()
     if not supa:
-        return jsonify({'brokers': [], 'rms': [], 'plans': [], 'plan_types': []})
+        return jsonify({'brokers': [], 'rms': [], 'plans': [], 'plan_types': [], 'months': []})
     try:
-        res = supa.table('policies').select('broker,rm_person,plan,plan_type').execute()
+        res = supa.table('policies').select('broker,rm_person,plan,plan_type,created_at').execute()
         rows = res.data or []
+        months = sorted({(r.get('created_at') or '')[:7] for r in rows if r.get('created_at')}, reverse=True)
         return jsonify({
             'brokers':    sorted({r['broker']    for r in rows if r.get('broker')}),
             'rms':        sorted({r['rm_person'] for r in rows if r.get('rm_person')}),
             'plans':      sorted({r['plan']      for r in rows if r.get('plan')}),
             'plan_types': sorted({r['plan_type'] for r in rows if r.get('plan_type')}),
+            'months':     months,
         })
     except Exception as e:
-        return jsonify({'brokers': [], 'rms': [], 'plans': [], 'plan_types': []})
+        return jsonify({'brokers': [], 'rms': [], 'plans': [], 'plan_types': [], 'months': []})
 
 
 # ── Settings: Underwriters / RM Persons / Brokers ────────────────────────────

@@ -87,6 +87,25 @@ tfoot td{padding:9px 14px;font-size:.83rem;font-weight:700;color:var(--navy)}
 .rm-controls{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
 .rm-controls select{border:1.5px solid #e0e7f0;border-radius:8px;padding:6px 10px;font-size:.83rem;font-family:inherit;color:var(--dark);background:#f8faff;outline:none}
 
+/* ── Multi-select filter chip ── */
+.ms{position:relative;display:flex;flex-direction:column;gap:3px}
+.ms-label{font-size:.68rem;font-weight:600;color:var(--slate);text-transform:uppercase;letter-spacing:.6px}
+.ms-chip{border:1.5px solid #e0e7f0;border-radius:8px;padding:6px 28px 6px 10px;font-size:.82rem;font-family:inherit;color:var(--dark);background:#f8faff;outline:none;min-width:150px;max-width:220px;cursor:pointer;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;position:relative;transition:.15s}
+.ms-chip:hover{border-color:var(--mid)}
+.ms-chip.has-selection{border-color:var(--navy);font-weight:600;color:var(--navy)}
+.ms-chip::after{content:'▾';position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--slate);font-size:.7rem}
+.ms-panel{position:absolute;top:calc(100% + 4px);left:0;background:#fff;border:1.5px solid #e0e7f0;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.25);z-index:100;min-width:220px;max-height:320px;overflow:auto;padding:6px 0;display:none}
+.ms-panel.open{display:block}
+.ms-opt{display:flex;align-items:center;gap:8px;padding:7px 14px;font-size:.82rem;color:var(--dark);cursor:pointer;user-select:none}
+.ms-opt:hover{background:#f0f4ff}
+.ms-opt input{accent-color:var(--navy);cursor:pointer}
+.ms-opt.ms-all{border-bottom:1px solid #e0e7f0;font-weight:600;color:var(--navy)}
+
+/* ── Clickable rows for drill-down ── */
+tbody tr.drillable{cursor:pointer}
+tbody tr.drillable:hover{background:#e0eaff !important}
+.trophy{margin-right:5px}
+
 /* ── Print (PDF export) ── */
 @media print {
   @page { size: A4; margin: 12mm; }
@@ -134,30 +153,25 @@ tfoot td{padding:9px 14px;font-size:.83rem;font-weight:700;color:var(--navy)}
 
   <!-- Global Filters -->
   <div class="filter-bar">
-    <div class="fg">
-      <label>Plan</label>
-      <select id="fPlan">
-        <option value="">All Plans</option>
-        <option value="Healthxclusive">Healthxclusive</option>
-        <option value="Healthx">Healthx</option>
-        <option value="Openx">Openx</option>
-      </select>
+    <div class="ms" id="msPlan">
+      <span class="ms-label">Plan</span>
+      <button type="button" class="ms-chip">All Plans</button>
     </div>
-    <div class="fg">
-      <label>Type</label>
-      <select id="fType">
-        <option value="">New &amp; Renewal</option>
-        <option value="New">New</option>
-        <option value="Renewal">Renewal</option>
-      </select>
+    <div class="ms" id="msType">
+      <span class="ms-label">Type</span>
+      <button type="button" class="ms-chip">New &amp; Renewal</button>
     </div>
-    <div class="fg">
-      <label>Broker</label>
-      <select id="fBroker"><option value="">All Brokers</option></select>
+    <div class="ms" id="msBroker">
+      <span class="ms-label">Broker</span>
+      <button type="button" class="ms-chip">All Brokers</button>
     </div>
-    <div class="fg">
-      <label>RM</label>
-      <select id="fRm"><option value="">All RMs</option></select>
+    <div class="ms" id="msRm">
+      <span class="ms-label">RM</span>
+      <button type="button" class="ms-chip">All RMs</button>
+    </div>
+    <div class="ms" id="msMonth">
+      <span class="ms-label">Month</span>
+      <button type="button" class="ms-chip">All Months</button>
     </div>
     <button class="btn btn-primary" onclick="applyFilters()">Apply</button>
     <button class="btn btn-ghost" onclick="clearFilters()">Clear</button>
@@ -271,6 +285,7 @@ tfoot td{padding:9px 14px;font-size:.83rem;font-weight:700;color:var(--navy)}
       <table>
         <thead><tr>
           <th>RM</th>
+          <th class="num">Revenue</th>
           <th class="num">Policies</th>
           <th class="num">Actual</th>
           <th class="num">Target</th>
@@ -304,37 +319,152 @@ for (let y = now.getFullYear(); y >= now.getFullYear() - 2; y--)
   yearSel.innerHTML += `<option value="${y}" ${y === now.getFullYear() ? 'selected' : ''}>${y}</option>`;
 document.getElementById('rmMonth').value = now.getMonth() + 1;
 
-// ── Populate broker/RM dropdowns ───────────────────────────────────────────────
+// ── Multi-select filter state ──────────────────────────────────────────────────
+// filterState holds arrays of selected values per filter key. Empty array = "All".
+const filterState = { plan: [], plan_type: [], broker: [], rm: [], month: [] };
+
+// Build a multi-select chip dropdown for a filter.
+//   containerId - id of the .ms wrapper div
+//   stateKey    - key into filterState
+//   allLabel    - label shown when nothing is selected
+//   options     - array of {value, label}
+function createMultiSelect(containerId, stateKey, allLabel, options) {
+  const wrap  = document.getElementById(containerId);
+  if (!wrap) return;
+  const chip  = wrap.querySelector('.ms-chip');
+  // Remove any existing panel (for re-rendering)
+  const oldPanel = wrap.querySelector('.ms-panel');
+  if (oldPanel) oldPanel.remove();
+
+  const panel = document.createElement('div');
+  panel.className = 'ms-panel';
+  panel.innerHTML =
+    `<label class="ms-opt ms-all"><input type="checkbox" data-all="1"> All</label>` +
+    options.map(o =>
+      `<label class="ms-opt"><input type="checkbox" value="${String(o.value).replace(/"/g,'&quot;')}"> ${o.label}</label>`
+    ).join('');
+  wrap.appendChild(panel);
+
+  const renderChip = () => {
+    const sel = filterState[stateKey];
+    if (!sel.length) {
+      chip.textContent = allLabel;
+      chip.classList.remove('has-selection');
+    } else if (sel.length === 1) {
+      const found = options.find(o => String(o.value) === sel[0]);
+      chip.textContent = found ? found.label : sel[0];
+      chip.classList.add('has-selection');
+    } else {
+      chip.textContent = `${sel.length} selected`;
+      chip.classList.add('has-selection');
+    }
+  };
+
+  const syncChecks = () => {
+    const sel  = new Set(filterState[stateKey]);
+    const all  = panel.querySelector('input[data-all]');
+    panel.querySelectorAll('input:not([data-all])').forEach(cb => {
+      cb.checked = sel.has(cb.value);
+    });
+    all.checked = sel.size === 0;
+  };
+
+  chip.onclick = (e) => {
+    e.stopPropagation();
+    // Close other panels first
+    document.querySelectorAll('.ms-panel.open').forEach(p => { if (p !== panel) p.classList.remove('open'); });
+    panel.classList.toggle('open');
+    if (panel.classList.contains('open')) syncChecks();
+  };
+
+  panel.onclick = (e) => e.stopPropagation();
+
+  panel.querySelectorAll('input').forEach(cb => {
+    cb.addEventListener('change', () => {
+      if (cb.dataset.all === '1') {
+        // "All" → clear selection
+        filterState[stateKey] = [];
+      } else {
+        const set = new Set(filterState[stateKey]);
+        if (cb.checked) set.add(cb.value); else set.delete(cb.value);
+        filterState[stateKey] = [...set];
+      }
+      renderChip();
+      syncChecks();
+    });
+  });
+
+  renderChip();
+}
+
+// Close any open panels on outside click
+document.addEventListener('click', () => {
+  document.querySelectorAll('.ms-panel.open').forEach(p => p.classList.remove('open'));
+});
+
+// ── Populate all filter chips ──────────────────────────────────────────────────
 async function loadMeta() {
   try {
     const res = await fetch('/api/policies/meta');
     const d   = await res.json();
-    const fill = (id, items) => {
-      const sel = document.getElementById(id);
-      const cur = sel.value;
-      sel.innerHTML = sel.options[0].outerHTML +
-        items.map(v => `<option value="${v}">${v}</option>`).join('');
-      sel.value = cur;
-    };
-    fill('fBroker', d.brokers || []);
-    fill('fRm',     d.rms    || []);
+    const mkOpts = arr => (arr || []).map(v => ({ value: v, label: v }));
+
+    createMultiSelect('msPlan',   'plan',      'All Plans',
+      (d.plans || ['Healthx','Healthxclusive','Openx']).map(v => ({ value: v, label: v })));
+    createMultiSelect('msType',   'plan_type', 'New & Renewal',
+      [{ value: 'New', label: 'New' }, { value: 'Renewal', label: 'Renewal' }]);
+    createMultiSelect('msBroker', 'broker',    'All Brokers', mkOpts(d.brokers));
+    createMultiSelect('msRm',     'rm',        'All RMs',     mkOpts(d.rms));
+    createMultiSelect('msMonth',  'month',     'All Months',
+      (d.months || []).map(m => ({ value: m, label: fmtMonth(m) })));
   } catch(e) {}
 }
 
 // ── Filters ────────────────────────────────────────────────────────────────────
 function filterParams() {
   const p = new URLSearchParams();
-  const v = id => document.getElementById(id).value;
-  if (v('fPlan'))   p.set('plan',      v('fPlan'));
-  if (v('fType'))   p.set('plan_type', v('fType'));
-  if (v('fBroker')) p.set('broker',    v('fBroker'));
-  if (v('fRm'))     p.set('rm',        v('fRm'));
+  Object.entries(filterState).forEach(([k, arr]) => {
+    if (arr && arr.length) p.set(k, arr.join(','));
+  });
   return p.toString() ? '?' + p.toString() : '';
 }
 function applyFilters() { loadAll(); }
 function clearFilters() {
-  ['fPlan','fType','fBroker','fRm'].forEach(id => document.getElementById(id).value = '');
-  loadAll();
+  Object.keys(filterState).forEach(k => filterState[k] = []);
+  // Rebuild chips so labels + checkbox state reset
+  loadMeta().then(loadAll);
+}
+
+// ── Drill-down URL builder ─────────────────────────────────────────────────────
+// Start from current filter state and layer overrides, return /policies?...
+function buildDrillUrl(overrides) {
+  const p = new URLSearchParams();
+  // Start from current filter state (commas allowed on policies page filters? use first value when >1)
+  if (filterState.plan.length)      p.set('plan',      filterState.plan.join(','));
+  if (filterState.plan_type.length) p.set('plan_type', filterState.plan_type.join(','));
+  if (filterState.broker.length)    p.set('broker',    filterState.broker.join(','));
+  if (filterState.rm.length)        p.set('rm',        filterState.rm.join(','));
+  // Month → date range (only when exactly one month selected via dashboard filter)
+  if (filterState.month.length === 1) {
+    const { from, to } = monthRange(filterState.month[0]);
+    p.set('date_from', from);
+    p.set('date_to',   to);
+  }
+  // Apply overrides (win over current state)
+  Object.entries(overrides || {}).forEach(([k, v]) => {
+    if (v === undefined || v === null || v === '') p.delete(k);
+    else p.set(k, v);
+  });
+  return '/policies?' + p.toString();
+}
+
+// Month (YYYY-MM) → date range [first, last] (YYYY-MM-DD)
+function monthRange(ym) {
+  const [y, m] = ym.split('-').map(Number);
+  const from = `${y}-${String(m).padStart(2,'0')}-01`;
+  const last = new Date(y, m, 0).getDate(); // day 0 of next month = last day of this month
+  const to   = `${y}-${String(m).padStart(2,'0')}-${String(last).padStart(2,'0')}`;
+  return { from, to };
 }
 
 // ── Load all ───────────────────────────────────────────────────────────────────
@@ -369,13 +499,16 @@ function renderTakeRate(data) {
   const total = data?.total || {};
   const fmtP  = v => Number(v).toFixed(2) + '%';
   document.getElementById('takeRateBody').innerHTML = plans.length
-    ? plans.map(p => `<tr>
-        <td><strong>${p.plan}</strong></td>
-        <td class="num">${p.policy_count}</td>
-        <td class="num">${fmtNum(p.total_premium)}</td>
-        <td class="num">${fmtNum(p.commission_amount)}</td>
-        <td class="num" style="font-weight:600;color:var(--navy)">${fmtP(p.take_rate_pct)}</td>
-      </tr>`).join('')
+    ? plans.map(p => {
+        const url = buildDrillUrl({ plan: p.plan });
+        return `<tr class="drillable" onclick="location.href='${url.replace(/'/g,"\\'")}'">
+          <td><strong>${p.plan}</strong></td>
+          <td class="num">${p.policy_count}</td>
+          <td class="num">${fmtNum(p.total_premium)}</td>
+          <td class="num">${fmtNum(p.commission_amount)}</td>
+          <td class="num" style="font-weight:600;color:var(--navy)">${fmtP(p.take_rate_pct)}</td>
+        </tr>`;
+      }).join('')
     : '<tr class="empty-row"><td colspan="5">No data</td></tr>';
   document.getElementById('trfPolicies').textContent = plans.reduce((s,p) => s + p.policy_count, 0);
   document.getElementById('trfPremium').textContent  = fmtNum(total.total_premium || 0);
@@ -510,7 +643,10 @@ function renderMonthly() {
         sumM     += parseInt(r.member_count||0);
         sumG     += parseFloat(r.gross_premium||0);
         sumGrand += parseFloat(r.grand_total||0);
-        return `<tr>
+        const { from, to } = monthRange(r.month);
+        // Month drill-down: override date range & clear any single-month filter override
+        const url = buildDrillUrl({ date_from: from, date_to: to });
+        return `<tr class="drillable" onclick="location.href='${url.replace(/'/g,"\\'")}'">
           <td>${fmtMonth(r.month)}</td>
           <td class="num">${r.policy_count}</td>
           <td class="num">${parseInt(r.member_count||0).toLocaleString()}</td>
@@ -529,14 +665,17 @@ function renderMonthly() {
 // ── Brokers ────────────────────────────────────────────────────────────────────
 function renderBrokers() {
   document.getElementById('brokerBody').innerHTML = brokersData.length
-    ? brokersData.map(r => `<tr>
-        <td><strong>${r.broker}</strong></td>
-        <td class="num">${r.policy_count}</td>
-        <td class="num">${parseInt(r.total_members||0).toLocaleString()}</td>
-        <td class="num">${fmtNum(r.gross_premium)}</td>
-        <td class="num">${fmtNum(r.total_grand)}</td>
-        <td class="num">${fmtNum(r.avg_policy_size)}</td>
-      </tr>`).join('')
+    ? brokersData.map(r => {
+        const url = buildDrillUrl({ broker: r.broker });
+        return `<tr class="drillable" onclick="location.href='${url.replace(/'/g,"\\'")}'">
+          <td><strong>${r.broker}</strong></td>
+          <td class="num">${r.policy_count}</td>
+          <td class="num">${parseInt(r.total_members||0).toLocaleString()}</td>
+          <td class="num">${fmtNum(r.gross_premium)}</td>
+          <td class="num">${fmtNum(r.total_grand)}</td>
+          <td class="num">${fmtNum(r.avg_policy_size)}</td>
+        </tr>`;
+      }).join('')
     : '<tr class="empty-row"><td colspan="6">No data for selected filters</td></tr>';
 }
 
@@ -548,7 +687,11 @@ function renderRM() {
   const actualMap = {};
   (rmData.actuals || []).forEach(a => {
     if (a.year === year && a.month === month)
-      actualMap[a.rm_name] = { count: parseInt(a.policy_count||0), amount: parseFloat(a.actual_amount||0) };
+      actualMap[a.rm_name] = {
+        count:   parseInt(a.policy_count||0),
+        amount:  parseFloat(a.actual_amount||0),
+        revenue: parseFloat(a.revenue||0),
+      };
   });
   const targetMap = {};
   (rmData.targets || []).forEach(t => {
@@ -562,17 +705,21 @@ function renderRM() {
     ...(rmData.actuals||[]).map(a => a.rm_name),
   ])].filter(Boolean);
 
-  // Rank by actual sales (descending)
-  allRMs.sort((a, b) => (actualMap[b]?.amount || 0) - (actualMap[a]?.amount || 0));
+  // Rank by REVENUE (descending)
+  allRMs.sort((a, b) => (actualMap[b]?.revenue || 0) - (actualMap[a]?.revenue || 0));
 
   if (!allRMs.length) {
-    document.getElementById('rmBody').innerHTML = '<tr class="empty-row"><td colspan="6">No RM data for selected filters</td></tr>';
+    document.getElementById('rmBody').innerHTML = '<tr class="empty-row"><td colspan="7">No RM data for selected filters</td></tr>';
     return;
   }
 
-  document.getElementById('rmBody').innerHTML = allRMs.map(rm => {
-    const actual   = actualMap[rm]?.amount || 0;
-    const count    = actualMap[rm]?.count  || 0;
+  // Build date range for RM drill-down based on selected rmYear/rmMonth
+  const { from: rmFrom, to: rmTo } = monthRange(`${year}-${String(month).padStart(2,'0')}`);
+
+  document.getElementById('rmBody').innerHTML = allRMs.map((rm, idx) => {
+    const revenue  = actualMap[rm]?.revenue || 0;
+    const actual   = actualMap[rm]?.amount  || 0;
+    const count    = actualMap[rm]?.count   || 0;
     const target   = targetMap[rm] || 0;
     const gap      = Math.max(target - actual, 0);
     const hitTarget = target > 0 && actual >= target;
@@ -580,16 +727,20 @@ function renderRM() {
     const pctClass = pct === null ? '' : pct >= 100 ? 'pct-good' : pct >= 70 ? 'pct-warn' : 'pct-bad';
     const pctLabel = pct === null ? '—' : `<span class="pct ${pctClass}">${pct.toFixed(0)}%</span>`;
     const safeId   = rm.replace(/\W+/g,'_');
-    return `<tr>
-      <td><strong>${rm}</strong></td>
+    const trophy   = idx === 0 && revenue > 0 ? '<span class="trophy">🏆</span>' : '';
+    const drillUrl = buildDrillUrl({ rm, date_from: rmFrom, date_to: rmTo });
+    return `<tr class="drillable" onclick="location.href='${drillUrl}'">
+      <td><strong>${trophy}${rm}</strong></td>
+      <td class="num">${fmtCompact(revenue)}</td>
       <td class="num">${count}</td>
       <td class="num">${fmtCompact(actual)}</td>
-      <td class="num">
+      <td class="num" onclick="event.stopPropagation()">
         <input class="target-input" type="text" inputmode="numeric"
           value="${target ? fmtNum(target) : ''}" placeholder="Set target" id="ti-${safeId}"
+          onclick="event.stopPropagation()"
           onfocus="this.value=this.value.replace(/,/g,'')"
           onblur="if(this.value)this.value=Number(this.value.replace(/,/g,'')).toLocaleString('en-AE',{maximumFractionDigits:0})">
-        <button class="save-btn" onclick="saveTarget('${rm.replace(/'/g,"\\'")}')">Save</button>
+        <button class="save-btn" onclick="event.stopPropagation();saveTarget('${rm.replace(/'/g,"\\'")}')">Save</button>
       </td>
       <td class="num" style="color:${hitTarget?'#16a34a':'#dc2626'};font-weight:600">
         ${target > 0 ? fmtCompact(gap) : '—'}

@@ -390,8 +390,35 @@ document.getElementById('fSearch').addEventListener('keydown', e => {
   if (e.key === 'Enter') load(1);
 });
 
-loadMeta();
-load(1);
+// Hydrate filter controls from URL query params (for drill-down from dashboard)
+function hydrateFromUrl() {
+  const p = new URLSearchParams(window.location.search);
+  const setVal = (id, paramKey) => {
+    const raw = p.get(paramKey);
+    if (!raw) return;
+    // Multi-value URL param → take first for the native single-select
+    const val = raw.split(',')[0];
+    const el = document.getElementById(id);
+    if (!el) return;
+    if ([...el.options].some(o => o.value === val)) el.value = val;
+  };
+  setVal('fSearch', 'search');
+  setVal('fBroker', 'broker');
+  setVal('fRm',     'rm');
+  setVal('fPlan',   'plan');
+  setVal('fType',   'plan_type');
+  setVal('fFrom',   'date_from');
+  setVal('fTo',     'date_to');
+  // Also handle free-text search (set value regardless of options)
+  const s = p.get('search');
+  if (s) document.getElementById('fSearch').value = s;
+  const df = p.get('date_from');
+  if (df) document.getElementById('fFrom').value = df;
+  const dt = p.get('date_to');
+  if (dt) document.getElementById('fTo').value = dt;
+}
+
+loadMeta().then(() => { hydrateFromUrl(); load(1); });
 </script>
 </body>
 </html>
