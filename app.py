@@ -3879,12 +3879,16 @@ def api_db_check():
             connected = True
         except Exception as e:
             err = str(e)
+    anth_key = os.environ.get('ANTHROPIC_API_KEY', '')
     return jsonify({
-        'supabase_available':    _DB_AVAILABLE,
-        'SUPABASE_URL_set':      bool(os.environ.get('SUPABASE_URL')),
-        'SUPABASE_ANON_KEY_set': bool(os.environ.get('SUPABASE_ANON_KEY')),
-        'connected':             connected,
-        'error':                 err,
+        'supabase_available':      _DB_AVAILABLE,
+        'SUPABASE_URL_set':        bool(os.environ.get('SUPABASE_URL')),
+        'SUPABASE_ANON_KEY_set':   bool(os.environ.get('SUPABASE_ANON_KEY')),
+        'ANTHROPIC_API_KEY_set':   bool(anth_key),
+        'ANTHROPIC_API_KEY_len':   len(anth_key),
+        'ANTHROPIC_API_KEY_prefix': (anth_key[:10] + '…') if anth_key else '',
+        'connected':               connected,
+        'error':                   err,
     })
 
 
