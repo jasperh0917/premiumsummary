@@ -2443,7 +2443,7 @@ def api_compare_census(out_token):
     if diff.get('changed'):
         ch_parts = []
         for ch in diff['changed'][:3]:
-            fld = ', '.join(f"{c['field']} {c['from']}→{c['to']}" for c in ch.get('changes', []))
+            fld = ', '.join(f"{c['field']} {c.get('quoted','')}→{c.get('confirmed','')}" for c in ch.get('changes', []))
             ch_parts.append(f"{ch['name']} ({fld})")
         extra = len(diff['changed']) - 3
         line  = 'Changed: ' + ', '.join(ch_parts) + (f' +{extra} more' if extra > 0 else '')
