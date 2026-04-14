@@ -51,6 +51,11 @@ h1{font-family:'Raleway',sans-serif;font-weight:900;font-size:1.6rem;color:#fff;
 .kpi{background:#fff;border-radius:14px;padding:16px 20px;box-shadow:0 4px 20px rgba(0,0,0,.4)}
 .kpi .kv{font-family:'Raleway',sans-serif;font-weight:900;font-size:1.35rem;color:var(--navy)}
 .kpi .kl{font-size:.68rem;font-weight:600;color:var(--slate);text-transform:uppercase;letter-spacing:.7px;margin-top:3px}
+.kpi-multi{display:flex;flex-direction:column;gap:10px}
+.kpi-multi .kpi-item{display:flex;justify-content:space-between;align-items:baseline}
+.kpi-multi .kpi-item .kv{font-family:'Raleway',sans-serif;font-weight:900;font-size:1.1rem;color:var(--navy)}
+.kpi-multi .kpi-item .kl{font-size:.62rem;font-weight:600;color:var(--slate);text-transform:uppercase;letter-spacing:.5px;margin-top:0}
+.kpi-multi .kpi-header{font-size:.68rem;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.7px;border-bottom:1.5px solid var(--light);padding-bottom:6px}
 
 /* ── Section ── */
 .section{background:#fff;border-radius:16px;padding:22px 26px;margin-bottom:22px;box-shadow:0 4px 24px rgba(0,0,0,.4)}
@@ -185,7 +190,14 @@ tbody tr.drillable:hover{background:#e0eaff !important}
     <div class="kpi"><div class="kv" id="kTotal">—</div><div class="kl">Total Policies</div></div>
     <div class="kpi"><div class="kv" id="kGross">—</div><div class="kl">Total Gross Premium</div></div>
     <div class="kpi"><div class="kv" id="kMembers">—</div><div class="kl">Total Members</div></div>
-    <div class="kpi"><div class="kv" id="kAvg">—</div><div class="kl">Avg Policy Size</div></div>
+    <div class="kpi">
+      <div class="kpi-multi">
+        <div class="kpi-header">Policy Stats</div>
+        <div class="kpi-item"><div class="kl">Premium / Policy</div><div class="kv" id="kAvg">—</div></div>
+        <div class="kpi-item"><div class="kl">Census / Policy</div><div class="kv" id="kAvgCensus">—</div></div>
+        <div class="kpi-item"><div class="kl">Premium / Member</div><div class="kv" id="kPerCapita">—</div></div>
+      </div>
+    </div>
   </div>
 
   <!-- Monthly Sales -->
@@ -542,10 +554,14 @@ function renderKPIs() {
   const totalGross    = monthlyRows.reduce((s,r) => s + parseFloat(r.gross_premium||0), 0);
   const totalMembers  = monthlyRows.reduce((s,r) => s + parseInt(r.member_count||0), 0);
   const avgSize       = totalPolicies ? totalGross / totalPolicies : 0;
+  const avgCensus     = totalPolicies ? totalMembers / totalPolicies : 0;
+  const perCapita     = totalMembers  ? totalGross / totalMembers : 0;
   document.getElementById('kTotal').textContent   = totalPolicies.toLocaleString();
   document.getElementById('kGross').textContent   = fmtCompact(totalGross);
   document.getElementById('kMembers').textContent = totalMembers.toLocaleString();
   document.getElementById('kAvg').textContent     = fmtCompact(avgSize);
+  document.getElementById('kAvgCensus').textContent = avgCensus.toFixed(1);
+  document.getElementById('kPerCapita').textContent = 'AED ' + (perCapita/1000).toFixed(1) + 'K';
 }
 
 // ── Monthly chart + table ──────────────────────────────────────────────────────
