@@ -3778,7 +3778,7 @@ def api_upsert_rm_target():
 
 
 # ── Logo helper ───────────────────────────────────────────────────────────────
-_WELLX_LOGO_PATH   = os.path.join(_ROOT, 'Style', 'wellx-logo-light-bg_de94776e.png')
+_WELLX_LOGO_PATH   = os.path.join(_ROOT, 'Style', 'Wellxinvertedlogofordarkbackgrounds-01_3745883b.png')
 _POWERED_LOGO_PATH = BRAND_LOGO_PATH   # "Powered by Wellx Labs no background.png"
 
 def _xl_add_logo(ws, cell='A1', path=None, w=130, h=38):
