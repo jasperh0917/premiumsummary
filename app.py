@@ -1237,7 +1237,8 @@ def build_mismatch_analysis(members_data, q_premium, c_premium, q_members, gross
 def make_combined_excel(form_data, members_data, verified_rates, maternity_rates,
                         loading_members, has_lsb, totals, quote_totals,
                         quoted_totals_calc=None, quoted_member_count=None,
-                        census_diff_summary='', hide_commissions=False):
+                        census_diff_summary='', hide_commissions=False,
+                        census_diff_data=None):
     from collections import defaultdict as _dd
 
     plan        = form_data.get('plan', '')
@@ -1987,6 +1988,278 @@ def make_combined_excel(form_data, members_data, verified_rates, maternity_rates
     fc.alignment = Alignment(horizontal='center', vertical='center')
     _xl_add_logo(ws, f'F{footer_row2}', _POWERED_LOGO_PATH, w=100, h=24)
 
+    # ══════════════════════════════════════════════════════════════════════════
+    # SHEET 3: RECONCILIATION (only when census comparison was performed)
+    # ══════════════════════════════════════════════════════════════════════════
+    impacts = (census_diff_data or {}).get('premium_impacts', [])
+    sig_impacts = [p for p in impacts if abs(p.get('impact', 0)) > 20]
+    if sig_impacts:
+        ws3 = wb.create_sheet('Reconciliation')
+        changed_list = (census_diff_data or {}).get('changed', [])
+        recon_totals = (census_diff_data or {}).get('reconciliation', {})
+        _tb = thin_border()
+        ctr  = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        lft  = Alignment(horizontal='left',   vertical='center', wrap_text=True)
+        rgt  = Alignment(horizontal='right',  vertical='center')
+
+        def rc(r, c, val, bold=False, color=DARK, size=10, fill_c=None,
+               halign='center', num_fmt=None):
+            cell = ws3.cell(row=r, column=c, value=val)
+            cell.font = Font(name='Inter', bold=bold, size=size, color=color)
+            cell.alignment = Alignment(horizontal=halign, vertical='center',
+                                       wrap_text=True)
+            cell.border = _tb
+            if fill_c:
+                cell.fill = PatternFill('solid', fgColor=fill_c)
+            if num_fmt:
+                cell.number_format = num_fmt
+            return cell
+
+        # Column widths
+        for i, w in enumerate([5, 26, 6, 6, 9,
+                                9, 10, 10, 14,
+                                9, 10, 10, 14, 14], 1):
+            ws3.column_dimensions[get_column_letter(i)].width = w
+
+        # ── Title ─────────────────────────────────────────────────────────────
+        ws3.merge_cells('A1:N1')
+        t = ws3.cell(row=1, column=1,
+                     value='CENSUS vs CONFIRMATION — RECONCILIATION')
+        t.font = Font(name='Raleway', bold=True, size=14, color=WHITE)
+        t.fill = PatternFill('solid', fgColor=PRI)
+        t.alignment = Alignment(horizontal='center', vertical='center')
+        ws3.row_dimensions[1].height = 32
+
+        ws3.merge_cells('A2:N2')
+        t2 = ws3.cell(row=2, column=1, value=company.upper())
+        t2.font = Font(name='Raleway', bold=True, size=11, color=ORANGE)
+        t2.fill = PatternFill('solid', fgColor=PRI)
+        t2.alignment = Alignment(horizontal='center', vertical='center')
+
+        net_diff = sum(p.get('impact', 0) for p in sig_impacts)
+        ws3.merge_cells('A3:N3')
+        t3 = ws3.cell(row=3, column=1,
+                      value=(f'{len(sig_impacts)} member(s) with premium '
+                             f'discrepancy > AED 20  |  '
+                             f'Net difference: AED {net_diff:+,.0f}'))
+        t3.font = Font(name='Inter', size=10, italic=True, color=RED_FG)
+        t3.alignment = Alignment(horizontal='center', vertical='center')
+
+        # ── Section headers (row 5) ───────────────────────────────────────────
+        GREY_HDR = '44546A'
+        BLUE_HDR = MID
+        RED_HDR  = 'C00000'
+
+        ws3.merge_cells('A5:E5')
+        rc(5, 1, 'MEMBER', bold=True, color=WHITE, fill_c=GREY_HDR)
+        ws3.merge_cells('F5:I5')
+        rc(5, 6, 'CONFIRMATION (Premium Summary)', bold=True, color=WHITE,
+           fill_c=BLUE_HDR)
+        ws3.merge_cells('J5:M5')
+        rc(5, 10, 'CENSUS (Quoted)', bold=True, color=WHITE, fill_c=RED_HDR)
+        rc(5, 14, '', bold=True, color=WHITE, fill_c=GREY_HDR)
+        for col in range(1, 15):
+            ws3.cell(row=5, column=col).border = _tb
+
+        # ── Column headers (row 6) ────────────────────────────────────────────
+        headers = ['#', 'Member Name', 'Cat', 'Age', 'Bracket',
+                   'Gender', 'Marital', 'Premium', 'Total\n(incl. Mat)',
+                   'Gender', 'Marital', 'Premium', 'Total\n(incl. Mat)',
+                   'Difference\n(AED)']
+        for col, h in enumerate(headers, 1):
+            rc(6, col, h, bold=True, color=WHITE, size=9, fill_c=PRI)
+
+        # ── Build lookup for changed field details ────────────────────────────
+        change_map = {}
+        for ch in changed_list:
+            k = (ch.get('name', '').lower().strip(),
+                 ch.get('category', '').upper())
+            change_map[k] = ch.get('changes', [])
+
+        # ── Data rows ─────────────────────────────────────────────────────────
+        YELLOW = 'FFF2CC'
+        data_start = 7
+        for i, p in enumerate(sig_impacts):
+            r = data_start + i
+            name = p.get('name', '')
+            cat  = p.get('category', '')
+            conf = p.get('confirmed', {})
+            quot = p.get('quoted', {})
+            impact = p.get('impact', 0)
+
+            # Determine ages, genders, premiums
+            c_age = conf.get('age', '?')
+            c_gen = conf.get('gender', '?')
+            c_prem = conf.get('premium', 0)
+            q_age = quot.get('age', c_age)
+            q_gen = quot.get('gender', c_gen)
+            q_prem = quot.get('premium', 0)
+
+            # Look up field-level diffs
+            ch_key = (name.lower().strip(), cat.upper())
+            field_diffs = change_map.get(ch_key, [])
+            c_marital = q_marital = ''
+            for fd in field_diffs:
+                if fd['field'] == 'marital_status':
+                    c_marital = fd.get('confirmed', '')
+                    q_marital = fd.get('quoted', '')
+                elif fd['field'] == 'gender':
+                    c_gen = str(fd.get('confirmed', c_gen))[:1].upper()
+                    q_gen = str(fd.get('quoted', q_gen))[:1].upper()
+
+            # Age bracket label
+            age_val = float(c_age) if str(c_age).replace('.', '').isdigit() else 0
+            bracket = ''
+            for lo, hi in [(0,10),(11,17),(18,25),(26,30),(31,35),(36,40),
+                           (41,45),(46,50),(51,55),(56,60),(61,65),(66,99)]:
+                if lo <= age_val <= hi:
+                    bracket = f'{lo}-{hi}'
+                    break
+
+            rc(r, 1, i + 1)
+            rc(r, 2, name, halign='left')
+            rc(r, 3, cat)
+            rc(r, 4, c_age)
+            rc(r, 5, bracket)
+            # Confirmation side
+            rc(r, 6, c_gen)
+            rc(r, 7, c_marital)
+            rc(r, 8, c_prem, num_fmt='#,##0')
+            rc(r, 9, c_prem, num_fmt='#,##0')  # total incl mat
+            # Census (quoted) side — highlight
+            rc(r, 10, q_gen, fill_c=YELLOW)
+            rc(r, 11, q_marital, fill_c=YELLOW)
+            rc(r, 12, q_prem, num_fmt='#,##0', fill_c=YELLOW)
+            rc(r, 13, q_prem, num_fmt='#,##0', fill_c=YELLOW)
+
+            # Highlight differing fields in red
+            for fd in field_diffs:
+                if fd['field'] == 'gender':
+                    ws3.cell(row=r, column=10).fill = PatternFill('solid', fgColor=RED_BG)
+                    ws3.cell(row=r, column=10).font = Font(name='Inter', bold=True, color=RED_FG)
+                elif fd['field'] == 'marital_status':
+                    ws3.cell(row=r, column=11).fill = PatternFill('solid', fgColor=RED_BG)
+                    ws3.cell(row=r, column=11).font = Font(name='Inter', bold=True, color=RED_FG)
+
+            # Difference column
+            diff_color = RED_FG if impact > 0 else GREEN_FG
+            diff_bg    = RED_BG if impact > 0 else GREEN_BG
+            rc(r, 14, impact, bold=True, color=diff_color, fill_c=diff_bg,
+               num_fmt='#,##0')
+
+        # ── Totals row ────────────────────────────────────────────────────────
+        tr = data_start + len(sig_impacts)
+        ws3.merge_cells(f'A{tr}:H{tr}')
+        rc(tr, 1, 'TOTALS', bold=True, size=11, halign='right')
+        for col in range(1, 15):
+            ws3.cell(row=tr, column=col).border = _tb
+
+        conf_sum = sum(p.get('confirmed', {}).get('premium', 0) for p in sig_impacts)
+        quot_sum = sum(p.get('quoted', {}).get('premium', 0) for p in sig_impacts)
+        rc(tr, 9, conf_sum, bold=True, num_fmt='#,##0')
+        rc(tr, 13, quot_sum, bold=True, num_fmt='#,##0', fill_c=YELLOW)
+        diff_color = RED_FG if net_diff > 0 else GREEN_FG
+        diff_bg    = RED_BG if net_diff > 0 else GREEN_BG
+        rc(tr, 14, net_diff, bold=True, size=12, color=diff_color,
+           fill_c=diff_bg, num_fmt='#,##0')
+
+        # ── Breakdown section ─────────────────────────────────────────────────
+        br = tr + 2
+        ws3.merge_cells(f'A{br}:N{br}')
+        rc(br, 1, 'DIFFERENCE BREAKDOWN', bold=True, color=WHITE,
+           fill_c=GREY_HDR)
+        for col in range(1, 15):
+            ws3.cell(row=br, column=col).border = _tb
+
+        br += 1
+        for col, h in enumerate(['#', 'Member', '', 'Discrepancy', '',
+                                  'Confirmation', '', 'Census', '',
+                                  'Impact (AED)', 'Explanation', '', '', ''], 1):
+            rc(br, col, h, bold=True, color=WHITE, size=9, fill_c=PRI)
+
+        breakdown_rows = []
+        for p in sig_impacts:
+            name = p.get('name', '')
+            cat  = p.get('category', '')
+            ch_key = (name.lower().strip(), cat.upper())
+            field_diffs = change_map.get(ch_key, [])
+            for fd in field_diffs:
+                fld   = fd['field']
+                c_val = fd.get('confirmed', '')
+                q_val = fd.get('quoted', '')
+                fld_label = {'gender': 'Gender',
+                             'marital_status': 'Marital Status',
+                             'dob': 'Date of Birth',
+                             'relation': 'Relation'}.get(fld, fld)
+                breakdown_rows.append({
+                    'name': name, 'type': fld_label,
+                    'conf': c_val, 'census': q_val,
+                    'impact': p.get('impact', 0),
+                    'explanation': f'{fld_label}: {c_val} → {q_val}'
+                })
+
+        for j, bd in enumerate(breakdown_rows):
+            r = br + 1 + j
+            rc(r, 1, j + 1)
+            ws3.merge_cells(f'B{r}:C{r}')
+            rc(r, 2, bd['name'], halign='left')
+            ws3.merge_cells(f'D{r}:E{r}')
+            rc(r, 4, bd['type'], bold=True)
+            ws3.merge_cells(f'F{r}:G{r}')
+            rc(r, 6, str(bd['conf']))
+            ws3.merge_cells(f'H{r}:I{r}')
+            rc(r, 8, str(bd['census']), bold=True, color=RED_FG, fill_c=RED_BG)
+            rc(r, 10, bd['impact'], bold=True,
+               color=RED_FG if bd['impact'] > 0 else GREEN_FG,
+               fill_c=RED_BG if bd['impact'] > 0 else GREEN_BG,
+               num_fmt='#,##0')
+            ws3.merge_cells(f'K{r}:N{r}')
+            rc(r, 11, bd['explanation'], size=9, halign='left')
+            for cc in range(1, 15):
+                ws3.cell(row=r, column=cc).border = _tb
+
+        # ── Summary box ───────────────────────────────────────────────────────
+        sr = br + 1 + len(breakdown_rows) + 1
+        ws3.merge_cells(f'A{sr}:G{sr}')
+        rc(sr, 1, 'RECONCILIATION SUMMARY', bold=True, color=WHITE,
+           fill_c=PRI)
+        for col in range(1, 8):
+            ws3.cell(row=sr, column=col).border = _tb
+
+        calc_p = recon_totals.get('calc_premium', 0)
+        conf_q = recon_totals.get('conf_quote', 0)
+        gap    = recon_totals.get('total_gap', 0)
+
+        summary_items = [
+            ('Total members in census', len(members_data)),
+            ('Members with discrepancy > AED 20', len(sig_impacts)),
+            ('Calculated premium (confirmed census)', f'AED {calc_p:,.0f}'),
+            ('Confirmed quote', f'AED {conf_q:,.0f}'),
+            ('Total gap', f'AED {gap:+,.0f}'),
+            ('Explained by member differences', f'AED {net_diff:+,.0f}'),
+            ('Unexplained',
+             f'AED {recon_totals.get("unexplained", 0):+,.0f}'),
+            ('AED 20 leeway applied', 'Yes'),
+        ]
+
+        for j, (label, val) in enumerate(summary_items):
+            r = sr + 1 + j
+            ws3.merge_cells(f'A{r}:D{r}')
+            rc(r, 1, label, halign='left', size=10)
+            ws3.merge_cells(f'E{r}:G{r}')
+            rc(r, 5, val, bold=True, size=10)
+            for col in range(1, 8):
+                ws3.cell(row=r, column=col).border = _tb
+
+        # Footer
+        fr = sr + 1 + len(summary_items) + 1
+        ws3.merge_cells(f'A{fr}:N{fr}')
+        fc3 = ws3.cell(row=fr, column=1,
+                       value=f'Powered by Wellx Labs  ·  Generated '
+                             f'{datetime.now().strftime("%d %b %Y %H:%M")}')
+        fc3.font = Font(name='Inter', size=8, italic=True, color='9aa5b4')
+        fc3.alignment = Alignment(horizontal='center', vertical='center')
+
     return wb
 
 
@@ -2449,9 +2722,16 @@ def api_compare_census(out_token):
         line  = 'Changed: ' + ', '.join(ch_parts) + (f' +{extra} more' if extra > 0 else '')
         summary_lines.append(line)
 
-    _session_patch(out_token, {'census_diff_summary': (
-        ' | '.join(summary_lines) if summary_lines else 'Census identical to quoted'
-    )})
+    _session_patch(out_token, {
+        'census_diff_summary': (
+            ' | '.join(summary_lines) if summary_lines else 'Census identical to quoted'
+        ),
+        'census_diff_data': {
+            'changed':          diff.get('changed', []),
+            'premium_impacts':  premium_impacts,
+            'reconciliation':   reconciliation,
+        },
+    })
 
     return jsonify(diff)
 
@@ -2609,6 +2889,7 @@ def api_finalize_summary():
         fd['recon_note'] = body['recon_note']
 
     census_diff_summary = stored.get('census_diff_summary', '')
+    census_diff_data    = stored.get('census_diff_data', {})
 
     try:
         wb = make_combined_excel(
@@ -2623,6 +2904,7 @@ def api_finalize_summary():
             quoted_totals_calc=None,
             quoted_member_count=None,
             census_diff_summary=census_diff_summary,
+            census_diff_data=census_diff_data,
         )
     except Exception as e:
         return jsonify({'error': f'Excel generation error: {str(e)}'}), 500
