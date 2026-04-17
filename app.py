@@ -366,10 +366,14 @@ def parse_rates_pdf(pdf_bytes, plan=''):
         'COUNT values are small integers (0, 1, 2, 3 … representing number of members).\n'
         'NEVER use a COUNT column value as a premium rate.\n'
         'If you are unsure, pick the LARGER of the two adjacent values — the large one is always the premium.\n\n'
-        'AGE BANDS WITH NO EMPLOYEE:\n'
-        '  For age bands 0-10 and 11-17, employee (principal) premiums are often 0 or blank.\n'
-        '  Set male=0, female=0 for those bands.\n'
-        '  The DEPENDENT columns (dep_male, dep_female) may still have large non-zero values — always read them.\n\n'
+        'AGE BANDS 0-10 AND 11-17 (MINORS):\n'
+        '  ALWAYS include these age bands if they appear in the table — never skip or omit them.\n'
+        '  For 4-column tables (rate_columns="4col"): employee (principal) premiums for 0-10/11-17\n'
+        '    are often 0 or blank (minors can\'t be employees). Read the EMP columns as-is (0 is fine).\n'
+        '    The DEPENDENT columns (dep_male, dep_female) will have large non-zero values — always read them.\n'
+        '  For 2-column tables (rate_columns="2col"): the single male/female rate covers BOTH\n'
+        '    employees and dependents. These values are real premiums (typically 1,000–10,000 AED)\n'
+        '    for ages 0-10 and 11-17 — read them exactly as shown. Do NOT set them to 0.\n\n'
         '════ OTHER RULES ════\n'
         '- Extract ALL age bracket rows — do not skip any\n'
         '- If only 2 rate columns (no Employee/Dependent split): male/female = rates; dep_male=male, dep_female=female; rate_columns="2col"\n'
@@ -696,23 +700,26 @@ def parse_openx_tool(tool_bytes):
 
         # Parse bracket rows
         if in_brackets and current_cat and a:
+            # Accept labels like "0-10", "0 - 10", "0 to 10", "65+"
+            m_band = re.match(r'^\s*(\d{1,2})\s*(?:-|to|–|—)\s*(\d{1,2})\s*$', a, re.IGNORECASE)
+            if not m_band:
+                m_plus = re.match(r'^\s*(\d{1,2})\s*\+\s*$', a)
+                if not m_plus:
+                    continue
+                lo, hi = int(m_plus.group(1)), 99
+            else:
+                lo, hi = int(m_band.group(1)), int(m_band.group(2))
+
             male_rate   = row[1]   # Column B — male premium
             female_rate = row[3]   # Column D — female premium
 
             m_ok = isinstance(male_rate,   (int, float))
             f_ok = isinstance(female_rate, (int, float))
             if not (m_ok or f_ok):
-                continue  # skip #DIV/0! or empty rows
-
-            parts = a.split('-')
-            try:
-                lo = int(parts[0])
-                hi = int(parts[1]) if len(parts) > 1 else 99
-            except (ValueError, IndexError):
-                continue
+                continue  # skip #DIV/0! or empty rows (nothing usable)
 
             result['categories'][current_cat]['brackets'].append({
-                'label':  a,
+                'label':  f"{lo}-{hi}",
                 'age_lo': lo,
                 'age_hi': hi,
                 'male':   round(float(male_rate),   2) if m_ok else round(float(female_rate), 2),
@@ -797,13 +804,20 @@ def detect_col_map(headers):
         if 'relation' in c or 'dependency' in c or 'membertype' in c or c in ('dep', 'type'):
             col_map['relation'] = i; break
     for i, c in enumerate(h):
-        if c == 'category' or (c.startswith('cat') and len(c) <= 8):
+        if c == 'category' or (c.startswith('cat') and len(c) <= 8) or 'category' in c or c in ('class', 'plan', 'plan type', 'group', 'tier', 'coverage', 'coverage type', 'benefit plan'):
             col_map['category'] = i; break
     for i, c in enumerate(h):
         if 'visa' in c and 'issuance' in c:
             col_map['emirate'] = i; break
         elif 'emirate' in c and ('visa' in c or 'issu' in c):
             col_map['emirate'] = i; break
+    # Optional: group / contract / establishment name (used for renewal censuses
+    # that contain multiple contracts under one file)
+    for i, c in enumerate(h):
+        if c in ('contract', 'contractname', 'policy name', 'group name', 'establishmentname') \
+                or ('contract' in c and 'name' not in c and 'id' not in c) \
+                or ('establishment' in c and 'name' in c):
+            col_map['group_name'] = i; break
     return col_map
 
 def calculate_alb(dob, start_date):
@@ -952,6 +966,10 @@ def parse_census(file_bytes, filename, start_date_str, age_method='alb'):
         else:
             emirate = emirate_raw.strip()
 
+        group_name_raw = get_val('group_name', '')
+        if group_name_raw.lower() in ('nan', 'none', ''):
+            group_name_raw = ''
+
         age_fn = calculate_anb if age_method == 'anb' else calculate_alb
         raw = {
             'name':           name,
@@ -962,6 +980,7 @@ def parse_census(file_bytes, filename, start_date_str, age_method='alb'):
             'category':       category,
             'age_alb':        age_fn(dob, start_date),
             'emirate':        emirate,
+            'group_name':     group_name_raw,
         }
         norm = normalize_member_fields(raw)
         if norm is None:
@@ -1081,6 +1100,131 @@ def detect_duplicates(members):
         else:
             seen[key] = i
     return pairs
+
+
+_COMPANY_SUFFIXES = re.compile(
+    r'\b(llc|l\.l\.c|fzco|fze|fz\s*llc|fz-llc|dmcc|dwc|dwc-llc|ltd|limited|co|corp|corporation|inc|incorporated|group|holdings|company|technologies|trading|services|international|intl)\b',
+    re.IGNORECASE,
+)
+
+
+def _norm_company(name: str) -> str:
+    """Lower-case, strip legal suffixes and punctuation, collapse whitespace."""
+    s = (name or '').lower()
+    s = _COMPANY_SUFFIXES.sub(' ', s)
+    s = re.sub(r'[^a-z0-9]+', ' ', s)
+    return ' '.join(s.split())
+
+
+def _member_fingerprint(m) -> tuple:
+    name = re.sub(r'\s+', ' ', str(m.get('name', '')).lower().strip())
+    dob  = str(m.get('dob', '')).upper().strip()
+    return (name, dob)
+
+
+def detect_policy_duplicates(company_name, members, start_date_str=''):
+    """Check Supabase for existing policies that look like duplicates of this upload.
+
+    Compares by: (1) fuzzy company name similarity and (2) census member overlap.
+    Returns list of dicts: [{policy_id, company_name, name_ratio, overlap, start_date, ...}, ...]
+    ordered by likelihood. Empty list if DB unavailable or no candidates."""
+    from difflib import SequenceMatcher
+    supa = get_supa()
+    if not supa:
+        return []
+
+    new_norm = _norm_company(company_name)
+    new_set  = {_member_fingerprint(m) for m in (members or []) if m.get('name')}
+
+    try:
+        res = supa.table('policies').select(
+            'id,company_name,start_date,member_count,plan'
+        ).order('created_at', desc=True).limit(500).execute()
+    except Exception as e:
+        print(f'[DB] detect_policy_duplicates policies query failed: {e}')
+        return []
+
+    candidates = []
+    for row in (res.data or []):
+        other_name = row.get('company_name') or ''
+        other_norm = _norm_company(other_name)
+
+        if new_norm and other_norm:
+            ratio = SequenceMatcher(None, new_norm, other_norm).ratio()
+        else:
+            ratio = 0.0
+
+        # Exact-match short-circuit: require strong similarity to bother loading members
+        if ratio < 0.60:
+            continue
+
+        # Skip self — same company + same start_date implies the user is re-uploading
+        # an already-saved policy (legitimate edit, not a flag-worthy dup).
+        if ratio >= 0.98 and row.get('start_date') and row['start_date'] == start_date_str:
+            continue
+
+        candidates.append({
+            'policy_id':    row['id'],
+            'company_name': other_name,
+            'start_date':   row.get('start_date'),
+            'plan':         row.get('plan'),
+            'member_count': row.get('member_count') or 0,
+            'name_ratio':   round(ratio, 3),
+            'overlap':      0.0,
+            'overlap_hits': 0,
+        })
+
+    if not candidates or not new_set:
+        # Even without member overlap, return candidates with high name similarity
+        candidates.sort(key=lambda c: c['name_ratio'], reverse=True)
+        return [c for c in candidates[:5] if c['name_ratio'] >= 0.75]
+
+    # Fetch member fingerprints for the top-N name-similar candidates
+    top = sorted(candidates, key=lambda c: c['name_ratio'], reverse=True)[:10]
+    top_ids = [c['policy_id'] for c in top]
+    try:
+        mem_res = supa.table('policy_members').select(
+            'policy_id,name,dob'
+        ).in_('policy_id', top_ids).execute()
+    except Exception as e:
+        print(f'[DB] detect_policy_duplicates members query failed: {e}')
+        mem_res = None
+
+    by_policy = {}
+    if mem_res and mem_res.data:
+        for r in mem_res.data:
+            pid = r.get('policy_id')
+            if pid is None:
+                continue
+            dob_raw = r.get('dob')
+            # Normalise DB DOB (YYYY-MM-DD) to the %d-%b-%Y format used in-memory
+            dob_norm = ''
+            if dob_raw:
+                try:
+                    dob_norm = datetime.strptime(str(dob_raw)[:10], '%Y-%m-%d').strftime('%d-%b-%Y').upper()
+                except Exception:
+                    dob_norm = str(dob_raw).upper()
+            fp = (re.sub(r'\s+', ' ', str(r.get('name') or '').lower().strip()), dob_norm)
+            by_policy.setdefault(pid, set()).add(fp)
+
+    for c in top:
+        other_set = by_policy.get(c['policy_id'], set())
+        if not other_set:
+            continue
+        hits  = len(new_set & other_set)
+        union = len(new_set | other_set) or 1
+        c['overlap']      = round(hits / union, 3)
+        c['overlap_hits'] = hits
+
+    # Flag if strong name match AND meaningful overlap, OR very strong name match alone
+    flagged = [
+        c for c in top
+        if (c['name_ratio'] >= 0.80 and c['overlap'] >= 0.30)
+        or (c['name_ratio'] >= 0.92 and c['overlap_hits'] >= 1)
+        or (c['name_ratio'] >= 0.95)
+    ]
+    flagged.sort(key=lambda c: (c['overlap'], c['name_ratio']), reverse=True)
+    return flagged[:5]
 
 
 def get_census_warnings(members, duplicate_pairs):
@@ -2471,10 +2615,28 @@ def api_upload():
     dup_pairs      = detect_duplicates(sorted_members)
     warnings       = get_census_warnings(sorted_members, dup_pairs)
 
+    # Flag likely-duplicate existing policies (similar company + member overlap)
+    policy_dupes = []
+    try:
+        policy_dupes = detect_policy_duplicates(
+            tool_data.get('company_name', ''),
+            sorted_members,
+            effective_start,
+        )
+    except Exception as e:
+        print(f'[policy-dup] detection skipped: {e}')
+
     # Category stats
     cat_counts = {}
     for m in sorted_members:
         cat_counts[m['category']] = cat_counts.get(m['category'], 0) + 1
+
+    # Contract / group stats (renewal censuses may carry multiple contracts)
+    contract_counts = {}
+    for m in sorted_members:
+        g = (m.get('group_name') or '').strip()
+        if g:
+            contract_counts[g] = contract_counts.get(g, 0) + 1
 
     token = str(uuid.uuid4())
     _session_set(token, {
@@ -2494,10 +2656,12 @@ def api_upload():
         'census_preview': {
             'members':       sorted_members,
             'warnings':      warnings,
-            'duplicate_pairs': dup_pairs,
+            'duplicate_pairs':   dup_pairs,
+            'policy_duplicates': policy_dupes,
             'stats': {
                 'total':            len(sorted_members),
                 'categories':       cat_counts,
+                'contracts':        contract_counts,
                 'warning_count':    len(warnings),
                 'parents_excluded': parents_excluded,
             },

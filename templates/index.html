@@ -476,10 +476,15 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0a0a0a;min-height:100v
         <div class="recon-title" id="crTitle">Census Preview</div>
         <div class="recon-sub" id="crSub"></div>
       </div>
-      <button class="btn-primary" id="crConfirmBtn" onclick="confirmCensus()" style="white-space:nowrap;padding:8px 18px;font-size:.85rem">Confirm &amp; Continue →</button>
+      <div style="display:flex;gap:8px;white-space:nowrap">
+        <button class="btn-secondary" id="crBackBtn" onclick="backToUpload()" style="padding:8px 16px;font-size:.85rem">← Back</button>
+        <button class="btn-primary" id="crConfirmBtn" onclick="confirmCensus()" style="padding:8px 18px;font-size:.85rem">Confirm &amp; Continue →</button>
+      </div>
     </div>
 
     <div id="crParentsNote" style="display:none;background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:.82rem;color:#856404"></div>
+
+    <div id="crPolicyDupeNote" style="display:none;background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:.82rem;color:#991b1b"></div>
 
     <div style="overflow-x:auto">
       <table class="diff-table" id="censusReviewTable" style="font-size:.8rem">
@@ -1325,6 +1330,42 @@ function showCensusReview(preview) {
     pNote.style.display = 'none';
   }
 
+  // Contracts note — if the uploaded census carries multiple Contract/group values (renewal files)
+  const contracts = stats.contracts || {};
+  const contractEntries = Object.entries(contracts);
+  if (contractEntries.length > 1) {
+    const list = contractEntries
+      .sort((a,b) => b[1]-a[1])
+      .map(([name,n]) => `<li>${escHtml(name)} — ${n} member${n!==1?'s':''}</li>`)
+      .join('');
+    const existing = document.getElementById('crContractsNote');
+    if (existing) existing.remove();
+    const el = document.createElement('div');
+    el.id = 'crContractsNote';
+    el.style.cssText = 'background:#eff6ff;border:1px solid #93c5fd;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:.82rem;color:#1e3a8a';
+    el.innerHTML = `ℹ️ <strong>${contractEntries.length} contracts detected</strong> in this census (combined into one policy). <ul style="margin:6px 0 0 18px;padding:0">${list}</ul>`;
+    document.getElementById('crParentsNote').after(el);
+  } else {
+    const existing = document.getElementById('crContractsNote');
+    if (existing) existing.remove();
+  }
+
+  // Policy-duplicate note (similar company + census to an existing saved policy)
+  const dNote = document.getElementById('crPolicyDupeNote');
+  const polDupes = preview.policy_duplicates || [];
+  if (polDupes.length) {
+    const rows = polDupes.map(d => {
+      const pct  = Math.round((d.name_ratio || 0) * 100);
+      const olap = Math.round((d.overlap    || 0) * 100);
+      const sd   = d.start_date ? ` · starts ${d.start_date}` : '';
+      return `<li><strong>${escHtml(d.company_name || '(no name)')}</strong>${sd} · name match ${pct}% · member overlap ${olap}% (${d.overlap_hits || 0} of ${d.member_count || 0})</li>`;
+    }).join('');
+    dNote.style.display = '';
+    dNote.innerHTML = `⚠️ <strong>Possible duplicate policy:</strong> this upload looks similar to an existing policy. Verify before continuing.<ul style="margin:6px 0 0 18px;padding:0">${rows}</ul>`;
+  } else {
+    dNote.style.display = 'none';
+  }
+
   // Table
   renderCensusReviewTable(warnings, dups);
 
@@ -1378,6 +1419,11 @@ function deleteCensusRow(idx) {
   _censusPreviewMembers.splice(idx, 1);
   renderCensusReviewTable({}, []);
   document.getElementById('crSub').textContent = `${_censusPreviewMembers.length} members (after edit)`;
+}
+
+function backToUpload() {
+  resetAll();
+  setTodayOnConfirmationDate();
 }
 
 async function confirmCensus() {
