@@ -2701,6 +2701,324 @@ def api_update_census(token):
     return jsonify({'ok': True, 'count': len(members)})
 
 
+# ── Reconciliation helpers ────────────────────────────────────────────────────
+def _normalize_name_match(s):
+    """Lower, strip punctuation, collapse whitespace — for name comparison."""
+    s = (s or '').lower()
+    s = re.sub(r"[^a-z ]", ' ', s)
+    return ' '.join(s.split())
+
+
+def _name_similarity(a, b):
+    from difflib import SequenceMatcher
+    return SequenceMatcher(None, _normalize_name_match(a), _normalize_name_match(b)).ratio()
+
+
+def _parse_dob_safe(dob):
+    if not dob:
+        return None
+    try:
+        return datetime.strptime(str(dob), '%d-%b-%Y').date()
+    except Exception:
+        try:
+            return pd.to_datetime(str(dob)).date()
+        except Exception:
+            return None
+
+
+def _dob_variants(dob_str):
+    """Return alternate dates that could result from DD/MM vs MM/DD swaps."""
+    d = _parse_dob_safe(dob_str)
+    if not d:
+        return []
+    out = []
+    if d.day != d.month and d.day <= 12 and d.month <= 12:
+        try:
+            out.append(date(d.year, d.day, d.month).strftime('%d-%b-%Y'))
+        except Exception:
+            pass
+    return out
+
+
+_LEGACY_FIELD_MAP = {
+    'Name': 'name', 'DOB': 'dob', 'Gender': 'gender',
+    'Relation': 'relation', 'Status': 'marital_status',
+}
+def _legacy_field(label):
+    return _LEGACY_FIELD_MAP.get(label, label.lower().replace(' ', '_'))
+
+
+def _age_bracket_label(age):
+    for lo, hi in [(0,10),(11,17),(18,25),(26,30),(31,35),(36,40),
+                   (41,45),(46,50),(51,55),(56,60),(61,65),(66,99)]:
+        if lo <= age <= hi:
+            return f"{lo}-{hi}"
+    return ''
+
+
+def _ai_match_members(confirmed, quoted, pending_conf, candidates_per):
+    """Use Claude to confirm ambiguous matches. Returns {ci: qi} for confident matches."""
+    if not os.environ.get('ANTHROPIC_API_KEY'):
+        return {}
+
+    def _fp(m):
+        return {
+            'name':     m.get('name', ''),
+            'dob':      m.get('dob', ''),
+            'gender':   (m.get('gender') or '')[:1].upper(),
+            'relation': m.get('relation', ''),
+            'category': m.get('category', ''),
+        }
+
+    payload = []
+    for ci in pending_conf:
+        payload.append({
+            'confirmed_idx': ci,
+            'confirmed': _fp(confirmed[ci]),
+            'candidates': [{'quoted_idx': qi, 'quoted': _fp(quoted[qi])}
+                           for qi, _ in candidates_per.get(ci, [])[:3]],
+        })
+
+    if not payload:
+        return {}
+
+    prompt = (
+        "You are matching members between two insurance censuses that may have "
+        "typos, transliteration variants, middle-name differences, or day/month-"
+        "swapped dates of birth.\n\n"
+        "For each confirmed member, pick the quoted candidate that is MOST LIKELY "
+        "the same person. Consider name similarity (including Arabic/Indian "
+        "transliteration variants), DOB (including day/month swap), gender, and category.\n\n"
+        "Rules:\n"
+        "- Only return a match if you are confident (>= 80% sure).\n"
+        "- If no candidate matches, OMIT that confirmed_idx entirely.\n"
+        "- Each quoted_idx can be used only once across all confirmed.\n\n"
+        f"DATA:\n{json.dumps(payload, ensure_ascii=False)}\n\n"
+        "Return ONLY JSON: {\"matches\": [{\"confirmed_idx\": N, \"quoted_idx\": N}, ...]}"
+    )
+
+    try:
+        client = anthropic.Anthropic(api_key=os.environ['ANTHROPIC_API_KEY'])
+        resp = client.messages.create(
+            model='claude-haiku-4-5-20251001',
+            max_tokens=1024,
+            messages=[{'role': 'user', 'content': prompt}],
+        )
+        raw = resp.content[0].text.strip()
+        raw = re.sub(r'^```(?:json)?\s*|\s*```$', '', raw)
+        data = json.loads(raw)
+        result = {}
+        seen_q = set()
+        for p in data.get('matches', []):
+            ci = int(p.get('confirmed_idx', -1))
+            qi = int(p.get('quoted_idx', -1))
+            if ci in pending_conf and qi >= 0 and qi < len(quoted) and qi not in seen_q:
+                result[ci] = qi
+                seen_q.add(qi)
+        return result
+    except Exception as e:
+        print(f'[ai-match] failed: {e}')
+        return {}
+
+
+def reconcile_censuses(confirmed, quoted, use_ai=True):
+    """Match confirmed census members to quoted census members using:
+      1. Exact normalised name + category (prefer DOB match tiebreak).
+      2. Same or day/month-swapped DOB + fuzzy name (>= 0.65).
+      3. High-similarity name alone (>= 0.85).
+      4. AI disambiguation for remaining ambiguous candidates.
+    Returns {matches: [{confirmed_idx, quoted_idx, match_type, name_similarity?}],
+             only_in_confirmed: [idx,...], only_in_quoted: [idx,...]}.
+    """
+    quot_by_exact = {}
+    quot_by_dob   = {}
+    for qi, q in enumerate(quoted):
+        k = (_normalize_name_match(q.get('name', '')), q.get('category', '').upper())
+        quot_by_exact.setdefault(k, []).append(qi)
+        if q.get('dob'):
+            quot_by_dob.setdefault(q['dob'].upper(), []).append(qi)
+
+    matches = []
+    used_q  = set()
+
+    # Pass 1 — exact name+category
+    pending = []
+    for ci, c in enumerate(confirmed):
+        k = (_normalize_name_match(c.get('name', '')), c.get('category', '').upper())
+        cands = [qi for qi in quot_by_exact.get(k, []) if qi not in used_q]
+        if not cands:
+            pending.append(ci)
+            continue
+        best = next((qi for qi in cands
+                     if (quoted[qi].get('dob') or '').upper() == (c.get('dob') or '').upper()),
+                    cands[0])
+        used_q.add(best)
+        matches.append({'confirmed_idx': ci, 'quoted_idx': best, 'match_type': 'exact'})
+
+    # Pass 2 — fuzzy name + (same or day/month-swapped DOB)
+    pending2 = []
+    for ci in pending:
+        c = confirmed[ci]
+        c_dob = (c.get('dob') or '').upper()
+        cand_ids = set(qi for qi in quot_by_dob.get(c_dob, []) if qi not in used_q)
+        for swapped in _dob_variants(c_dob):
+            cand_ids |= set(qi for qi in quot_by_dob.get(swapped.upper(), []) if qi not in used_q)
+        best, best_sim = None, 0
+        for qi in cand_ids:
+            sim = _name_similarity(c.get('name', ''), quoted[qi].get('name', ''))
+            if sim > best_sim:
+                best, best_sim = qi, sim
+        if best is not None and best_sim >= 0.65:
+            used_q.add(best)
+            q_dob = (quoted[best].get('dob') or '').upper()
+            kind  = 'dob_swap' if q_dob != c_dob else 'same_dob'
+            matches.append({'confirmed_idx': ci, 'quoted_idx': best,
+                            'match_type': kind, 'name_similarity': round(best_sim, 2)})
+        else:
+            pending2.append(ci)
+
+    # Pass 3 — strong name similarity only
+    pending3 = []
+    for ci in pending2:
+        c = confirmed[ci]
+        best, best_sim = None, 0
+        for qi, q in enumerate(quoted):
+            if qi in used_q:
+                continue
+            sim = _name_similarity(c.get('name', ''), q.get('name', ''))
+            if sim > best_sim:
+                best, best_sim = qi, sim
+        if best is not None and best_sim >= 0.85:
+            used_q.add(best)
+            matches.append({'confirmed_idx': ci, 'quoted_idx': best,
+                            'match_type': 'fuzzy_name', 'name_similarity': round(best_sim, 2)})
+        else:
+            pending3.append(ci)
+
+    # Pass 4 — AI on remaining ambiguous (>= 0.5 similarity) candidates
+    if use_ai and pending3:
+        candidates_per = {}
+        ai_pending = []
+        for ci in pending3:
+            c = confirmed[ci]
+            cands = []
+            for qi, q in enumerate(quoted):
+                if qi in used_q:
+                    continue
+                sim = _name_similarity(c.get('name', ''), q.get('name', ''))
+                if sim >= 0.5:
+                    cands.append((qi, sim))
+            cands.sort(key=lambda x: -x[1])
+            if cands:
+                candidates_per[ci] = cands
+                ai_pending.append(ci)
+
+        ai_results = _ai_match_members(confirmed, quoted, ai_pending, candidates_per)
+        for ci, qi in ai_results.items():
+            if qi not in used_q:
+                used_q.add(qi)
+                matches.append({'confirmed_idx': ci, 'quoted_idx': qi, 'match_type': 'ai'})
+        pending3 = [ci for ci in pending3 if ci not in ai_results]
+
+    return {
+        'matches':           matches,
+        'only_in_confirmed': pending3,
+        'only_in_quoted':    [qi for qi in range(len(quoted)) if qi not in used_q],
+    }
+
+
+def _explain_match(c, q, categories_data):
+    """Produce per-field diff list with explanations + both premiums."""
+    def _prem(m):
+        rate, _, _ = get_member_rate(m, categories_data)
+        rate = float(rate or 0)
+        cat  = m.get('category', '').upper()
+        mat_rate = float(categories_data.get(cat, {}).get('maternity_rate', 0) or 0)
+        emirate  = m.get('emirate', 'Dubai')
+        mat_max  = MAT_AGE_MAX_AUH if 'abu dhabi' in emirate.lower() else MAT_AGE_MAX_DXB
+        age      = float(m.get('age_alb') or 0)
+        mat = (mat_rate
+               if ((m.get('gender') or '').lower().startswith('f')
+                   and (m.get('marital_status') or '').lower().startswith('m')
+                   and MAT_AGE_MIN <= age <= mat_max)
+               else 0.0)
+        return rate, mat, rate + mat
+
+    # Confirmed premium: prefer stored (already calculated at /api/calculate)
+    c_stored = float(c.get('base_premium') or 0) + float(c.get('maternity_premium') or 0)
+    if c_stored > 0:
+        c_total = c_stored
+    else:
+        _, _, c_total = _prem(c)
+    _, _, q_total = _prem(q)
+
+    c_age = int(c.get('age_alb') or 0)
+    q_age = int(q.get('age_alb') or 0)
+    c_br  = _age_bracket_label(c_age)
+    q_br  = _age_bracket_label(q_age)
+
+    diffs = []
+
+    if _normalize_name_match(c.get('name', '')) != _normalize_name_match(q.get('name', '')):
+        diffs.append({'field': 'Name',
+                      'confirmed': c.get('name', ''),
+                      'quoted':    q.get('name', ''),
+                      'explanation': 'Spelling/transliteration variant — same person, different capture'})
+
+    c_dob = (c.get('dob') or '').upper()
+    q_dob = (q.get('dob') or '').upper()
+    if c_dob != q_dob:
+        cd = _parse_dob_safe(c_dob); qd = _parse_dob_safe(q_dob)
+        if cd and qd and cd.day == qd.month and cd.month == qd.day and cd.year == qd.year:
+            expl = 'Day/month swapped between quote and confirmed census (DD/MM vs MM/DD entry error)'
+        elif cd and qd and cd.year == qd.year:
+            expl = 'Same year, different day/month — likely data-entry correction'
+        else:
+            expl = 'Different date of birth recorded'
+        diffs.append({'field': 'DOB', 'confirmed': c.get('dob', ''),
+                      'quoted': q.get('dob', ''), 'explanation': expl})
+
+    if c_age != q_age:
+        diffs.append({'field': 'Age', 'confirmed': c_age, 'quoted': q_age,
+                      'explanation': f'Age recalculated from corrected DOB ({q_age} → {c_age})'})
+
+    if c_br != q_br:
+        diffs.append({'field': 'Age Bracket', 'confirmed': c_br, 'quoted': q_br,
+                      'explanation': 'Different rate band applies'})
+
+    cg = (c.get('gender') or '')[:1].upper()
+    qg = (q.get('gender') or '')[:1].upper()
+    if cg != qg:
+        diffs.append({'field': 'Gender', 'confirmed': cg, 'quoted': qg,
+                      'explanation': 'Gender correction — different rate column'})
+
+    cr = (c.get('relation') or '').lower()
+    qr = (q.get('relation') or '').lower()
+    if cr != qr:
+        diffs.append({'field': 'Relation', 'confirmed': c.get('relation', ''),
+                      'quoted': q.get('relation', ''),
+                      'explanation': 'Employee vs Dependent affects which rate table applies'})
+
+    cm = (c.get('marital_status') or '').lower()
+    qm = (q.get('marital_status') or '').lower()
+    if cm != qm:
+        cg_l = (c.get('gender') or '').lower()
+        note = ('Affects maternity eligibility'
+                if cg_l.startswith('f') else 'Status correction only (no premium impact)')
+        diffs.append({'field': 'Status', 'confirmed': c.get('marital_status', ''),
+                      'quoted': q.get('marital_status', ''),
+                      'explanation': note})
+
+    return {
+        'diffs':             diffs,
+        'confirmed_premium': round(c_total, 2),
+        'quoted_premium':    round(q_total, 2),
+        'premium_diff':      round(c_total - q_total, 2),
+        'confirmed_bracket': c_br,
+        'quoted_bracket':    q_br,
+    }
+
+
 def compare_censuses(confirmed_members, quoted_members):
     """Compare two member lists, returning added/removed/changed dicts."""
     def _key(m):
@@ -2760,7 +3078,6 @@ def api_compare_census(out_token):
         return jsonify({'error': f'Census parsing error: {str(e)}'}), 400
 
     confirmed_members = stored['members_data']
-    diff = compare_censuses(confirmed_members, quoted_members)
 
     # ── Reconstruct categories_data from stored rates ──────────────────────────
     categories_data = {}
@@ -2770,93 +3087,117 @@ def api_compare_census(out_token):
             'maternity_rate': float((stored.get('maternity_rates') or {}).get(cat, 0) or 0),
         }
 
-    def _member_premium(m, cats):
-        """Return (base_rate, maternity, total) for a member given categories_data."""
-        rate, _, _ = get_member_rate(m, cats)
+    # ── Smart matching (exact → fuzzy+DOB → name-only → AI) ───────────────────
+    recon = reconcile_censuses(confirmed_members, quoted_members, use_ai=True)
+
+    # ── Build per-pair details with side-by-side view + explanations ──────────
+    pair_details   = []
+    changed_legacy = []   # for existing Excel reconciliation sheet
+    premium_impacts = []
+
+    def _mview(m, total):
+        return {
+            'name':           m.get('name', ''),
+            'dob':            m.get('dob', ''),
+            'age':            m.get('age_alb') or m.get('age_anb') or '',
+            'bracket':        _age_bracket_label(int(m.get('age_alb') or 0)),
+            'gender':         (m.get('gender') or '')[:1].upper(),
+            'relation':       m.get('relation', ''),
+            'marital_status': m.get('marital_status', ''),
+            'category':       m.get('category', ''),
+            'premium':        round(float(total or 0), 2),
+        }
+
+    for pm in recon['matches']:
+        c = confirmed_members[pm['confirmed_idx']]
+        q = quoted_members[pm['quoted_idx']]
+        info = _explain_match(c, q, categories_data)
+
+        pair_details.append({
+            'match_type':   pm['match_type'],
+            'name_similarity': pm.get('name_similarity'),
+            'confirmed':    _mview(c, info['confirmed_premium']),
+            'quoted':       _mview(q, info['quoted_premium']),
+            'diffs':        info['diffs'],
+            'premium_diff': info['premium_diff'],
+        })
+
+        # Legacy structure for Excel reconciliation sheet
+        if info['diffs']:
+            changed_legacy.append({
+                'name': c.get('name', ''),
+                'category': c.get('category', ''),
+                'changes': [
+                    {'field': _legacy_field(d['field']),
+                     'confirmed': d['confirmed'], 'quoted': d['quoted']}
+                    for d in info['diffs']
+                    if d['field'] != 'Age' and d['field'] != 'Age Bracket'
+                ],
+            })
+        if abs(info['premium_diff']) >= 0.01:
+            premium_impacts.append({
+                'type':     'changed',
+                'name':     c.get('name', ''),
+                'category': c.get('category', ''),
+                'quoted':   {'age': q.get('age_alb') or '?',
+                             'gender': (q.get('gender') or '?')[:1].upper(),
+                             'premium': info['quoted_premium']},
+                'confirmed':{'age': c.get('age_alb') or '?',
+                             'gender': (c.get('gender') or '?')[:1].upper(),
+                             'premium': info['confirmed_premium']},
+                'impact':   info['premium_diff'],
+            })
+
+    # Only-in-confirmed (added)
+    only_confirmed = []
+    for ci in recon['only_in_confirmed']:
+        m = confirmed_members[ci]
+        c_total = float(m.get('base_premium') or 0) + float(m.get('maternity_premium') or 0)
+        only_confirmed.append(_mview(m, c_total))
+        premium_impacts.append({
+            'type': 'added',
+            'name': m.get('name', ''),
+            'category': m.get('category', ''),
+            'confirmed': {'age': m.get('age_alb') or '?',
+                          'gender': (m.get('gender') or '?')[:1].upper(),
+                          'premium': round(c_total, 2)},
+            'impact': round(c_total, 2),
+        })
+
+    # Only-in-quoted (removed)
+    only_quoted = []
+    for qi in recon['only_in_quoted']:
+        m = quoted_members[qi]
+        rate, _, _ = get_member_rate(m, categories_data)
         rate = float(rate or 0)
-        cat  = m.get('category', '').upper()
-        mat_rate = float(cats.get(cat, {}).get('maternity_rate', 0) or 0)
-        emirate  = m.get('emirate', 'Dubai')
-        mat_max  = MAT_AGE_MAX_AUH if 'abu dhabi' in emirate.lower() else MAT_AGE_MAX_DXB
-        age      = float(m.get('age_alb') or 0)
-        mat = (mat_rate
-               if (m.get('gender', '').lower().startswith('f')
-                   and m.get('marital_status', '').lower().startswith('m')
-                   and MAT_AGE_MIN <= age <= mat_max)
-               else 0.0)
-        return rate, mat, rate + mat
-
-    # ── Build quick lookups ────────────────────────────────────────────────────
-    def _key(m):
-        return (m.get('name', '').lower().strip(), m.get('category', '').upper())
-
-    conf_map = {_key(m): m for m in confirmed_members}
-    quot_map = {_key(m): m for m in quoted_members}
-
-    # ── Premium impact per member ──────────────────────────────────────────────
-    premium_impacts = []   # list of dicts for the frontend
-
-    # Changed members: same person, different attributes → different rate
-    for ch in diff.get('changed', []):
-        name = ch.get('name', '')
-        cat  = ch.get('category', '')
-        cm   = conf_map.get((name.lower().strip(), cat.upper()))
-        qm   = quot_map.get((name.lower().strip(), cat.upper()))
-        if not cm or not qm:
-            continue
-
-        # Confirmed premium already calculated and stored
-        c_base  = float(cm.get('base_premium', 0) or 0)
-        c_mat   = float(cm.get('maternity_premium', 0) or 0)
-        c_total = c_base + c_mat
-        c_age   = cm.get('age_alb') or cm.get('age_anb') or '?'
-        c_gen   = (cm.get('gender') or '?')[:1].upper()
-
-        # Quoted premium — recalculate using stored rates
-        q_base, q_mat, q_total = _member_premium(qm, categories_data)
-        q_age   = qm.get('age_alb') or qm.get('age_anb') or '?'
-        q_gen   = (qm.get('gender') or '?')[:1].upper()
-
-        impact  = c_total - q_total
-        if abs(impact) < 0.01 and c_age == q_age and c_gen == q_gen:
-            continue  # attribute changed but same price band
-
+        cat = m.get('category', '').upper()
+        mat_rate = float(categories_data.get(cat, {}).get('maternity_rate', 0) or 0)
+        emirate = m.get('emirate', 'Dubai')
+        mat_max = MAT_AGE_MAX_AUH if 'abu dhabi' in emirate.lower() else MAT_AGE_MAX_DXB
+        age = float(m.get('age_alb') or 0)
+        mat = (mat_rate if ((m.get('gender') or '').lower().startswith('f')
+                            and (m.get('marital_status') or '').lower().startswith('m')
+                            and MAT_AGE_MIN <= age <= mat_max) else 0.0)
+        q_total = rate + mat
+        only_quoted.append(_mview(m, q_total))
         premium_impacts.append({
-            'type':     'changed',
-            'name':     name,
-            'category': cat,
-            'quoted':   {'age': q_age, 'gender': q_gen, 'premium': round(q_total, 2)},
-            'confirmed':{'age': c_age, 'gender': c_gen, 'premium': round(c_total, 2)},
-            'impact':   round(impact, 2),
-        })
-
-    # Added members (in confirmed, not in quoted) → they increase confirmed total
-    for m in diff.get('added', []):
-        c_base  = float(m.get('base_premium', 0) or 0)
-        c_mat   = float(m.get('maternity_premium', 0) or 0)
-        c_total = c_base + c_mat
-        age     = m.get('age_alb') or m.get('age_anb') or '?'
-        gen     = (m.get('gender') or '?')[:1].upper()
-        premium_impacts.append({
-            'type':     'added',
-            'name':     m.get('name', ''),
+            'type': 'removed',
+            'name': m.get('name', ''),
             'category': m.get('category', ''),
-            'confirmed':{'age': age, 'gender': gen, 'premium': round(c_total, 2)},
-            'impact':   round(c_total, 2),
+            'quoted': {'age': m.get('age_alb') or '?',
+                       'gender': (m.get('gender') or '?')[:1].upper(),
+                       'premium': round(q_total, 2)},
+            'impact': round(-q_total, 2),
         })
 
-    # Removed members (in quoted, not in confirmed) → they reduce confirmed vs quoted
-    for m in diff.get('removed', []):
-        q_base, q_mat, q_total = _member_premium(m, categories_data)
-        age = m.get('age_alb') or m.get('age_anb') or '?'
-        gen = (m.get('gender') or '?')[:1].upper()
-        premium_impacts.append({
-            'type':     'removed',
-            'name':     m.get('name', ''),
-            'category': m.get('category', ''),
-            'quoted':   {'age': age, 'gender': gen, 'premium': round(q_total, 2)},
-            'impact':   round(-q_total, 2),
-        })
+    # ── Start-date comparison ─────────────────────────────────────────────────
+    confirmed_start = stored.get('form_data', {}).get('start_date', '') or stored.get('start_date', '')
+    quoted_start    = stored.get('quoted_start_date', '') or ''
+    start_compare = {
+        'confirmed_start': confirmed_start,
+        'quoted_start':    quoted_start,
+        'match':           bool(quoted_start) and confirmed_start == quoted_start,
+    }
 
     # ── Overall premium reconciliation ─────────────────────────────────────────
     totals       = stored.get('totals', {})
@@ -2875,12 +3216,22 @@ def api_compare_census(out_token):
         'unexplained':   round(unexplained, 2),
     }
 
-    diff['premium_impacts']  = premium_impacts
-    diff['reconciliation']   = reconciliation
+    diff = {
+        'pair_details':      pair_details,
+        'only_in_confirmed': only_confirmed,
+        'only_in_quoted':    only_quoted,
+        'start_compare':     start_compare,
+        'premium_impacts':   premium_impacts,
+        'reconciliation':    reconciliation,
+        # Legacy fields for existing Excel sheet
+        'added':   only_confirmed,
+        'removed': only_quoted,
+        'changed': changed_legacy,
+    }
 
     # ── Excel diff summary (compact text) ─────────────────────────────────────
     def _fmt_m(m):
-        age = m.get('age_alb') or m.get('age_anb') or '?'
+        age = m.get('age') or m.get('age_alb') or m.get('age_anb') or '?'
         gen = (m.get('gender') or '?')[:1].upper()
         rel = m.get('relation') or '?'
         return f"{m.get('name','?')} ({age}, {gen}, {rel})"
@@ -3009,6 +3360,7 @@ def api_calculate():
         'totals':         totals,
         'plan':           stored.get('plan', ''),
         'start_date':     start_date,
+        'quoted_start_date': (stored.get('tool_data') or {}).get('start_date', ''),
         'age_method':     age_method,
     })
 

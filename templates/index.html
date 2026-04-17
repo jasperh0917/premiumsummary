@@ -1502,17 +1502,37 @@ async function runCensusComparison() {
 }
 
 function renderCensusDiff(diff) {
-  const added   = diff.added   || [];
-  const removed = diff.removed || [];
-  const changed = diff.changed || [];
-  const impacts = diff.premium_impacts || [];
-  const recon   = diff.reconciliation  || {};
+  const pairs         = diff.pair_details      || [];
+  const onlyConfirmed = diff.only_in_confirmed || diff.added   || [];
+  const onlyQuoted    = diff.only_in_quoted    || diff.removed || [];
+  const recon         = diff.reconciliation    || {};
+  const sc            = diff.start_compare     || {};
 
-  const fmtAED = v => Number(v).toLocaleString('en-AE', {minimumFractionDigits:0, maximumFractionDigits:0});
+  const fmtAED = v => Number(v || 0).toLocaleString('en-AE', {minimumFractionDigits:0, maximumFractionDigits:0});
   const fmtSign = v => (v >= 0 ? '+' : '') + 'AED ' + fmtAED(Math.abs(v));
   const impactColor = v => v > 0 ? '#16a34a' : v < 0 ? '#dc2626' : '#6b7280';
 
+  const pairsWithDiffs = pairs.filter(p => (p.diffs && p.diffs.length) || Math.abs(p.premium_diff || 0) >= 0.01);
+  const pairsClean     = pairs.length - pairsWithDiffs.length;
+
   let html = '';
+
+  // ── Start-date comparison ─────────────────────────────────────────────────
+  if (sc.quoted_start || sc.confirmed_start) {
+    const sdMatch = sc.match;
+    const sdBg  = sdMatch ? '#d4edda' : '#fff3cd';
+    const sdClr = sdMatch ? '#155724' : '#856404';
+    const sdIcon = sdMatch ? '✅' : '⚠️';
+    html += `
+    <div style="background:${sdBg};border-radius:9px;padding:10px 14px;margin-bottom:12px;font-size:.82rem">
+      <div style="font-weight:700;color:${sdClr};margin-bottom:4px">${sdIcon} Policy Start Date</div>
+      <div style="display:flex;gap:24px;font-size:.82rem">
+        <div><span style="color:#6b7280">Quoted:</span> <strong>${escHtml(sc.quoted_start || '—')}</strong></div>
+        <div><span style="color:#6b7280">Confirmed:</span> <strong>${escHtml(sc.confirmed_start || '—')}</strong></div>
+        ${sdMatch ? '' : `<div style="color:${sdClr}"><em>Dates differ — verify before binding</em></div>`}
+      </div>
+    </div>`;
+  }
 
   // ── Premium reconciliation banner ──────────────────────────────────────────
   if (recon.conf_quote > 0) {
@@ -1541,65 +1561,104 @@ function renderCensusDiff(diff) {
     </div>`;
   }
 
-  // ── Per-member premium impact sentences ────────────────────────────────────
-  if (impacts.length) {
-    html += `<div class="section-label" style="font-size:.78rem;margin-top:0;color:#1e3a5f">💰 Premium Impact by Member</div>`;
-    html += '<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">';
-    impacts.forEach(p => {
-      let sentence = '';
-      const clr = impactColor(p.impact);
-      const impStr = `<strong style="color:${clr}">${p.impact >= 0 ? '+' : ''}AED ${fmtAED(Math.abs(p.impact))}</strong>`;
-      if (p.type === 'changed') {
-        const q = p.quoted, c = p.confirmed;
-        sentence = `<strong>${escHtml(p.name)}</strong> was quoted ${q.age}, ${q.gender} `
-          + `(AED ${fmtAED(q.premium)}) but confirmed as ${c.age}, ${c.gender} `
-          + `(AED ${fmtAED(c.premium)}) = ${impStr}`;
-      } else if (p.type === 'added') {
-        const c = p.confirmed;
-        sentence = `<strong>${escHtml(p.name)}</strong> added to confirmed census — `
-          + `${c.age}, ${c.gender}, Cat ${p.category} (AED ${fmtAED(c.premium)}) = ${impStr}`;
-      } else {
-        const q = p.quoted;
-        sentence = `<strong>${escHtml(p.name)}</strong> was in quoted census but removed — `
-          + `${q.age}, ${q.gender}, Cat ${p.category} (AED ${fmtAED(q.premium)}) = ${impStr}`;
-      }
-      html += `<div style="background:#f8fafc;border-left:3px solid ${clr};border-radius:0 6px 6px 0;padding:7px 12px;font-size:.8rem;line-height:1.5">${sentence}</div>`;
-    });
-    html += '</div>';
+  // ── Matched pairs summary ─────────────────────────────────────────────────
+  if (pairs.length) {
+    const byType = pairs.reduce((acc, p) => { acc[p.match_type] = (acc[p.match_type]||0)+1; return acc; }, {});
+    const typeLabels = {
+      exact: 'exact name+category',
+      same_dob: 'fuzzy name + same DOB',
+      dob_swap: 'fuzzy name + day/month-swapped DOB',
+      fuzzy_name: 'high-similarity name',
+      ai: 'AI-confirmed match',
+    };
+    const typeParts = Object.entries(byType).map(([t,n]) => `${n} ${typeLabels[t] || t}`).join(', ');
+    html += `<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:.8rem;color:#1e3a8a">
+      <strong>${pairs.length} member${pairs.length!==1?'s':''} matched</strong>
+      ${pairsWithDiffs.length ? ` · ${pairsWithDiffs.length} with differences` : ''}
+      ${pairsClean ? ` · ${pairsClean} identical` : ''}
+      <div style="font-size:.73rem;color:#475569;margin-top:3px">Matching: ${typeParts}</div>
+    </div>`;
   }
 
-  // ── Member field diffs table ───────────────────────────────────────────────
-  const fmtMember = m => `${m.name || ''} (Cat ${m.category || ''} · ${m.relation || ''} · ${m.dob || ''})`;
+  // ── Per-pair side-by-side table ───────────────────────────────────────────
+  if (pairsWithDiffs.length) {
+    html += `<div class="section-label" style="color:#1e3a5f;font-size:.78rem;margin-top:0">🔄 Matched Members with Differences (${pairsWithDiffs.length})</div>`;
+    html += `<div style="overflow-x:auto;margin-bottom:14px">
+      <table class="diff-table" style="font-size:.75rem;min-width:100%">
+        <thead>
+          <tr style="background:#f1f5f9">
+            <th rowspan="2" style="text-align:left">Member</th>
+            <th colspan="7" style="background:#fef3c7;color:#78350f">QUOTED</th>
+            <th colspan="7" style="background:#dbeafe;color:#1e3a8a">CONFIRMED</th>
+            <th rowspan="2" style="background:#f1f5f9">Premium Δ</th>
+            <th rowspan="2" style="text-align:left">Differences &amp; Explanation</th>
+          </tr>
+          <tr style="background:#f8fafc;font-size:.7rem">
+            <th style="background:#fef3c7">DOB</th><th style="background:#fef3c7">Age</th><th style="background:#fef3c7">Band</th><th style="background:#fef3c7">G</th><th style="background:#fef3c7">Rel</th><th style="background:#fef3c7">Status</th><th style="background:#fef3c7">Prem</th>
+            <th style="background:#dbeafe">DOB</th><th style="background:#dbeafe">Age</th><th style="background:#dbeafe">Band</th><th style="background:#dbeafe">G</th><th style="background:#dbeafe">Rel</th><th style="background:#dbeafe">Status</th><th style="background:#dbeafe">Prem</th>
+          </tr>
+        </thead><tbody>`;
 
-  if (added.length) {
-    html += `<div class="section-label" style="color:#155724;font-size:.78rem;margin-top:0">➕ Added (${added.length}) — in confirmed, not in quoted</div>`;
+    pairsWithDiffs.forEach(p => {
+      const q = p.quoted || {}, c = p.confirmed || {};
+      const changedFields = new Set((p.diffs || []).map(d => d.field));
+      const pd = p.premium_diff || 0;
+      const pdClr = impactColor(pd);
+
+      const cell = (val, field, side) => {
+        const changed = changedFields.has(field);
+        const bg = changed ? (side === 'q' ? '#fde68a' : '#bfdbfe') : '';
+        const fw = changed ? 'font-weight:600' : '';
+        return `<td style="background:${bg};${fw};text-align:center">${escHtml(String(val ?? ''))}</td>`;
+      };
+
+      const nameInfo = c.name && q.name && c.name !== q.name
+        ? `${escHtml(c.name)}<br><small style="color:#94a3b8">(quoted: ${escHtml(q.name)})</small>`
+        : escHtml(c.name || q.name || '—');
+
+      const matchBadge = p.match_type && p.match_type !== 'exact'
+        ? `<div style="font-size:.62rem;color:#64748b;margin-top:2px;text-transform:uppercase">${p.match_type.replace('_',' ')}${p.name_similarity ? ' · '+Math.round(p.name_similarity*100)+'%' : ''}</div>`
+        : '';
+
+      const diffsList = (p.diffs || []).map(d =>
+        `<div style="font-size:.7rem;padding:2px 0"><strong>${escHtml(d.field)}:</strong> <span style="color:#b45309">${escHtml(String(d.quoted ?? ''))}</span> → <span style="color:#1d4ed8">${escHtml(String(d.confirmed ?? ''))}</span><br><em style="color:#64748b">${escHtml(d.explanation || '')}</em></div>`
+      ).join('');
+
+      html += `<tr>
+        <td style="text-align:left;min-width:140px"><strong>${nameInfo}</strong>${matchBadge}</td>
+        ${cell(q.dob, 'DOB', 'q')}${cell(q.age, 'Age', 'q')}${cell(q.bracket, 'Age Bracket', 'q')}${cell(q.gender, 'Gender', 'q')}${cell(q.relation, 'Relation', 'q')}${cell(q.marital_status, 'Status', 'q')}
+        <td style="background:#fef3c7;text-align:right">${fmtAED(q.premium)}</td>
+        ${cell(c.dob, 'DOB', 'c')}${cell(c.age, 'Age', 'c')}${cell(c.bracket, 'Age Bracket', 'c')}${cell(c.gender, 'Gender', 'c')}${cell(c.relation, 'Relation', 'c')}${cell(c.marital_status, 'Status', 'c')}
+        <td style="background:#dbeafe;text-align:right">${fmtAED(c.premium)}</td>
+        <td style="text-align:right;font-weight:700;color:${pdClr}">${fmtSign(pd)}</td>
+        <td style="text-align:left;min-width:200px">${diffsList || '<em style="color:#64748b">Premium band shift only</em>'}</td>
+      </tr>`;
+    });
+
+    html += '</tbody></table></div>';
+  }
+
+  // ── Added (only in confirmed) ─────────────────────────────────────────────
+  if (onlyConfirmed.length) {
+    html += `<div class="section-label" style="color:#155724;font-size:.78rem;margin-top:0">➕ Added in Confirmed — Not in Quoted (${onlyConfirmed.length})</div>`;
     html += '<ul style="margin:0 0 12px;padding-left:18px;font-size:.8rem">';
-    added.forEach(m => { html += `<li style="color:#155724">${escHtml(fmtMember(m))}</li>`; });
+    onlyConfirmed.forEach(m => {
+      html += `<li style="color:#155724">${escHtml(m.name || '')} (Cat ${escHtml(m.category || '')} · ${escHtml(m.relation || '')} · ${escHtml(m.dob || '')}) — <strong>AED ${fmtAED(m.premium)}</strong></li>`;
+    });
     html += '</ul>';
   }
-  if (removed.length) {
-    html += `<div class="section-label" style="color:#721c24;font-size:.78rem;margin-top:0">➖ Removed (${removed.length}) — in quoted, not in confirmed</div>`;
+
+  // ── Removed (only in quoted) ──────────────────────────────────────────────
+  if (onlyQuoted.length) {
+    html += `<div class="section-label" style="color:#721c24;font-size:.78rem;margin-top:0">➖ In Quoted — Not in Confirmed (${onlyQuoted.length})</div>`;
     html += '<ul style="margin:0 0 12px;padding-left:18px;font-size:.8rem">';
-    removed.forEach(m => { html += `<li style="color:#721c24">${escHtml(fmtMember(m))}</li>`; });
+    onlyQuoted.forEach(m => {
+      html += `<li style="color:#721c24">${escHtml(m.name || '')} (Cat ${escHtml(m.category || '')} · ${escHtml(m.relation || '')} · ${escHtml(m.dob || '')}) — <strong>AED ${fmtAED(m.premium)}</strong></li>`;
+    });
     html += '</ul>';
   }
-  if (changed.length) {
-    html += `<div class="section-label" style="color:#7c3aed;font-size:.78rem;margin-top:0">🔄 Changed (${changed.length}) — field differences</div>`;
-    html += '<table class="diff-table" style="font-size:.78rem;margin-bottom:12px"><thead><tr><th>Member</th><th>Field</th><th>Confirmed</th><th>Quoted</th></tr></thead><tbody>';
-    changed.forEach(c => {
-      c.changes.forEach((ch, ci) => {
-        html += `<tr>
-          ${ci === 0 ? `<td rowspan="${c.changes.length}">${escHtml(c.name)} (Cat ${c.category})</td>` : ''}
-          <td style="text-transform:capitalize">${ch.field.replace('_',' ')}</td>
-          <td style="color:#059669">${escHtml(String(ch.confirmed))}</td>
-          <td style="color:#dc2626">${escHtml(String(ch.quoted))}</td>
-        </tr>`;
-      });
-    });
-    html += '</tbody></table>';
-  }
 
-  if (!added.length && !removed.length && !changed.length && !impacts.length) {
+  if (!pairsWithDiffs.length && !onlyConfirmed.length && !onlyQuoted.length) {
     html += '<div style="color:#059669;font-size:.82rem;padding:10px 0">✅ No differences found. Censuses are identical.</div>';
   }
 
