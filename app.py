@@ -413,11 +413,17 @@ def parse_rates_pdf(pdf_bytes, plan=''):
     # not a premium — clamp it to 0 to prevent count columns polluting rates.
     RATE_MIN = 500.0
 
+    # OpenX plans have no maternity surcharge — ignore whatever the vision model
+    # extracted (it's usually the top-right "Average" premium, not a maternity rate).
+    force_zero_maternity = plan.lower() == 'openx'
+
     # Also compute per-category median of all non-zero rates so we can catch
     # outliers that are tiny relative to the rest (e.g., "1" slipping through).
     for cat_data in result['categories'].values():
         cat_data.setdefault('maternity_rate', 0.0)
         cat_data.setdefault('brackets', [])
+        if force_zero_maternity:
+            cat_data['maternity_rate'] = 0.0
 
         # Collect all non-zero candidate rates for this category
         all_vals = []
