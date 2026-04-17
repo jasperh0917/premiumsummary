@@ -193,6 +193,25 @@ tbody td{padding:9px 12px;font-size:.82rem;color:var(--dark);white-space:nowrap}
     <div id="reconRow"></div>
   </div>
 
+  <!-- Additional Loadings (only shown when ≥ 1 member has a loading) -->
+  <div class="card" id="loadingCard" style="display:none">
+    <div class="card-title" style="display:flex;align-items:center;justify-content:space-between">
+      <span>Additional Loadings</span>
+      <span id="loadingSubtotal" style="font-family:'Raleway',sans-serif;font-weight:900;font-size:.95rem;color:var(--orange);text-transform:none;letter-spacing:0"></span>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Member</th><th>Category</th><th>Gender</th>
+            <th class="num">Loading (AED)</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="loadingBody"></tbody>
+      </table>
+    </div>
+  </div>
+
   <!-- Category Rates -->
   <div class="card">
     <div class="card-title" style="display:flex;align-items:center;justify-content:space-between">
@@ -358,6 +377,7 @@ tbody td{padding:9px 12px;font-size:.82rem;color:var(--dark);white-space:nowrap}
           <option value="Annual">Annual</option>
           <option value="Quarterly">Quarterly</option>
           <option value="Monthly">Monthly</option>
+          <option value="Custom">Custom</option>
         </select>
       </div>
       <div class="form-group">
@@ -366,6 +386,7 @@ tbody td{padding:9px 12px;font-size:.82rem;color:var(--dark);white-space:nowrap}
           <option value="Monthly">Monthly</option>
           <option value="Quarterly">Quarterly</option>
           <option value="Annual">Annual</option>
+          <option value="Custom">Custom</option>
         </select>
       </div>
       <div class="form-group">
@@ -624,11 +645,13 @@ async function loadDetail() {
   `).join('');
 
   // Totals
-  const totalPremium = (parseFloat(p.total_net)||0) + (parseFloat(p.total_maternity)||0);
+  const totalLoading = (data.members || []).reduce((s, m) => s + (parseFloat(m.gross_loading) || 0), 0);
+  const totalPremium = (parseFloat(p.total_net)||0) + (parseFloat(p.total_maternity)||0) + totalLoading;
   const totals = [
-    ['Premium',           p.total_net,    false],
-    ['Maternity Premium', p.total_maternity, false],
-    ['Total Premium',     totalPremium,   true],
+    ['Premium',            p.total_net,       false],
+    ['Maternity Premium',  p.total_maternity, false],
+    ['Additional Loading', totalLoading,      false],
+    ['Total Premium',      totalPremium,      true],
   ];
   document.getElementById('totalsGrid').innerHTML = totals.map(([l, v, hi]) => `
     <div class="total-item ${hi ? 'highlight' : ''}">
@@ -636,6 +659,27 @@ async function loadDetail() {
       <div class="tl">${l}</div>
     </div>
   `).join('');
+
+  // Additional Loadings card
+  const loadedMembers = (data.members || []).filter(m => parseFloat(m.gross_loading) > 0);
+  const loadingCard   = document.getElementById('loadingCard');
+  if (loadedMembers.length) {
+    loadingCard.style.display = '';
+    document.getElementById('loadingSubtotal').textContent = `Total: AED ${fmtNum(totalLoading)}`;
+    document.getElementById('loadingBody').innerHTML = loadedMembers.map(m => `
+      <tr>
+        <td><strong>${m.name || '—'}</strong></td>
+        <td>${m.category || '—'}</td>
+        <td><span class="badge ${m.gender === 'Female' ? 'badge-f' : 'badge-m'}">${m.gender || '—'}</span></td>
+        <td class="num"><strong>${fmtNum(m.gross_loading)}</strong></td>
+        <td style="white-space:nowrap;text-align:right">
+          <button class="mem-edit-btn" onclick="openMemberModal(${m.id})">Edit</button>
+        </td>
+      </tr>
+    `).join('');
+  } else {
+    loadingCard.style.display = 'none';
+  }
 
   // Reconciliation
   const diff = parseFloat(p.recon_difference) || 0;

@@ -515,14 +515,14 @@ function renderTakeRate(data) {
         const url = buildDrillUrl({ plan: p.plan });
         return `<tr class="drillable" onclick="location.href='${url.replace(/'/g,"\\'")}'">
           <td><strong>${p.plan}</strong></td>
-          <td class="num">${p.policy_count}</td>
+          <td class="num">${fmtNum(p.policy_count)}</td>
           <td class="num">${fmtNum(p.total_premium)}</td>
           <td class="num">${fmtNum(p.commission_amount)}</td>
           <td class="num" style="font-weight:600;color:var(--navy)">${fmtP(p.take_rate_pct)}</td>
         </tr>`;
       }).join('')
     : '<tr class="empty-row"><td colspan="5">No data</td></tr>';
-  document.getElementById('trfPolicies').textContent = plans.reduce((s,p) => s + p.policy_count, 0);
+  document.getElementById('trfPolicies').textContent = fmtNum(plans.reduce((s,p) => s + p.policy_count, 0));
   document.getElementById('trfPremium').textContent  = fmtNum(total.total_premium || 0);
   document.getElementById('trfComm').textContent     = fmtNum(total.commission_amount || 0);
   document.getElementById('trfRate').textContent     = total.take_rate_pct != null ? fmtP(total.take_rate_pct) : '—';
@@ -556,9 +556,9 @@ function renderKPIs() {
   const avgSize       = totalPolicies ? totalGross / totalPolicies : 0;
   const avgCensus     = totalPolicies ? totalMembers / totalPolicies : 0;
   const perCapita     = totalMembers  ? totalGross / totalMembers : 0;
-  document.getElementById('kTotal').textContent   = totalPolicies.toLocaleString();
+  document.getElementById('kTotal').textContent   = fmtNum(totalPolicies);
   document.getElementById('kGross').textContent   = fmtCompact(totalGross);
-  document.getElementById('kMembers').textContent = totalMembers.toLocaleString();
+  document.getElementById('kMembers').textContent = fmtNum(totalMembers);
   document.getElementById('kAvg').textContent     = fmtCompact(avgSize);
   document.getElementById('kAvgCensus').textContent = avgCensus.toFixed(1);
   document.getElementById('kPerCapita').textContent = 'AED ' + (perCapita/1000).toFixed(1) + 'K';
@@ -664,16 +664,16 @@ function renderMonthly() {
         const url = buildDrillUrl({ date_from: from, date_to: to });
         return `<tr class="drillable" onclick="location.href='${url.replace(/'/g,"\\'")}'">
           <td>${fmtMonth(r.month)}</td>
-          <td class="num">${r.policy_count}</td>
-          <td class="num">${parseInt(r.member_count||0).toLocaleString()}</td>
+          <td class="num">${fmtNum(r.policy_count)}</td>
+          <td class="num">${fmtNum(r.member_count)}</td>
           <td class="num">${fmtNum(r.gross_premium)}</td>
           <td class="num">${fmtNum(r.grand_total)}</td>
         </tr>`;
       }).join('')
     : '<tr class="empty-row"><td colspan="5">No data for selected filters</td></tr>';
 
-  document.getElementById('mfCount').textContent   = sumC;
-  document.getElementById('mfMembers').textContent = sumM.toLocaleString();
+  document.getElementById('mfCount').textContent   = fmtNum(sumC);
+  document.getElementById('mfMembers').textContent = fmtNum(sumM);
   document.getElementById('mfGross').textContent   = fmtNum(sumG);
   document.getElementById('mfGrand').textContent   = fmtNum(sumGrand);
 }
@@ -685,8 +685,8 @@ function renderBrokers() {
         const url = buildDrillUrl({ broker: r.broker });
         return `<tr class="drillable" onclick="location.href='${url.replace(/'/g,"\\'")}'">
           <td><strong>${r.broker}</strong></td>
-          <td class="num">${r.policy_count}</td>
-          <td class="num">${parseInt(r.total_members||0).toLocaleString()}</td>
+          <td class="num">${fmtNum(r.policy_count)}</td>
+          <td class="num">${fmtNum(r.total_members)}</td>
           <td class="num">${fmtNum(r.gross_premium)}</td>
           <td class="num">${fmtNum(r.total_grand)}</td>
           <td class="num">${fmtNum(r.avg_policy_size)}</td>
@@ -748,7 +748,7 @@ function renderRM() {
     return `<tr class="drillable" onclick="location.href='${drillUrl}'">
       <td><strong>${trophy}${rm}</strong></td>
       <td class="num">${fmtCompact(revenue)}</td>
-      <td class="num">${count}</td>
+      <td class="num">${fmtNum(count)}</td>
       <td class="num">${fmtCompact(actual)}</td>
       <td class="num" onclick="event.stopPropagation()">
         <input class="target-input" type="text" inputmode="numeric"

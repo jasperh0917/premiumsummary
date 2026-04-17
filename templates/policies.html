@@ -166,12 +166,11 @@ tbody td{padding:11px 14px;font-size:.83rem;color:var(--dark);white-space:nowrap
             <th>Type</th>
             <th>Members</th>
             <th>Grand Total (AED)</th>
-            <th>Match</th>
             <th></th>
           </tr>
         </thead>
         <tbody id="tableBody">
-          <tr><td colspan="12"><div class="empty-state"><div class="icon">📋</div><div>Loading…</div></div></td></tr>
+          <tr><td colspan="11"><div class="empty-state"><div class="icon">📋</div><div>Loading…</div></div></td></tr>
         </tbody>
       </table>
     </div>
@@ -245,7 +244,7 @@ async function bulkDelete() {
 }
 
 function renderTable({ rows, total, page, per_page }) {
-  document.getElementById('sTotal').textContent = total.toLocaleString();
+  document.getElementById('sTotal').textContent = fmtNum(total);
   const start = (page - 1) * per_page + 1;
   const end   = Math.min(page * per_page, total);
   document.getElementById('sPage').textContent = total ? `${start}–${end}` : '0';
@@ -254,7 +253,7 @@ function renderTable({ rows, total, page, per_page }) {
 
   const tbody = document.getElementById('tableBody');
   if (!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="12"><div class="empty-state"><div class="icon">📋</div><div>No policies found</div></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="11"><div class="empty-state"><div class="icon">📋</div><div>No policies found</div></div></td></tr>`;
     document.getElementById('pagination').style.display = 'none';
     return;
   }
@@ -269,9 +268,8 @@ function renderTable({ rows, total, page, per_page }) {
       <td>${r.rm_person || '—'}</td>
       <td><span class="badge badge-blue">${r.plan || '—'}</span></td>
       <td><span class="badge ${r.plan_type === 'Renewal' ? 'badge-orange' : 'badge-blue'}">${r.plan_type || '—'}</span></td>
-      <td>${r.member_count ?? '—'}</td>
+      <td>${r.member_count != null ? fmtNum(r.member_count) : '—'}</td>
       <td>${r.grand_total != null ? fmtNum(r.grand_total) : '—'}</td>
-      <td>${r.recon_match === true ? '<span class="badge badge-green">✅ Match</span>' : r.recon_match === false ? '<span class="badge badge-red">❌ Mismatch</span>' : '—'}</td>
       <td onclick="event.stopPropagation()">
         <button class="dl-btn" id="dlbtn-${r.id}" onclick="downloadSummary(${r.id},this)">⬇ Download</button>
       </td>
