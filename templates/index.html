@@ -1422,8 +1422,17 @@ function deleteCensusRow(idx) {
 }
 
 function backToUpload() {
-  resetAll();
-  setTodayOnConfirmationDate();
+  // Just navigate back to step-1 — keep form fields and file selections so the
+  // user can tweak one thing (e.g., replace census) and re-submit.
+  ['step-2','step-3','step-census'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+  document.getElementById('step-1').style.display = 'block';
+  _censusPreviewMembers = [];
+  document.getElementById('censusReviewBody').innerHTML = '';
+  document.getElementById('step1Btn').disabled  = false;
+  document.getElementById('step1Btn').innerHTML = 'Extract Rates &amp; Continue →';
 }
 
 async function confirmCensus() {

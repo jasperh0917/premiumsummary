@@ -475,15 +475,27 @@ def _safe_num(v, default=0.0):
         return default
 
 def maybe_decrypt(file_bytes, password=''):
-    """Decrypt an Office file if encrypted; return original bytes if not."""
+    """Decrypt an Office file if encrypted; return original bytes if not.
+
+    Tries the supplied password first, then Excel's well-known write-protection
+    sentinel 'VelvetSweatshop' (used by many exported templates — not real encryption)."""
     try:
         import msoffcrypto
         office_file = msoffcrypto.OfficeFile(io.BytesIO(file_bytes))
-        if office_file.is_encrypted():
-            decrypted = io.BytesIO()
-            office_file.load_key(password=password)
-            office_file.decrypt(decrypted)
-            return decrypted.getvalue()
+        if not office_file.is_encrypted():
+            return file_bytes
+        candidates = [password] if password else []
+        if 'VelvetSweatshop' not in candidates:
+            candidates.append('VelvetSweatshop')
+        for pw in candidates:
+            try:
+                of = msoffcrypto.OfficeFile(io.BytesIO(file_bytes))
+                of.load_key(password=pw)
+                decrypted = io.BytesIO()
+                of.decrypt(decrypted)
+                return decrypted.getvalue()
+            except Exception:
+                continue
     except Exception:
         pass
     return file_bytes
@@ -843,7 +855,8 @@ def parse_census(file_bytes, filename, start_date_str, age_method='alb'):
         header_idx = 0
         data_start = 1
     elif filename.lower().endswith('.xls'):
-        df = pd.read_excel(io.BytesIO(file_bytes), sheet_name=0, header=None, engine='xlrd')
+        xls_bytes = maybe_decrypt(file_bytes)
+        df = pd.read_excel(io.BytesIO(xls_bytes), sheet_name=0, header=None, engine='xlrd')
         all_rows   = df.values.tolist()
         header_idx = detect_header_row(all_rows)
         _dob_col   = detect_col_map(all_rows[header_idx]).get('dob', 999)
@@ -853,7 +866,7 @@ def parse_census(file_bytes, filename, start_date_str, age_method='alb'):
             xl = openpyxl.load_workbook(io.BytesIO(maybe_decrypt(file_bytes)), data_only=True)
         except Exception:
             # Fallback for files saved with wrong extension or legacy format
-            df = pd.read_excel(io.BytesIO(file_bytes), sheet_name=0, header=None, engine='xlrd')
+            df = pd.read_excel(io.BytesIO(maybe_decrypt(file_bytes)), sheet_name=0, header=None, engine='xlrd')
             all_rows   = df.values.tolist()
             header_idx = detect_header_row(all_rows)
             _dob_col   = detect_col_map(all_rows[header_idx]).get('dob', 999)
