@@ -4152,6 +4152,31 @@ def _multi(args, key):
     return [v.strip() for v in raw.split(',') if v.strip()]
 
 
+def _date_basis_col(args):
+    """Return (primary, fallback) date columns for the selected reporting basis.
+    ?date_basis=start (default)          -> ('start_date', None)
+    ?date_basis=confirmation             -> ('confirmation_date', 'created_at')
+    Fallback covers rows pre-dating the confirmation_date column."""
+    basis = (args.get('date_basis') or 'start').strip().lower()
+    if basis == 'confirmation':
+        return ('confirmation_date', 'created_at')
+    return ('start_date', None)
+
+
+def _row_ym(r, args):
+    """Extract YYYY-MM from a policy row using the selected date basis."""
+    primary, fallback = _date_basis_col(args)
+    v = r.get(primary) or (r.get(fallback) if fallback else '') or ''
+    return v[:7]
+
+
+def _row_ymd(r, args):
+    """Extract YYYY-MM-DD from a policy row using the selected date basis."""
+    primary, fallback = _date_basis_col(args)
+    v = r.get(primary) or (r.get(fallback) if fallback else '') or ''
+    return v[:10]
+
+
 def _dash_filter(q, args):
     """Apply shared dashboard filters to a supabase query.
     Supports single or multi values (comma-separated) for each filter.
@@ -4175,11 +4200,11 @@ def _dash_filter(q, args):
 
 
 def _filter_rows_by_month(rows, args):
-    """Post-filter rows whose created_at[:7] is in the selected months list."""
+    """Post-filter rows whose reporting-basis month is in the selected months list."""
     months = set(_multi(args, 'month'))
     if not months:
         return rows
-    return [r for r in rows if (r.get('created_at') or '')[:7] in months]
+    return [r for r in rows if _row_ym(r, args) in months]
 
 
 @app.route('/api/dashboard/monthly')
@@ -4190,7 +4215,7 @@ def api_dashboard_monthly():
     try:
         from collections import defaultdict
         q = supa.table('policies').select(
-            'created_at,plan,plan_type,total_net,total_maternity,grand_total,member_count'
+            'start_date,confirmation_date,created_at,plan,plan_type,total_net,total_maternity,grand_total,member_count'
         )
         q = _dash_filter(q, request.args)
         rows = _filter_rows_by_month(q.execute().data or [], request.args)
@@ -4201,7 +4226,9 @@ def api_dashboard_monthly():
         breakdown = defaultdict(lambda: {'policy_count': 0, 'gross_premium': 0.0})
 
         for r in rows:
-            m     = (r.get('created_at') or '')[:7]   # YYYY-MM
+            m     = _row_ym(r, request.args)   # YYYY-MM (by selected basis)
+            if not m:
+                continue
             plan  = r.get('plan')      or 'Unknown'
             ptype = r.get('plan_type') or 'Unknown'
             gross = float(r.get('total_net') or 0) + float(r.get('total_maternity') or 0)
@@ -4235,7 +4262,7 @@ def api_dashboard_brokers():
         return jsonify({'error': 'Database not configured'}), 503
     try:
         from collections import defaultdict
-        q = supa.table('policies').select('broker,member_count,total_net,total_maternity,grand_total,created_at')
+        q = supa.table('policies').select('broker,member_count,total_net,total_maternity,grand_total,start_date,confirmation_date,created_at')
         q = _dash_filter(q, request.args)
         rows = _filter_rows_by_month(q.execute().data or [], request.args)
         buckets = defaultdict(lambda: {'policy_count': 0, 'total_members': 0, 'gross_premium': 0.0, 'total_grand': 0.0})
@@ -4264,14 +4291,14 @@ def api_dashboard_rm():
     try:
         from collections import defaultdict
         q = supa.table('policies').select(
-            'rm_person,created_at,grand_total,total_net,total_maternity,rm_wellx'
+            'rm_person,start_date,confirmation_date,created_at,grand_total,total_net,total_maternity,rm_wellx'
         )
         q = _dash_filter(q, request.args)
         rows = _filter_rows_by_month(q.execute().data or [], request.args)
         buckets = defaultdict(lambda: {'policy_count': 0, 'actual_amount': 0.0, 'revenue': 0.0})
         for r in rows:
             rm_name = r.get('rm_person') or 'Unassigned'
-            dt = r.get('created_at', '')[:10]
+            dt = _row_ymd(r, request.args)
             try:
                 d = datetime.strptime(dt, '%Y-%m-%d')
                 key = (rm_name, d.year, d.month)
@@ -4287,6 +4314,116 @@ def api_dashboard_rm():
         actuals.sort(key=lambda x: (x['rm_name'], x['year'], x['month']))
         tgt_res = supa.table('rm_targets').select('*').order('rm_name').execute()
         return jsonify({'actuals': actuals, 'targets': tgt_res.data or []})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/dashboard/forecast')
+def api_dashboard_forecast():
+    """Year-end run-rate projection using last-3-month average of actuals.
+    Actuals come from the filtered policy set using the selected date basis.
+    Projection covers the remaining months of the current calendar year."""
+    supa = get_supa()
+    if not supa:
+        return jsonify({'error': 'Database not configured'}), 503
+    try:
+        from collections import defaultdict
+        args = request.args
+
+        q = supa.table('policies').select(
+            'start_date,confirmation_date,created_at,plan,plan_type,total_net,total_maternity,grand_total,member_count'
+        )
+        q = _dash_filter(q, args)
+        # Forecast needs the full scoped history (not collapsed to chosen months),
+        # so intentionally skip _filter_rows_by_month here.
+        rows = q.execute().data or []
+
+        current_year = datetime.now().year
+        current_month = datetime.now().month
+
+        monthly = defaultdict(lambda: {'policy_count': 0, 'gross_premium': 0.0, 'grand_total': 0.0, 'member_count': 0})
+        for r in rows:
+            ym = _row_ym(r, args)
+            if not ym:
+                continue
+            gross = float(r.get('total_net') or 0) + float(r.get('total_maternity') or 0)
+            monthly[ym]['policy_count']  += 1
+            monthly[ym]['gross_premium'] += gross
+            monthly[ym]['grand_total']   += float(r.get('grand_total') or 0)
+            monthly[ym]['member_count']  += int(r.get('member_count') or 0)
+
+        def _ym_str(y, m):
+            return f'{y:04d}-{m:02d}'
+
+        actuals = []
+        for m in range(1, 13):
+            key = _ym_str(current_year, m)
+            if m < current_month and key in monthly:
+                v = monthly[key]
+                actuals.append({
+                    'month': key,
+                    'policy_count':  v['policy_count'],
+                    'gross_premium': round(v['gross_premium'], 2),
+                    'grand_total':   round(v['grand_total'], 2),
+                    'member_count':  v['member_count'],
+                })
+            elif m == current_month and key in monthly:
+                # Current month is partial — keep as actual but flag it
+                v = monthly[key]
+                actuals.append({
+                    'month': key,
+                    'policy_count':  v['policy_count'],
+                    'gross_premium': round(v['gross_premium'], 2),
+                    'grand_total':   round(v['grand_total'], 2),
+                    'member_count':  v['member_count'],
+                    'partial': True,
+                })
+
+        # Last-3-month average from completed months (exclude partial current month)
+        completed = [a for a in actuals if not a.get('partial')]
+        window = completed[-3:] if len(completed) >= 3 else completed
+        if window:
+            avg_policies = sum(a['policy_count']  for a in window) / len(window)
+            avg_gross    = sum(a['gross_premium'] for a in window) / len(window)
+            avg_grand    = sum(a['grand_total']   for a in window) / len(window)
+            avg_members  = sum(a['member_count']  for a in window) / len(window)
+        else:
+            avg_policies = avg_gross = avg_grand = avg_members = 0
+
+        projected = []
+        for m in range(current_month + 1, 13):
+            projected.append({
+                'month': _ym_str(current_year, m),
+                'policy_count':  round(avg_policies),
+                'gross_premium': round(avg_gross, 2),
+                'grand_total':   round(avg_grand, 2),
+                'member_count':  round(avg_members),
+            })
+
+        # Year-end totals: actuals + projected
+        year_end = {
+            'policy_count':  sum(a['policy_count']  for a in actuals) + sum(p['policy_count']  for p in projected),
+            'gross_premium': round(sum(a['gross_premium'] for a in actuals) + sum(p['gross_premium'] for p in projected), 2),
+            'grand_total':   round(sum(a['grand_total']   for a in actuals) + sum(p['grand_total']   for p in projected), 2),
+            'member_count':  sum(a['member_count']  for a in actuals) + sum(p['member_count']  for p in projected),
+        }
+        ytd = {
+            'policy_count':  sum(a['policy_count']  for a in actuals),
+            'gross_premium': round(sum(a['gross_premium'] for a in actuals), 2),
+            'grand_total':   round(sum(a['grand_total']   for a in actuals), 2),
+            'member_count':  sum(a['member_count']  for a in actuals),
+        }
+
+        return jsonify({
+            'year': current_year,
+            'current_month': current_month,
+            'actuals': actuals,
+            'projected': projected,
+            'ytd': ytd,
+            'year_end': year_end,
+            'method': 'linear_run_rate_last_3_months',
+            'window_months': len(window),
+        })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -4372,7 +4509,7 @@ def api_dashboard_take_rate():
     try:
         from collections import defaultdict
         q = supa.table('policies').select(
-            'plan,total_net,total_maternity,rm_wellx,created_at'
+            'plan,total_net,total_maternity,rm_wellx,start_date,confirmation_date,created_at'
         )
         q = _dash_filter(q, request.args)
         rows = _filter_rows_by_month(q.execute().data or [], request.args)
@@ -4426,19 +4563,19 @@ def api_dashboard_export():
 
         # ── Fetch data ──────────────────────────────────────────────────────
         q_monthly = supa.table('policies').select(
-            'created_at,plan,plan_type,total_net,total_maternity,grand_total,member_count'
+            'start_date,confirmation_date,created_at,plan,plan_type,total_net,total_maternity,grand_total,member_count'
         )
         q_monthly = _dash_filter(q_monthly, args)
         all_rows  = _filter_rows_by_month(q_monthly.execute().data or [], args)
 
         q_tr = supa.table('policies').select(
-            'plan,total_net,total_maternity,rm_wellx,created_at'
+            'plan,total_net,total_maternity,rm_wellx,start_date,confirmation_date,created_at'
         )
         q_tr = _dash_filter(q_tr, args)
         tr_rows = _filter_rows_by_month(q_tr.execute().data or [], args)
 
         q_br = supa.table('policies').select(
-            'broker,member_count,total_net,total_maternity,grand_total,created_at'
+            'broker,member_count,total_net,total_maternity,grand_total,start_date,confirmation_date,created_at'
         )
         q_br = _dash_filter(q_br, args)
         br_rows = _filter_rows_by_month(q_br.execute().data or [], args)
@@ -4479,7 +4616,9 @@ def api_dashboard_export():
         # ── Monthly summary table ───────────────────────────────────────────
         monthly = defaultdict(lambda: {'policy_count': 0, 'gross_premium': 0.0, 'grand_total': 0.0, 'member_count': 0})
         for r in all_rows:
-            m     = (r.get('created_at') or '')[:7]
+            m     = _row_ym(r, args)
+            if not m:
+                continue
             gross = float(r.get('total_net') or 0) + float(r.get('total_maternity') or 0)
             monthly[m]['policy_count']  += 1
             monthly[m]['gross_premium'] += gross
@@ -4723,9 +4862,9 @@ def api_policies_meta():
     if not supa:
         return jsonify({'brokers': [], 'rms': [], 'plans': [], 'plan_types': [], 'months': []})
     try:
-        res = supa.table('policies').select('broker,rm_person,plan,plan_type,created_at').execute()
+        res = supa.table('policies').select('broker,rm_person,plan,plan_type,start_date,confirmation_date,created_at').execute()
         rows = res.data or []
-        months = sorted({(r.get('created_at') or '')[:7] for r in rows if r.get('created_at')}, reverse=True)
+        months = sorted({_row_ym(r, request.args) for r in rows if _row_ym(r, request.args)}, reverse=True)
         return jsonify({
             'brokers':    sorted({r['broker']    for r in rows if r.get('broker')}),
             'rms':        sorted({r['rm_person'] for r in rows if r.get('rm_person')}),

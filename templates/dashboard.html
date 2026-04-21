@@ -3,140 +3,234 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dashboard — Wellx Labs</title>
+<title>Intelligence Dashboard — Wellx Labs</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Raleway:wght@700;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Raleway:wght@700;800;900&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
 :root {
-  --navy:   #003780;
-  --mid:    #1a5ba0;
-  --orange: #e65100;
-  --slate:  #64748b;
-  --dark:   #1a2332;
-  --light:  #f0f4ff;
-  --white:  #ffffff;
-  --green:  #16a34a;
-  --red:    #dc2626;
-  --grad:   linear-gradient(135deg,#003780,#8431cb,#35c5fc);
+  --bg:         #0a0f1c;
+  --bg-2:       #070b15;
+  --surface:    #111826;
+  --surface-2:  #0d1422;
+  --border:     #1f2a3d;
+  --border-2:   #2a3a53;
+  --text:       #e6ecf5;
+  --text-dim:   #8a97ad;
+  --text-mute:  #5b6a85;
+  --accent:     #35c5fc;
+  --accent-2:   #8431cb;
+  --brand:      #00e5a0;
+  --warn:       #f5c242;
+  --alert:      #ff5a7a;
+  --good:       #22d3a8;
+  --bad:        #ff5a7a;
+  --glow:       0 0 40px rgba(53,197,252,.20);
+  --glow-soft:  0 0 24px rgba(53,197,252,.12);
+  --grad:       linear-gradient(135deg,#35c5fc,#8431cb);
+  --grad-soft:  linear-gradient(135deg,rgba(53,197,252,.12),rgba(132,49,203,.08));
+  --grad-green: linear-gradient(135deg,#00e5a0,#35c5fc);
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Inter',system-ui,sans-serif;background:#0a0a0a;min-height:100vh;color:#1a2332;padding:0 0 80px}
+html,body{background:var(--bg);min-height:100vh}
+body{font-family:'Inter',system-ui,sans-serif;color:var(--text);padding:0 0 120px;line-height:1.45;-webkit-font-smoothing:antialiased}
 
-.top-nav{background:#000;border-bottom:3px solid transparent;border-image:var(--grad) 1;display:flex;align-items:center;justify-content:space-between;padding:14px 32px}
+/* ── Top nav ── */
+.top-nav{background:var(--bg-2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:14px 32px;position:sticky;top:0;z-index:20;backdrop-filter:blur(6px)}
 .nav-brand{font-family:'Raleway',sans-serif;font-weight:900;font-size:.7rem;letter-spacing:3px;text-transform:uppercase;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.nav-links{display:flex;gap:6px}
-.nav-links a{color:#94a3b8;font-size:.8rem;font-weight:600;text-decoration:none;padding:6px 14px;border-radius:8px;transition:.15s}
-.nav-links a:hover{background:#1e293b;color:#fff}
-.nav-links a.active{background:var(--navy);color:#fff}
+.nav-links{display:flex;gap:4px}
+.nav-links a{color:var(--text-dim);font-size:.8rem;font-weight:600;text-decoration:none;padding:7px 14px;border-radius:8px;transition:.15s}
+.nav-links a:hover{background:var(--surface);color:#fff}
+.nav-links a.active{background:var(--surface);color:#fff;box-shadow:inset 0 0 0 1px var(--border-2)}
 
-.page{max-width:1200px;margin:32px auto;padding:0 20px}
-h1{font-family:'Raleway',sans-serif;font-weight:900;font-size:1.6rem;color:#fff;margin-bottom:6px}
-.sub{color:#94a3b8;font-size:.85rem;margin-bottom:20px}
+/* ── Page shell ── */
+.page{max-width:1320px;margin:32px auto;padding:0 24px}
+h1{font-family:'Raleway',sans-serif;font-weight:900;font-size:1.85rem;color:#fff;margin-bottom:6px;letter-spacing:-.01em}
+.sub{color:var(--text-dim);font-size:.9rem;margin-bottom:26px;max-width:680px}
+.sub strong{color:var(--text)}
 
 /* ── Filter bar ── */
-.filter-bar{background:#fff;border-radius:14px;padding:16px 20px;margin-bottom:20px;box-shadow:0 4px 20px rgba(0,0,0,.4);display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+.filter-bar{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 18px;margin-bottom:28px;display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
 .fg{display:flex;flex-direction:column;gap:3px}
-.fg label{font-size:.68rem;font-weight:600;color:var(--slate);text-transform:uppercase;letter-spacing:.6px}
-.fg select{border:1.5px solid #e0e7f0;border-radius:8px;padding:6px 10px;font-size:.82rem;font-family:inherit;color:var(--dark);background:#f8faff;outline:none;min-width:140px;transition:.15s}
-.fg select:focus{border-color:var(--navy)}
-.btn{padding:7px 16px;border:none;border-radius:8px;font-size:.82rem;font-weight:600;font-family:inherit;cursor:pointer;transition:.15s}
-.btn-primary{background:var(--navy);color:#fff}
-.btn-primary:hover{background:var(--mid)}
-.btn-ghost{background:#f0f4ff;color:var(--navy)}
-.btn-ghost:hover{background:#e0eaff}
+.fg label{font-size:.66rem;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.6px}
+.btn{padding:8px 16px;border:none;border-radius:8px;font-size:.82rem;font-weight:600;font-family:inherit;cursor:pointer;transition:.15s;color:#fff}
+.btn-primary{background:var(--grad)}
+.btn-primary:hover{filter:brightness(1.1);box-shadow:var(--glow-soft)}
+.btn-ghost{background:var(--surface-2);color:var(--text);border:1px solid var(--border)}
+.btn-ghost:hover{background:var(--bg-2);border-color:var(--border-2)}
+
+/* ── Multi-select chip ── */
+.ms{position:relative;display:flex;flex-direction:column;gap:3px}
+.ms-label{font-size:.66rem;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.6px}
+.ms-chip{border:1px solid var(--border);border-radius:8px;padding:7px 28px 7px 12px;font-size:.82rem;font-family:inherit;color:var(--text);background:var(--surface-2);outline:none;min-width:150px;max-width:240px;cursor:pointer;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;position:relative;transition:.15s}
+.ms-chip:hover{border-color:var(--accent);background:var(--bg-2)}
+.ms-chip.has-selection{border-color:var(--accent);color:#fff;background:linear-gradient(135deg,rgba(53,197,252,.14),rgba(132,49,203,.06))}
+.ms-chip::after{content:'▾';position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:.7rem}
+.ms-panel{position:absolute;top:calc(100% + 4px);left:0;background:var(--surface);border:1px solid var(--border-2);border-radius:10px;box-shadow:0 16px 40px rgba(0,0,0,.5);z-index:100;min-width:220px;max-height:320px;overflow:auto;padding:6px 0;display:none}
+.ms-panel.open{display:block}
+.ms-opt{display:flex;align-items:center;gap:8px;padding:8px 14px;font-size:.82rem;color:var(--text);cursor:pointer;user-select:none}
+.ms-opt:hover{background:var(--surface-2)}
+.ms-opt input{accent-color:var(--accent);cursor:pointer}
+.ms-opt.ms-all{border-bottom:1px solid var(--border);font-weight:600;color:var(--accent)}
+
+/* ── Section headers ── */
+.s-wrap{margin-bottom:36px}
+.s-header{display:flex;align-items:baseline;gap:14px;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+.s-tag{font-family:'Raleway',sans-serif;font-size:.6rem;font-weight:900;letter-spacing:3px;text-transform:uppercase;padding:4px 10px;border-radius:6px;color:#fff;background:var(--grad)}
+.s-title{font-family:'Raleway',sans-serif;font-weight:900;font-size:1.4rem;color:#fff;letter-spacing:-.01em}
+.s-sub{color:var(--text-dim);font-size:.82rem;margin-left:auto}
+
+/* ── Cards / sections ── */
+.section{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:22px 24px;margin-bottom:20px;transition:box-shadow .2s,border-color .2s}
+.section.spotlight{box-shadow:var(--glow);border-color:rgba(53,197,252,.35)}
+.section-title{font-family:'Raleway',sans-serif;font-weight:800;font-size:.92rem;color:#fff;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:16px;display:flex;align-items:center;gap:10px}
+.section-title .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px var(--accent)}
+.section-sub{color:var(--text-dim);font-size:.78rem;margin-top:-10px;margin-bottom:16px}
+.local-ask{margin-left:auto;width:28px;height:28px;border-radius:50%;border:1px solid var(--border-2);background:var(--surface-2);color:var(--text-dim);font-size:.82rem;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:.15s}
+.local-ask:hover{border-color:var(--accent);color:var(--accent);box-shadow:var(--glow-soft)}
 
 /* ── KPI row ── */
-.kpi-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:14px;margin-bottom:20px}
-.kpi{background:#fff;border-radius:14px;padding:16px 20px;box-shadow:0 4px 20px rgba(0,0,0,.4)}
-.kpi .kv{font-family:'Raleway',sans-serif;font-weight:900;font-size:1.35rem;color:var(--navy)}
-.kpi .kl{font-size:.68rem;font-weight:600;color:var(--slate);text-transform:uppercase;letter-spacing:.7px;margin-top:3px}
-.kpi-multi{display:flex;flex-direction:column;gap:10px}
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:18px}
+.kpi{background:linear-gradient(180deg,var(--surface),var(--surface-2));border:1px solid var(--border);border-radius:14px;padding:16px 20px;position:relative;overflow:hidden}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--grad);opacity:.7}
+.kpi .kl{font-size:.66rem;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.7px;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.kpi .kv{font-family:'Raleway',sans-serif;font-weight:900;font-size:1.6rem;color:#fff;line-height:1.1}
+.kpi .kd{font-size:.72rem;font-weight:600;margin-top:6px;display:flex;align-items:center;gap:4px}
+.kpi .kd.up{color:var(--good)}
+.kpi .kd.down{color:var(--bad)}
+.kpi .kd.flat{color:var(--text-mute)}
+.kpi-multi{display:flex;flex-direction:column;gap:8px}
+.kpi-multi .kpi-header{font-size:.66rem;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.7px;border-bottom:1px solid var(--border);padding-bottom:6px;margin-bottom:4px}
 .kpi-multi .kpi-item{display:flex;justify-content:space-between;align-items:baseline}
-.kpi-multi .kpi-item .kv{font-family:'Raleway',sans-serif;font-weight:900;font-size:1.1rem;color:var(--navy)}
-.kpi-multi .kpi-item .kl{font-size:.62rem;font-weight:600;color:var(--slate);text-transform:uppercase;letter-spacing:.5px;margin-top:0}
-.kpi-multi .kpi-header{font-size:.68rem;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.7px;border-bottom:1.5px solid var(--light);padding-bottom:6px}
+.kpi-multi .kpi-item .kl{font-size:.62rem;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px;margin:0;display:block}
+.kpi-multi .kpi-item .kv{font-family:'Raleway',sans-serif;font-weight:900;font-size:1.05rem;color:#fff}
 
-/* ── Section ── */
-.section{background:#fff;border-radius:16px;padding:22px 26px;margin-bottom:22px;box-shadow:0 4px 24px rgba(0,0,0,.4)}
-.section-title{font-family:'Raleway',sans-serif;font-weight:900;font-size:.85rem;color:var(--navy);text-transform:uppercase;letter-spacing:1px;margin-bottom:18px;padding-bottom:10px;border-bottom:2px solid var(--light)}
-.chart-wrap{position:relative;height:320px;margin-bottom:18px}
+/* ── Punchline block ── */
+.punchline{background:var(--grad-soft);border:1px solid rgba(53,197,252,.22);border-radius:12px;padding:14px 18px;margin-top:14px;display:flex;gap:12px;align-items:flex-start}
+.punchline .pl-icon{width:28px;height:28px;min-width:28px;border-radius:8px;background:var(--grad);color:#fff;font-weight:900;font-size:.72rem;display:inline-flex;align-items:center;justify-content:center;font-family:'Raleway',sans-serif;letter-spacing:.5px}
+.punchline .pl-body{color:var(--text);font-size:.86rem;line-height:1.5}
+.punchline .pl-body strong{color:#fff}
+.punchline.alert{background:linear-gradient(135deg,rgba(255,90,122,.12),rgba(245,194,66,.06));border-color:rgba(255,90,122,.3)}
+.punchline.alert .pl-icon{background:linear-gradient(135deg,#ff5a7a,#f5c242)}
+.punchline.good{background:linear-gradient(135deg,rgba(0,229,160,.12),rgba(53,197,252,.06));border-color:rgba(0,229,160,.3)}
+.punchline.good .pl-icon{background:var(--grad-green)}
 
-/* ── Legend ── */
-.chart-legend{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:14px;font-size:.78rem;font-weight:600;color:var(--dark)}
-.legend-item{display:flex;align-items:center;gap:5px}
+/* ── Chart wrap ── */
+.chart-wrap{position:relative;height:360px;margin-bottom:8px}
+.chart-legend{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:14px;font-size:.76rem;font-weight:500;color:var(--text-dim)}
+.legend-item{display:flex;align-items:center;gap:6px}
 .legend-swatch{width:12px;height:12px;border-radius:3px;flex-shrink:0}
+.legend-note{color:var(--text-mute);font-size:.72rem;font-style:italic;margin-left:auto}
 
 /* ── Tables ── */
-.tbl-wrap{overflow-x:auto}
+.tbl-wrap{overflow-x:auto;border-radius:10px;border:1px solid var(--border);background:var(--surface-2)}
 table{width:100%;border-collapse:collapse}
-thead tr{background:var(--navy)}
-thead th{color:#fff;font-size:.74rem;font-weight:700;padding:9px 14px;text-align:left;white-space:nowrap}
-tbody tr:nth-child(even){background:#f8faff}
-tbody tr:hover{background:#eef3ff}
-tbody td{padding:9px 14px;font-size:.83rem;color:var(--dark)}
+thead tr{background:var(--bg-2)}
+thead th{color:var(--text-dim);font-size:.7rem;font-weight:700;padding:10px 14px;text-align:left;white-space:nowrap;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border)}
+tbody tr{border-bottom:1px solid var(--border)}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:rgba(53,197,252,.05)}
+tbody td{padding:11px 14px;font-size:.84rem;color:var(--text)}
 .num{text-align:right;font-variant-numeric:tabular-nums}
-tfoot tr{background:#e8f0fe}
-tfoot td{padding:9px 14px;font-size:.83rem;font-weight:700;color:var(--navy)}
-.empty-row td{text-align:center;color:#94a3b8;padding:24px!important}
-
-/* ── RM table ── */
-.pct{font-size:.75rem;font-weight:600;padding:2px 7px;border-radius:10px}
-.pct-good{background:#dcfce7;color:#166534}
-.pct-warn{background:#fef9c3;color:#854d0e}
-.pct-bad{background:#fee2e2;color:#991b1b}
-.target-input{border:1.5px solid #e0e7f0;border-radius:6px;padding:4px 8px;font-size:.82rem;font-family:inherit;width:110px;text-align:right;outline:none;transition:.15s}
-.target-input:focus{border-color:var(--navy)}
-.save-btn{padding:4px 10px;background:var(--navy);color:#fff;border:none;border-radius:6px;font-size:.75rem;font-weight:600;cursor:pointer;transition:.15s;margin-left:4px}
-.save-btn:hover{background:var(--mid)}
-.rm-controls{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
-.rm-controls select{border:1.5px solid #e0e7f0;border-radius:8px;padding:6px 10px;font-size:.83rem;font-family:inherit;color:var(--dark);background:#f8faff;outline:none}
-
-/* ── Multi-select filter chip ── */
-.ms{position:relative;display:flex;flex-direction:column;gap:3px}
-.ms-label{font-size:.68rem;font-weight:600;color:var(--slate);text-transform:uppercase;letter-spacing:.6px}
-.ms-chip{border:1.5px solid #e0e7f0;border-radius:8px;padding:6px 28px 6px 10px;font-size:.82rem;font-family:inherit;color:var(--dark);background:#f8faff;outline:none;min-width:150px;max-width:220px;cursor:pointer;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;position:relative;transition:.15s}
-.ms-chip:hover{border-color:var(--mid)}
-.ms-chip.has-selection{border-color:var(--navy);font-weight:600;color:var(--navy)}
-.ms-chip::after{content:'▾';position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--slate);font-size:.7rem}
-.ms-panel{position:absolute;top:calc(100% + 4px);left:0;background:#fff;border:1.5px solid #e0e7f0;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.25);z-index:100;min-width:220px;max-height:320px;overflow:auto;padding:6px 0;display:none}
-.ms-panel.open{display:block}
-.ms-opt{display:flex;align-items:center;gap:8px;padding:7px 14px;font-size:.82rem;color:var(--dark);cursor:pointer;user-select:none}
-.ms-opt:hover{background:#f0f4ff}
-.ms-opt input{accent-color:var(--navy);cursor:pointer}
-.ms-opt.ms-all{border-bottom:1px solid #e0e7f0;font-weight:600;color:var(--navy)}
-
-/* ── Clickable rows for drill-down ── */
+tfoot tr{background:var(--bg-2)}
+tfoot td{padding:11px 14px;font-size:.85rem;font-weight:700;color:var(--accent);border-top:1px solid var(--border-2)}
+.empty-row td{text-align:center;color:var(--text-mute);padding:28px!important;font-style:italic}
 tbody tr.drillable{cursor:pointer}
-tbody tr.drillable:hover{background:#e0eaff !important}
+tbody tr.drillable:hover{background:rgba(53,197,252,.08)}
 .trophy{margin-right:5px}
 
-/* ── Print (PDF export) ── */
+/* ── % badges ── */
+.pct{font-size:.72rem;font-weight:700;padding:3px 8px;border-radius:10px;display:inline-block}
+.pct-good{background:rgba(0,229,160,.15);color:var(--good);border:1px solid rgba(0,229,160,.3)}
+.pct-warn{background:rgba(245,194,66,.15);color:var(--warn);border:1px solid rgba(245,194,66,.3)}
+.pct-bad{background:rgba(255,90,122,.15);color:var(--bad);border:1px solid rgba(255,90,122,.3)}
+
+/* ── RM controls ── */
+.rm-controls{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.rm-controls label{font-size:.76rem;font-weight:600;color:var(--text-dim)}
+.rm-controls select{border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:.82rem;font-family:inherit;color:var(--text);background:var(--surface-2);outline:none}
+.rm-controls select:focus{border-color:var(--accent)}
+.target-input{border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:.82rem;font-family:inherit;width:110px;text-align:right;outline:none;transition:.15s;background:var(--bg-2);color:var(--text)}
+.target-input:focus{border-color:var(--accent)}
+.save-btn{padding:5px 10px;background:var(--grad);color:#fff;border:none;border-radius:6px;font-size:.74rem;font-weight:600;cursor:pointer;transition:.15s;margin-left:4px}
+.save-btn:hover{filter:brightness(1.1)}
+
+/* ── Grid tiles ── */
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px}
+.tile{background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:16px 18px}
+.tile-label{font-size:.68rem;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px}
+.tile-value{font-family:'Raleway',sans-serif;font-weight:900;font-size:1.35rem;color:#fff;line-height:1.1}
+.tile-sub{font-size:.75rem;color:var(--text-dim);margin-top:6px}
+.tile-sub.up{color:var(--good)}
+.tile-sub.down{color:var(--bad)}
+
+/* ── Bionic W floating button ── */
+.bionic-btn{position:fixed;right:26px;bottom:26px;width:58px;height:58px;border-radius:50%;background:var(--grad);border:none;color:#fff;font-family:'Raleway',sans-serif;font-weight:900;font-size:1.4rem;cursor:pointer;box-shadow:0 10px 30px rgba(53,197,252,.35),0 0 30px rgba(132,49,203,.25);display:flex;align-items:center;justify-content:center;z-index:1000;transition:.2s;letter-spacing:-.02em}
+.bionic-btn:hover{transform:translateY(-2px) scale(1.05);box-shadow:0 14px 40px rgba(53,197,252,.5),0 0 40px rgba(132,49,203,.35)}
+.bionic-btn::before{content:'';position:absolute;inset:-3px;border-radius:50%;background:var(--grad);opacity:.3;z-index:-1;filter:blur(10px);animation:bionic-pulse 3s ease-in-out infinite}
+@keyframes bionic-pulse{0%,100%{opacity:.3;transform:scale(1)}50%{opacity:.5;transform:scale(1.1)}}
+
+.bionic-drawer{position:fixed;right:26px;bottom:100px;width:360px;max-width:calc(100vw - 52px);background:var(--surface);border:1px solid var(--border-2);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.6);z-index:1000;padding:20px;display:none;animation:drawer-in .2s ease-out}
+.bionic-drawer.open{display:block}
+@keyframes drawer-in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.bionic-drawer h3{font-family:'Raleway',sans-serif;font-weight:900;font-size:1rem;color:#fff;margin-bottom:4px;display:flex;align-items:center;gap:8px}
+.bionic-drawer h3 .bw-dot{width:8px;height:8px;border-radius:50%;background:var(--brand);box-shadow:0 0 10px var(--brand)}
+.bionic-drawer .bd-sub{color:var(--text-dim);font-size:.78rem;margin-bottom:14px}
+.bionic-drawer .bd-stub{background:var(--grad-soft);border:1px solid rgba(53,197,252,.22);border-radius:10px;padding:14px;color:var(--text);font-size:.85rem;line-height:1.5}
+.bionic-drawer input{width:100%;background:var(--bg-2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-family:inherit;font-size:.85rem;margin-top:12px;outline:none}
+.bionic-drawer input:focus{border-color:var(--accent)}
+.bionic-drawer .bd-close{position:absolute;top:12px;right:14px;background:none;border:none;color:var(--text-mute);cursor:pointer;font-size:1.1rem;padding:4px 8px}
+.bionic-drawer .bd-close:hover{color:var(--text)}
+
+/* ── Responsive ── */
+@media (max-width: 900px){
+  .page{padding:0 16px;margin:20px auto}
+  h1{font-size:1.4rem}
+  .grid-2,.grid-3{grid-template-columns:1fr}
+  .s-sub{display:none}
+  .chart-wrap{height:280px}
+  .bionic-btn{right:16px;bottom:16px;width:50px;height:50px;font-size:1.2rem}
+  .bionic-drawer{right:16px;bottom:78px;width:calc(100vw - 32px)}
+}
+
+/* ── Print / PDF export ── */
 @media print {
   @page { size: A4; margin: 12mm; }
   html, body { background: #fff !important; color: #000 !important; padding: 0 !important; }
   .top-nav, .nav-links, .nav-brand,
   .filter-bar .btn, #dashDlBtn, #dashPrintBtn,
   .target-input, .save-btn,
-  .rm-controls select, .rm-controls label { display: none !important; }
-  .filter-bar { box-shadow: none !important; border: 1px solid #e0e7f0; padding: 10px 14px; }
-  .fg select { border: none !important; background: transparent !important; padding: 0 !important; font-weight: 600; color: #000 !important; -webkit-appearance: none; appearance: none; }
+  .rm-controls select, .rm-controls label,
+  .bionic-btn, .bionic-drawer, .local-ask { display: none !important; }
+  .filter-bar { box-shadow: none !important; border: 1px solid #e0e7f0; padding: 10px 14px; background:#fff !important; }
+  .ms-chip{background:#fff !important;color:#000 !important;border:1px solid #cbd5e1 !important}
   .page { max-width: 100% !important; margin: 0 !important; padding: 0 !important; }
-  h1 { color: #003780 !important; font-size: 1.3rem; }
-  .sub { color: #475569 !important; }
-  .section, .kpi, .filter-bar { box-shadow: none !important; border: 1px solid #e5ecf6; page-break-inside: avoid; }
-  .kpi .kv { color: #003780 !important; }
-  .kpi .kl { color: #475569 !important; }
+  h1, .s-title { color: #003780 !important; font-family:'Raleway',sans-serif; }
+  .sub, .s-sub, .section-sub { color: #475569 !important; }
+  .section, .kpi, .filter-bar, .tile { box-shadow: none !important; border: 1px solid #e5ecf6 !important; page-break-inside: avoid; background:#fff !important; }
+  .kpi .kv, .tile-value { color: #003780 !important; }
+  .kpi .kl, .tile-label { color: #475569 !important; }
   .section-title { color: #003780 !important; }
+  .section-title .dot{display:none !important}
   .chart-wrap { height: 260px !important; page-break-inside: avoid; }
+  .tbl-wrap{border:1px solid #e5ecf6 !important;background:#fff !important}
   thead tr { background: #003780 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  thead th { color: #fff !important; }
+  thead th { color: #fff !important; border-bottom:none !important }
+  tbody tr { border-bottom: 1px solid #f0f4ff !important }
   tbody tr:nth-child(even) { background: #f4f8ff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   tbody td, tfoot td { color: #000 !important; }
-  .pct-good { background: #dcfce7 !important; color: #166534 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .pct-warn { background: #fef9c3 !important; color: #854d0e !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .pct-bad  { background: #fee2e2 !important; color: #991b1b !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  tfoot tr { background: #e8f0fe !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .pct-good { background: #dcfce7 !important; color: #166534 !important; border:none !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .pct-warn { background: #fef9c3 !important; color: #854d0e !important; border:none !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .pct-bad  { background: #fee2e2 !important; color: #991b1b !important; border:none !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .punchline { background:#f0f9ff !important; border:1px solid #bae6fd !important; color:#0c4a6e !important; page-break-inside: avoid; }
+  .punchline .pl-body, .punchline .pl-body strong { color:#0c4a6e !important }
+  .punchline .pl-icon{background:#003780 !important}
+  .s-tag{background:#003780 !important;color:#fff !important}
   .section { page-break-inside: avoid; }
+  .s-header{border-bottom:2px solid #003780 !important}
+  .kpi::before{background:#003780 !important}
 }
 </style>
 </head>
@@ -153,11 +247,15 @@ tbody tr.drillable:hover{background:#e0eaff !important}
 </nav>
 
 <div class="page">
-  <h1>Management Dashboard</h1>
-  <p class="sub">Sales performance, broker activity, and RM targets.</p>
+  <h1>Intelligence Dashboard</h1>
+  <p class="sub">A decision surface for sales intelligence, broker activity, and forward outlook. <strong>Report-by Insurance Start Date</strong> by default — switch to confirmation date for reconciliation.</p>
 
   <!-- Global Filters -->
   <div class="filter-bar">
+    <div class="ms" id="msDateBasis">
+      <span class="ms-label">Report by</span>
+      <button type="button" class="ms-chip">Insurance Start Date</button>
+    </div>
     <div class="ms" id="msPlan">
       <span class="ms-label">Plan</span>
       <button type="button" class="ms-chip">All Plans</button>
@@ -180,149 +278,303 @@ tbody tr.drillable:hover{background:#e0eaff !important}
     </div>
     <button class="btn btn-primary" onclick="applyFilters()">Apply</button>
     <button class="btn btn-ghost" onclick="clearFilters()">Clear</button>
-    <button class="btn btn-ghost" id="dashDlBtn" onclick="downloadDashboard()" style="margin-left:auto">⬇ Download Excel</button>
+    <button class="btn btn-ghost" id="dashDlBtn" onclick="downloadDashboard()" style="margin-left:auto">⬇ Excel</button>
     <button class="btn btn-ghost" id="dashPrintBtn" onclick="printDashboard()">🖨 Print / PDF</button>
   </div>
 
-  <!-- KPIs -->
-  <div class="kpi-row">
-    <div class="kpi"><div class="kv" id="kRevenue">—</div><div class="kl">Total Revenue</div></div>
-    <div class="kpi"><div class="kv" id="kTotal">—</div><div class="kl">Total Policies</div></div>
-    <div class="kpi"><div class="kv" id="kGross">—</div><div class="kl">Total Gross Premium</div></div>
-    <div class="kpi"><div class="kv" id="kMembers">—</div><div class="kl">Total Members</div></div>
-    <div class="kpi">
-      <div class="kpi-multi">
-        <div class="kpi-header">Policy Stats</div>
-        <div class="kpi-item"><div class="kl">Premium / Policy</div><div class="kv" id="kAvg">—</div></div>
-        <div class="kpi-item"><div class="kl">Census / Policy</div><div class="kv" id="kAvgCensus">—</div></div>
-        <div class="kpi-item"><div class="kl">Premium / Member</div><div class="kv" id="kPerCapita">—</div></div>
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 1 — WHAT WE'VE BUILT                                    -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <div class="s-wrap" id="sec1">
+    <div class="s-header">
+      <span class="s-tag">§1</span>
+      <h2 class="s-title">What We've Built</h2>
+      <span class="s-sub">Business as it stands today vs historical baselines</span>
+    </div>
+
+    <!-- KPI row with YoY deltas -->
+    <div class="kpi-row">
+      <div class="kpi">
+        <div class="kl">Total Revenue</div>
+        <div class="kv" id="kRevenue">—</div>
+        <div class="kd" id="kRevenueDelta">&nbsp;</div>
+      </div>
+      <div class="kpi">
+        <div class="kl">Total Policies</div>
+        <div class="kv" id="kTotal">—</div>
+        <div class="kd" id="kTotalDelta">&nbsp;</div>
+      </div>
+      <div class="kpi">
+        <div class="kl">Gross Premium</div>
+        <div class="kv" id="kGross">—</div>
+        <div class="kd" id="kGrossDelta">&nbsp;</div>
+      </div>
+      <div class="kpi">
+        <div class="kl">Total Members</div>
+        <div class="kv" id="kMembers">—</div>
+        <div class="kd" id="kMembersDelta">&nbsp;</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-multi">
+          <div class="kpi-header">Density</div>
+          <div class="kpi-item"><div class="kl">Premium / Policy</div><div class="kv" id="kAvg">—</div></div>
+          <div class="kpi-item"><div class="kl">Census / Policy</div><div class="kv" id="kAvgCensus">—</div></div>
+          <div class="kpi-item"><div class="kl">Premium / Member</div><div class="kv" id="kPerCapita">—</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Monthly Sales chart -->
+    <div class="section">
+      <div class="section-title">
+        <span class="dot"></span>
+        Monthly Sales — Plan Mix
+        <button class="local-ask" onclick="openBionic('monthly sales and plan mix')" title="Ask Jasper">?</button>
+      </div>
+      <div class="section-sub">Gross premium by plan and type. Same-month-last-year shown as dashed overlay where available.</div>
+
+      <div class="chart-legend">
+        <span class="legend-item"><span class="legend-swatch" style="background:#00e5a0"></span>Healthx — New</span>
+        <span class="legend-item"><span class="legend-swatch" style="background:#6ef5c3"></span>Healthx — Renewal</span>
+        <span class="legend-item"><span class="legend-swatch" style="background:#ff5a7a"></span>Healthxclusive — New</span>
+        <span class="legend-item"><span class="legend-swatch" style="background:#ffa5b6"></span>Healthxclusive — Renewal</span>
+        <span class="legend-item"><span class="legend-swatch" style="background:#35c5fc"></span>Openx — New</span>
+        <span class="legend-item"><span class="legend-swatch" style="background:#8cddff"></span>Openx — Renewal</span>
+        <span class="legend-note">Actuals solid · Prior year dashed</span>
+      </div>
+
+      <div class="chart-wrap"><canvas id="monthChart"></canvas></div>
+
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr>
+            <th>Month</th>
+            <th class="num">Policies</th>
+            <th class="num">Members</th>
+            <th class="num">Gross Premium</th>
+            <th class="num">Grand Total</th>
+          </tr></thead>
+          <tbody id="monthBody"></tbody>
+          <tfoot><tr>
+            <td>TOTAL</td>
+            <td class="num" id="mfCount">—</td>
+            <td class="num" id="mfMembers">—</td>
+            <td class="num" id="mfGross">—</td>
+            <td class="num" id="mfGrand">—</td>
+          </tr></tfoot>
+        </table>
+      </div>
+
+      <div class="punchline" id="monthlyPunch">
+        <div class="pl-icon">W</div>
+        <div class="pl-body">Loading interpretation…</div>
       </div>
     </div>
   </div>
 
-  <!-- Monthly Sales -->
-  <div class="section">
-    <div class="section-title">Monthly Sales</div>
-
-    <!-- Custom legend -->
-    <div class="chart-legend">
-      <span class="legend-item"><span class="legend-swatch" style="background:#16a34a"></span>Healthx — New</span>
-      <span class="legend-item"><span class="legend-swatch" style="background:#4ade80"></span>Healthx — Renewal</span>
-      <span class="legend-item"><span class="legend-swatch" style="background:#7f1d1d"></span>Healthxclusive — New</span>
-      <span class="legend-item"><span class="legend-swatch" style="background:#f87171"></span>Healthxclusive — Renewal</span>
-      <span class="legend-item"><span class="legend-swatch" style="background:#1d4ed8"></span>Openx — New</span>
-      <span class="legend-item"><span class="legend-swatch" style="background:#93c5fd"></span>Openx — Renewal</span>
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 2 — WHAT NEEDS ATTENTION                                -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <div class="s-wrap" id="sec2">
+    <div class="s-header">
+      <span class="s-tag">§2</span>
+      <h2 class="s-title">What Needs Attention</h2>
+      <span class="s-sub">Current-month operating heartbeat</span>
     </div>
 
-    <div class="chart-wrap"><canvas id="monthChart"></canvas></div>
-    <div class="tbl-wrap">
-      <table>
-        <thead><tr>
-          <th>Month</th>
-          <th class="num">Policies</th>
-          <th class="num">Members</th>
-          <th class="num">Gross Premium</th>
-          <th class="num">Grand Total</th>
-        </tr></thead>
-        <tbody id="monthBody"></tbody>
-        <tfoot><tr>
-          <td>TOTAL</td>
-          <td class="num" id="mfCount">—</td>
-          <td class="num" id="mfMembers">—</td>
-          <td class="num" id="mfGross">—</td>
-          <td class="num" id="mfGrand">—</td>
-        </tr></tfoot>
-      </table>
+    <!-- MTD heartbeat tiles -->
+    <div class="grid-3">
+      <div class="tile">
+        <div class="tile-label">MTD Policies</div>
+        <div class="tile-value" id="mtdPolicies">—</div>
+        <div class="tile-sub" id="mtdPoliciesDelta">vs same point last month</div>
+      </div>
+      <div class="tile">
+        <div class="tile-label">MTD Gross Premium</div>
+        <div class="tile-value" id="mtdGross">—</div>
+        <div class="tile-sub" id="mtdGrossDelta">vs same point last month</div>
+      </div>
+      <div class="tile">
+        <div class="tile-label">MTD Members</div>
+        <div class="tile-value" id="mtdMembers">—</div>
+        <div class="tile-sub" id="mtdMembersDelta">vs same point last month</div>
+      </div>
+    </div>
+
+    <!-- Broker Performance -->
+    <div class="section">
+      <div class="section-title">
+        <span class="dot"></span>
+        Broker Performance
+        <button class="local-ask" onclick="openBionic('broker performance')" title="Ask Jasper">?</button>
+      </div>
+      <div class="section-sub">Ranked by grand total. Click a row to drill into the broker's policies.</div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr>
+            <th>Broker</th>
+            <th class="num">Policies</th>
+            <th class="num">Members</th>
+            <th class="num">Gross Premium</th>
+            <th class="num">Grand Total</th>
+            <th class="num">Avg Policy</th>
+          </tr></thead>
+          <tbody id="brokerBody"></tbody>
+        </table>
+      </div>
+      <div class="punchline" id="brokerPunch">
+        <div class="pl-icon">W</div>
+        <div class="pl-body">Loading interpretation…</div>
+      </div>
+    </div>
+
+    <!-- Take Rate -->
+    <div class="section">
+      <div class="section-title">
+        <span class="dot"></span>
+        Take Rate by Plan
+        <button class="local-ask" onclick="openBionic('take rate by plan')" title="Ask Jasper">?</button>
+      </div>
+      <div class="section-sub">Commission as a % of gross premium. Click to drill into that plan.</div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr>
+            <th>Plan</th>
+            <th class="num">Policies</th>
+            <th class="num">Total Premium</th>
+            <th class="num">Revenue</th>
+            <th class="num">Take Rate %</th>
+          </tr></thead>
+          <tbody id="takeRateBody"></tbody>
+          <tfoot><tr>
+            <td><strong>TOTAL</strong></td>
+            <td class="num" id="trfPolicies">—</td>
+            <td class="num" id="trfPremium">—</td>
+            <td class="num" id="trfComm">—</td>
+            <td class="num" id="trfRate">—</td>
+          </tr></tfoot>
+        </table>
+      </div>
+      <div class="punchline" id="takeRatePunch">
+        <div class="pl-icon">W</div>
+        <div class="pl-body">Loading interpretation…</div>
+      </div>
+    </div>
+
+    <!-- RM vs Targets -->
+    <div class="section">
+      <div class="section-title">
+        <span class="dot"></span>
+        RM Sales vs Targets
+        <button class="local-ask" onclick="openBionic('RM sales and targets')" title="Ask Jasper">?</button>
+      </div>
+      <div class="rm-controls">
+        <label>View Month:</label>
+        <select id="rmYear"></select>
+        <select id="rmMonth">
+          <option value="1">January</option><option value="2">February</option>
+          <option value="3">March</option><option value="4">April</option>
+          <option value="5">May</option><option value="6">June</option>
+          <option value="7">July</option><option value="8">August</option>
+          <option value="9">September</option><option value="10">October</option>
+          <option value="11">November</option><option value="12">December</option>
+        </select>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr>
+            <th>RM</th>
+            <th class="num">Revenue</th>
+            <th class="num">Policies</th>
+            <th class="num">Actual</th>
+            <th class="num">Target</th>
+            <th class="num">To reach target</th>
+            <th class="num">% of Target</th>
+          </tr></thead>
+          <tbody id="rmBody"></tbody>
+        </table>
+      </div>
+      <div class="punchline" id="rmPunch">
+        <div class="pl-icon">W</div>
+        <div class="pl-body">Loading interpretation…</div>
+      </div>
     </div>
   </div>
 
-  <!-- Broker Report -->
-  <div class="section">
-    <div class="section-title">Broker Performance</div>
-    <div class="tbl-wrap">
-      <table>
-        <thead><tr>
-          <th>Broker</th>
-          <th class="num">Policies</th>
-          <th class="num">Members</th>
-          <th class="num">Gross Premium</th>
-          <th class="num">Grand Total</th>
-          <th class="num">Avg Policy</th>
-        </tr></thead>
-        <tbody id="brokerBody"></tbody>
-      </table>
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 3 — WHERE WE'RE HEADING                                 -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <div class="s-wrap" id="sec3">
+    <div class="s-header">
+      <span class="s-tag">§3</span>
+      <h2 class="s-title">Where We're Heading</h2>
+      <span class="s-sub">Year-end run-rate & portfolio outlook</span>
     </div>
-  </div>
 
-  <!-- Take Rate by Plan -->
-  <div class="section">
-    <div class="section-title">Take Rate by Plan</div>
-    <div class="tbl-wrap">
-      <table>
-        <thead><tr>
-          <th>Plan</th>
-          <th class="num">Policies</th>
-          <th class="num">Total Premium</th>
-          <th class="num">Revenue</th>
-          <th class="num">Take Rate %</th>
-        </tr></thead>
-        <tbody id="takeRateBody"></tbody>
-        <tfoot><tr>
-          <td><strong>TOTAL</strong></td>
-          <td class="num" id="trfPolicies">—</td>
-          <td class="num" id="trfPremium">—</td>
-          <td class="num" id="trfComm">—</td>
-          <td class="num" id="trfRate" style="font-weight:700;color:var(--navy)">—</td>
-        </tr></tfoot>
-      </table>
+    <div class="grid-3">
+      <div class="tile">
+        <div class="tile-label">YTD Gross Premium</div>
+        <div class="tile-value" id="ytdGross">—</div>
+        <div class="tile-sub" id="ytdGrossSub">Actuals through month N</div>
+      </div>
+      <div class="tile">
+        <div class="tile-label">Projected Year-End Gross</div>
+        <div class="tile-value" id="yeGross">—</div>
+        <div class="tile-sub" id="yeGrossSub">Last-3-month run-rate</div>
+      </div>
+      <div class="tile">
+        <div class="tile-label">Projected Year-End Policies</div>
+        <div class="tile-value" id="yePolicies">—</div>
+        <div class="tile-sub" id="yePoliciesSub">Actuals + projection</div>
+      </div>
     </div>
-  </div>
 
-  <!-- RM vs Targets -->
-  <div class="section">
-    <div class="section-title">RM Sales vs Targets</div>
-    <div class="rm-controls">
-      <label style="font-size:.8rem;font-weight:600;color:var(--slate)">View Month:</label>
-      <select id="rmYear"></select>
-      <select id="rmMonth">
-        <option value="1">January</option><option value="2">February</option>
-        <option value="3">March</option><option value="4">April</option>
-        <option value="5">May</option><option value="6">June</option>
-        <option value="7">July</option><option value="8">August</option>
-        <option value="9">September</option><option value="10">October</option>
-        <option value="11">November</option><option value="12">December</option>
-      </select>
-    </div>
-    <div class="tbl-wrap">
-      <table>
-        <thead><tr>
-          <th>RM</th>
-          <th class="num">Revenue</th>
-          <th class="num">Policies</th>
-          <th class="num">Actual</th>
-          <th class="num">Target</th>
-          <th class="num">To reach target</th>
-          <th class="num">% of Target</th>
-        </tr></thead>
-        <tbody id="rmBody"></tbody>
-      </table>
+    <div class="section spotlight">
+      <div class="section-title">
+        <span class="dot"></span>
+        Year-End Run-Rate — Gross Premium
+        <button class="local-ask" onclick="openBionic('year-end forecast')" title="Ask Jasper">?</button>
+      </div>
+      <div class="section-sub">Solid bars = actuals. Dashed bars = projection at last-3-month average run-rate.</div>
+
+      <div class="chart-wrap"><canvas id="forecastChart"></canvas></div>
+
+      <div class="punchline good" id="forecastPunch">
+        <div class="pl-icon">W</div>
+        <div class="pl-body">Loading projection…</div>
+      </div>
     </div>
   </div>
 </div>
 
+<!-- Bionic W floating button + stub drawer -->
+<button class="bionic-btn" onclick="toggleBionic()" title="Ask Jasper">W</button>
+<div class="bionic-drawer" id="bionicDrawer">
+  <button class="bd-close" onclick="closeBionic()">✕</button>
+  <h3><span class="bw-dot"></span> Jasper</h3>
+  <div class="bd-sub" id="bionicContext">Ready to answer questions about your business.</div>
+  <div class="bd-stub">
+    <strong>Jasper is waking up.</strong><br>
+    Live Q&amp;A arrives in Phase 2 — it will answer questions about any chart, broker, RM, or trend using your filtered data.<br><br>
+    For now: toggle <strong>Report by</strong> in the filter bar, drill into a broker row, or scroll to §3 for the year-end projection.
+  </div>
+  <input type="text" placeholder="Ask about policies, brokers, RMs…" onfocus="this.blur()" readonly>
+</div>
+
 <script>
-// ── Plan colours ───────────────────────────────────────────────────────────────
+// ── Plan colours (dark theme) ──────────────────────────────────────────────────
 const PLAN_COLORS = {
-  'Healthx':        { New: '#16a34a', Renewal: '#4ade80' },
-  'Healthxclusive': { New: '#7f1d1d', Renewal: '#f87171' },
-  'Openx':          { New: '#1d4ed8', Renewal: '#93c5fd' },
-  'Unknown':        { New: '#94a3b8', Renewal: '#cbd5e1' },
+  'Healthx':        { New: '#00e5a0', Renewal: '#6ef5c3' },
+  'Healthxclusive': { New: '#ff5a7a', Renewal: '#ffa5b6' },
+  'Openx':          { New: '#35c5fc', Renewal: '#8cddff' },
+  'Unknown':        { New: '#64748b', Renewal: '#94a3b8' },
 };
 const PLANS = ['Healthx', 'Healthxclusive', 'Openx'];
 const TYPES = ['New', 'Renewal'];
 
 let monthlyRows = [], breakdownRows = [], brokersData = [], rmData = {actuals: [], targets: []};
-let monthChart = null;
+let forecastData = null, lastTakeRate = null;
+let monthChart = null, forecastChart = null;
 
 // ── Year selector ──────────────────────────────────────────────────────────────
 const now = new Date();
@@ -331,30 +583,31 @@ for (let y = now.getFullYear(); y >= now.getFullYear() - 2; y--)
   yearSel.innerHTML += `<option value="${y}" ${y === now.getFullYear() ? 'selected' : ''}>${y}</option>`;
 document.getElementById('rmMonth').value = now.getMonth() + 1;
 
-// ── Multi-select filter state ──────────────────────────────────────────────────
-// filterState holds arrays of selected values per filter key. Empty array = "All".
-const filterState = { plan: [], plan_type: [], broker: [], rm: [], month: [] };
+// ── Filter state ───────────────────────────────────────────────────────────────
+const filterState = { date_basis: ['start'], plan: [], plan_type: [], broker: [], rm: [], month: [] };
 
-// Build a multi-select chip dropdown for a filter.
-//   containerId - id of the .ms wrapper div
-//   stateKey    - key into filterState
-//   allLabel    - label shown when nothing is selected
-//   options     - array of {value, label}
-function createMultiSelect(containerId, stateKey, allLabel, options) {
+function createMultiSelect(containerId, stateKey, allLabel, options, opts) {
+  opts = opts || {};
+  const singleSelect = !!opts.singleSelect;
   const wrap  = document.getElementById(containerId);
   if (!wrap) return;
   const chip  = wrap.querySelector('.ms-chip');
-  // Remove any existing panel (for re-rendering)
   const oldPanel = wrap.querySelector('.ms-panel');
   if (oldPanel) oldPanel.remove();
 
   const panel = document.createElement('div');
   panel.className = 'ms-panel';
-  panel.innerHTML =
-    `<label class="ms-opt ms-all"><input type="checkbox" data-all="1"> All</label>` +
-    options.map(o =>
-      `<label class="ms-opt"><input type="checkbox" value="${String(o.value).replace(/"/g,'&quot;')}"> ${o.label}</label>`
+  if (singleSelect) {
+    panel.innerHTML = options.map(o =>
+      `<label class="ms-opt"><input type="radio" name="${stateKey}" value="${String(o.value).replace(/"/g,'&quot;')}"> ${o.label}</label>`
     ).join('');
+  } else {
+    panel.innerHTML =
+      `<label class="ms-opt ms-all"><input type="checkbox" data-all="1"> All</label>` +
+      options.map(o =>
+        `<label class="ms-opt"><input type="checkbox" value="${String(o.value).replace(/"/g,'&quot;')}"> ${o.label}</label>`
+      ).join('');
+  }
   wrap.appendChild(panel);
 
   const renderChip = () => {
@@ -365,7 +618,12 @@ function createMultiSelect(containerId, stateKey, allLabel, options) {
     } else if (sel.length === 1) {
       const found = options.find(o => String(o.value) === sel[0]);
       chip.textContent = found ? found.label : sel[0];
-      chip.classList.add('has-selection');
+      // For single-select with a default (date_basis), show neutral if it equals the implicit default
+      if (singleSelect && opts.defaultValue && sel[0] === opts.defaultValue) {
+        chip.classList.remove('has-selection');
+      } else {
+        chip.classList.add('has-selection');
+      }
     } else {
       chip.textContent = `${sel.length} selected`;
       chip.classList.add('has-selection');
@@ -373,28 +631,37 @@ function createMultiSelect(containerId, stateKey, allLabel, options) {
   };
 
   const syncChecks = () => {
-    const sel  = new Set(filterState[stateKey]);
-    const all  = panel.querySelector('input[data-all]');
+    if (singleSelect) {
+      const val = filterState[stateKey][0] || '';
+      panel.querySelectorAll('input[type=radio]').forEach(cb => { cb.checked = cb.value === val; });
+      return;
+    }
+    const sel = new Set(filterState[stateKey]);
+    const all = panel.querySelector('input[data-all]');
     panel.querySelectorAll('input:not([data-all])').forEach(cb => {
       cb.checked = sel.has(cb.value);
     });
-    all.checked = sel.size === 0;
+    if (all) all.checked = sel.size === 0;
   };
 
   chip.onclick = (e) => {
     e.stopPropagation();
-    // Close other panels first
     document.querySelectorAll('.ms-panel.open').forEach(p => { if (p !== panel) p.classList.remove('open'); });
     panel.classList.toggle('open');
     if (panel.classList.contains('open')) syncChecks();
   };
-
   panel.onclick = (e) => e.stopPropagation();
 
   panel.querySelectorAll('input').forEach(cb => {
     cb.addEventListener('change', () => {
+      if (singleSelect) {
+        filterState[stateKey] = [cb.value];
+        panel.classList.remove('open');
+        renderChip();
+        if (opts.onChange) opts.onChange(cb.value);
+        return;
+      }
       if (cb.dataset.all === '1') {
-        // "All" → clear selection
         filterState[stateKey] = [];
       } else {
         const set = new Set(filterState[stateKey]);
@@ -405,19 +672,31 @@ function createMultiSelect(containerId, stateKey, allLabel, options) {
       syncChecks();
     });
   });
-
   renderChip();
 }
 
-// Close any open panels on outside click
 document.addEventListener('click', () => {
   document.querySelectorAll('.ms-panel.open').forEach(p => p.classList.remove('open'));
 });
 
-// ── Populate all filter chips ──────────────────────────────────────────────────
+// ── Populate filter chips ──────────────────────────────────────────────────────
+function buildDateBasisChip() {
+  createMultiSelect('msDateBasis', 'date_basis', 'Insurance Start Date',
+    [
+      { value: 'start',        label: 'Insurance Start Date' },
+      { value: 'confirmation', label: 'Confirmation Date' },
+    ],
+    {
+      singleSelect: true,
+      defaultValue: 'start',
+      onChange: () => { loadMeta().then(loadAll); }
+    }
+  );
+}
+
 async function loadMeta() {
   try {
-    const res = await fetch('/api/policies/meta');
+    const res = await fetch('/api/policies/meta' + filterParams(['date_basis']));
     const d   = await res.json();
     const mkOpts = arr => (arr || []).map(v => ({ value: v, label: v }));
 
@@ -428,41 +707,38 @@ async function loadMeta() {
     createMultiSelect('msBroker', 'broker',    'All Brokers', mkOpts(d.brokers));
     createMultiSelect('msRm',     'rm',        'All RMs',     mkOpts(d.rms));
     createMultiSelect('msMonth',  'month',     'All Months',
-      (d.months || []).map(m => ({ value: m, label: fmtMonth(m) })));
+      (d.months || []).filter(Boolean).map(m => ({ value: m, label: fmtMonth(m) })));
   } catch(e) {}
 }
 
-// ── Filters ────────────────────────────────────────────────────────────────────
-function filterParams() {
+function filterParams(onlyKeys) {
   const p = new URLSearchParams();
   Object.entries(filterState).forEach(([k, arr]) => {
+    if (onlyKeys && !onlyKeys.includes(k)) return;
     if (arr && arr.length) p.set(k, arr.join(','));
   });
-  return p.toString() ? '?' + p.toString() : '';
+  const s = p.toString();
+  return s ? '?' + s : '';
 }
 function applyFilters() { loadAll(); }
 function clearFilters() {
-  Object.keys(filterState).forEach(k => filterState[k] = []);
-  // Rebuild chips so labels + checkbox state reset
+  Object.keys(filterState).forEach(k => { filterState[k] = k === 'date_basis' ? ['start'] : []; });
+  buildDateBasisChip();
   loadMeta().then(loadAll);
 }
 
-// ── Drill-down URL builder ─────────────────────────────────────────────────────
-// Start from current filter state and layer overrides, return /policies?...
+// ── Drill-down URL ─────────────────────────────────────────────────────────────
 function buildDrillUrl(overrides) {
   const p = new URLSearchParams();
-  // Start from current filter state (commas allowed on policies page filters? use first value when >1)
   if (filterState.plan.length)      p.set('plan',      filterState.plan.join(','));
   if (filterState.plan_type.length) p.set('plan_type', filterState.plan_type.join(','));
   if (filterState.broker.length)    p.set('broker',    filterState.broker.join(','));
   if (filterState.rm.length)        p.set('rm',        filterState.rm.join(','));
-  // Month → date range (only when exactly one month selected via dashboard filter)
   if (filterState.month.length === 1) {
     const { from, to } = monthRange(filterState.month[0]);
     p.set('date_from', from);
     p.set('date_to',   to);
   }
-  // Apply overrides (win over current state)
   Object.entries(overrides || {}).forEach(([k, v]) => {
     if (v === undefined || v === null || v === '') p.delete(k);
     else p.set(k, v);
@@ -470,11 +746,10 @@ function buildDrillUrl(overrides) {
   return '/policies?' + p.toString();
 }
 
-// Month (YYYY-MM) → date range [first, last] (YYYY-MM-DD)
 function monthRange(ym) {
   const [y, m] = ym.split('-').map(Number);
   const from = `${y}-${String(m).padStart(2,'0')}-01`;
-  const last = new Date(y, m, 0).getDate(); // day 0 of next month = last day of this month
+  const last = new Date(y, m, 0).getDate();
   const to   = `${y}-${String(m).padStart(2,'0')}-${String(last).padStart(2,'0')}`;
   return { from, to };
 }
@@ -482,73 +757,85 @@ function monthRange(ym) {
 // ── Load all ───────────────────────────────────────────────────────────────────
 async function loadAll() {
   const qs = filterParams();
-  const [mRes, bRes, rRes, trRes] = await Promise.all([
+  const [mRes, bRes, rRes, trRes, fRes] = await Promise.all([
     fetch('/api/dashboard/monthly'   + qs),
     fetch('/api/dashboard/brokers'   + qs),
     fetch('/api/dashboard/rm'        + qs),
     fetch('/api/dashboard/take_rate' + qs),
+    fetch('/api/dashboard/forecast'  + qs),
   ]);
   const mJson  = await mRes.json();
   const bJson  = await bRes.json();
   const rJson  = await rRes.json();
   const trJson = await trRes.json();
+  const fJson  = await fRes.json();
 
   monthlyRows   = Array.isArray(mJson?.monthly)   ? mJson.monthly   : [];
-  breakdownRows = Array.isArray(mJson?.breakdown)  ? mJson.breakdown : [];
-  brokersData   = Array.isArray(bJson)             ? bJson           : [];
-  rmData        = (rJson?.actuals)                 ? rJson           : {actuals: [], targets: []};
+  breakdownRows = Array.isArray(mJson?.breakdown) ? mJson.breakdown : [];
+  brokersData   = Array.isArray(bJson)            ? bJson           : [];
+  rmData        = (rJson?.actuals)                ? rJson           : {actuals: [], targets: []};
+  lastTakeRate  = trJson || null;
+  forecastData  = fJson || null;
 
+  renderTakeRate(trJson);
   renderKPIs();
   renderMonthly();
   renderBrokers();
-  renderTakeRate(trJson);
   renderRM();
+  renderMTD();
+  renderForecast();
 }
 
-// ── Take Rate ──────────────────────────────────────────────────────────────────
-function renderTakeRate(data) {
-  const plans = data?.plans || [];
-  const total = data?.total || {};
-  const fmtP  = v => Number(v).toFixed(2) + '%';
-  document.getElementById('takeRateBody').innerHTML = plans.length
-    ? plans.map(p => {
-        const url = buildDrillUrl({ plan: p.plan });
-        return `<tr class="drillable" onclick="location.href='${url.replace(/'/g,"\\'")}'">
-          <td><strong>${p.plan}</strong></td>
-          <td class="num">${fmtNum(p.policy_count)}</td>
-          <td class="num">${fmtNum(p.total_premium)}</td>
-          <td class="num">${fmtNum(p.commission_amount)}</td>
-          <td class="num" style="font-weight:600;color:var(--navy)">${fmtP(p.take_rate_pct)}</td>
-        </tr>`;
-      }).join('')
-    : '<tr class="empty-row"><td colspan="5">No data</td></tr>';
-  document.getElementById('trfPolicies').textContent = fmtNum(plans.reduce((s,p) => s + p.policy_count, 0));
-  document.getElementById('trfPremium').textContent  = fmtNum(total.total_premium || 0);
-  document.getElementById('trfComm').textContent     = fmtNum(total.commission_amount || 0);
-  document.getElementById('trfRate').textContent     = total.take_rate_pct != null ? fmtP(total.take_rate_pct) : '—';
-  document.getElementById('kRevenue').textContent    = fmtCompact(total.commission_amount || 0);
+// ── KPIs + YoY ─────────────────────────────────────────────────────────────────
+function ymToParts(ym){ const [y,m]=ym.split('-').map(Number); return {y,m}; }
+function computeYoY(rows) {
+  // If the user hasn't filtered to any months, compare current-year total to same-months of prior year.
+  // If user filtered to a specific year, try to find matching months in the year prior.
+  const byYm = {};
+  rows.forEach(r => { byYm[r.month] = r; });
+  const months = Object.keys(byYm).sort();
+  if (!months.length) return null;
+  // Group by year
+  const yrs = {};
+  months.forEach(m => { const {y} = ymToParts(m); (yrs[y] = yrs[y] || []).push(m); });
+  const years = Object.keys(yrs).map(Number).sort();
+  const curYr = years[years.length - 1];
+  const prvYr = curYr - 1;
+  if (!yrs[prvYr]) return null;
+  const curSet = new Set(yrs[curYr].map(m => ymToParts(m).m));
+  // Only compare months that exist in both years
+  const prvMatching = yrs[prvYr].filter(m => curSet.has(ymToParts(m).m));
+  if (!prvMatching.length) return null;
+  const sum = (arr, key) => arr.reduce((s,m) => s + parseFloat(byYm[m][key]||0), 0);
+  const cnt = (arr, key) => arr.reduce((s,m) => s + parseInt(byYm[m][key]||0), 0);
+  return {
+    policies_cur:  cnt(yrs[curYr],    'policy_count'),
+    policies_prv:  cnt(prvMatching,   'policy_count'),
+    gross_cur:     sum(yrs[curYr],    'gross_premium'),
+    gross_prv:     sum(prvMatching,   'gross_premium'),
+    grand_cur:     sum(yrs[curYr],    'grand_total'),
+    grand_prv:     sum(prvMatching,   'grand_total'),
+    members_cur:   cnt(yrs[curYr],    'member_count'),
+    members_prv:   cnt(prvMatching,   'member_count'),
+    months_matched: prvMatching.length,
+  };
 }
 
-// ── Dashboard download ────────────────────────────────────────────────────────
-async function downloadDashboard() {
-  const btn = document.getElementById('dashDlBtn');
-  btn.disabled = true; btn.textContent = '⏳ Generating…';
-  try {
-    const res = await fetch('/api/dashboard/export' + filterParams());
-    if (!res.ok) { alert('Export failed: ' + res.statusText); return; }
-    const blob = await res.blob();
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    const cd   = res.headers.get('Content-Disposition') || '';
-    const match = cd.match(/filename="?([^"]+)"?/);
-    a.download = match ? match[1] : 'Wellx Policies Report.xlsx';
-    a.href = url; document.body.appendChild(a); a.click();
-    document.body.removeChild(a); URL.revokeObjectURL(url);
-  } catch(e) { alert('Network error: ' + e.message); }
-  finally { btn.disabled = false; btn.textContent = '⬇ Download Excel'; }
+function pctDelta(cur, prv) {
+  if (!prv) return null;
+  return (cur - prv) / prv * 100;
+}
+function renderDelta(id, cur, prv, label) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const d = pctDelta(cur, prv);
+  if (d === null || !isFinite(d)) { el.innerHTML = '&nbsp;'; return; }
+  const cls = d > 1 ? 'up' : d < -1 ? 'down' : 'flat';
+  const arrow = d > 1 ? '▲' : d < -1 ? '▼' : '—';
+  el.className = 'kd ' + cls;
+  el.textContent = `${arrow} ${Math.abs(d).toFixed(1)}% vs prior year`;
 }
 
-// ── KPIs ───────────────────────────────────────────────────────────────────────
 function renderKPIs() {
   const totalPolicies = monthlyRows.reduce((s,r) => s + parseInt(r.policy_count||0), 0);
   const totalGross    = monthlyRows.reduce((s,r) => s + parseFloat(r.gross_premium||0), 0);
@@ -557,25 +844,74 @@ function renderKPIs() {
   const avgCensus     = totalPolicies ? totalMembers / totalPolicies : 0;
   const perCapita     = totalMembers  ? totalGross / totalMembers : 0;
   document.getElementById('kTotal').textContent   = fmtNum(totalPolicies);
-  document.getElementById('kGross').textContent   = fmtCompact(totalGross);
+  document.getElementById('kGross').textContent   = 'AED ' + fmtCompact(totalGross);
   document.getElementById('kMembers').textContent = fmtNum(totalMembers);
-  document.getElementById('kAvg').textContent     = fmtCompact(avgSize);
+  document.getElementById('kAvg').textContent     = 'AED ' + fmtCompact(avgSize);
   document.getElementById('kAvgCensus').textContent = avgCensus.toFixed(1);
-  document.getElementById('kPerCapita').textContent = 'AED ' + (perCapita/1000).toFixed(1) + 'K';
+  document.getElementById('kPerCapita').textContent = 'AED ' + fmtCompact(perCapita);
+  // Revenue set separately by take-rate call
+  // YoY deltas
+  const yoy = computeYoY(monthlyRows);
+  if (yoy) {
+    renderDelta('kTotalDelta',   yoy.policies_cur, yoy.policies_prv);
+    renderDelta('kGrossDelta',   yoy.gross_cur,    yoy.gross_prv);
+    renderDelta('kMembersDelta', yoy.members_cur,  yoy.members_prv);
+    renderDelta('kRevenueDelta', yoy.grand_cur,    yoy.grand_prv);
+  } else {
+    ['kTotalDelta','kGrossDelta','kMembersDelta','kRevenueDelta'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) { el.className = 'kd flat'; el.textContent = '—'; }
+    });
+  }
+  // Monthly punchline
+  buildMonthlyPunchline(yoy, totalPolicies, totalGross, avgSize);
 }
 
-// ── Monthly chart + table ──────────────────────────────────────────────────────
-function renderMonthly() {
-  // Collect all months in order
-  const months = [...new Set(breakdownRows.map(r => r.month))].sort();
+function buildMonthlyPunchline(yoy, totalPolicies, totalGross, avgSize) {
+  const el = document.getElementById('monthlyPunch');
+  if (!el) return;
+  const body = el.querySelector('.pl-body');
+  el.classList.remove('good','alert');
+  if (!totalPolicies) {
+    body.innerHTML = 'No policy data for the current filter set. Clear filters or pick a different month range to see trends.';
+    return;
+  }
+  if (yoy && yoy.policies_prv && yoy.gross_prv) {
+    const pcd = pctDelta(yoy.policies_cur, yoy.policies_prv);
+    const grd = pctDelta(yoy.gross_cur,    yoy.gross_prv);
+    const avgCur = yoy.policies_cur ? yoy.gross_cur / yoy.policies_cur : 0;
+    const avgPrv = yoy.policies_prv ? yoy.gross_prv / yoy.policies_prv : 0;
+    const dense = pctDelta(avgCur, avgPrv);
+    if (pcd > 5 && dense < -3) {
+      el.classList.add('alert');
+      body.innerHTML = `<strong>Growing volume, softening price.</strong> Policy count is up ${pcd.toFixed(0)}% YoY but premium per policy is down ${Math.abs(dense).toFixed(0)}% — watch for pricing pressure, a mix shift toward smaller groups, or unrecognised loadings.`;
+      return;
+    }
+    if (pcd > 3 && dense > 3) {
+      el.classList.add('good');
+      body.innerHTML = `<strong>Healthy growth on both dimensions.</strong> Volume up ${pcd.toFixed(0)}% and premium per policy up ${dense.toFixed(0)}% YoY — portfolio is getting bigger and richer.`;
+      return;
+    }
+    if (pcd < -3) {
+      el.classList.add('alert');
+      body.innerHTML = `<strong>Volume compressing.</strong> Policy count is down ${Math.abs(pcd).toFixed(0)}% YoY. Check broker pipeline, lost renewals, and whether this is a recognition timing effect of the insurance-start-date basis.`;
+      return;
+    }
+    body.innerHTML = `${pcd >= 0 ? 'Up' : 'Down'} ${Math.abs(pcd).toFixed(0)}% in policy count and ${grd >= 0 ? 'up' : 'down'} ${Math.abs(grd).toFixed(0)}% in gross premium vs the same ${yoy.months_matched}-month window last year. Premium per policy ${dense >= 0 ? 'up' : 'down'} ${Math.abs(dense).toFixed(0)}%.`;
+    return;
+  }
+  // No YoY comparison available — fall back to level facts
+  body.innerHTML = `<strong>${fmtNum(totalPolicies)} policies</strong> in scope delivering <strong>AED ${fmtCompact(totalGross)}</strong> gross premium — roughly AED ${fmtCompact(avgSize)} per policy. No prior-year data available under this filter set for a YoY comparison.`;
+}
 
-  // Build lookup: month+plan+type → gross_premium
+// ── Monthly chart ──────────────────────────────────────────────────────────────
+function renderMonthly() {
+  const months = [...new Set(breakdownRows.map(r => r.month))].sort();
   const lookup = {};
   breakdownRows.forEach(r => {
     lookup[`${r.month}|${r.plan}|${r.plan_type}`] = parseFloat(r.gross_premium || 0);
   });
 
-  // 6 datasets (plan × type), each uses its own stack group per type
   const datasets = [];
   TYPES.forEach(type => {
     PLANS.forEach(plan => {
@@ -584,14 +920,13 @@ function renderMonthly() {
         label: `${plan} — ${type}`,
         data:  months.map(m => lookup[`${m}|${plan}|${type}`] || 0),
         backgroundColor: color,
-        stack: type,          // same stack = stacked; different = side-by-side
         borderRadius: 4,
         borderSkipped: false,
+        stack: type,
       });
     });
   });
 
-  // Custom plugin: draw totals above each stacked bar group
   const stackTotalsPlugin = {
     id: 'stackTotals',
     afterDatasetsDraw(chart) {
@@ -600,8 +935,6 @@ function renderMonthly() {
       ctx.font = 'bold 10px Inter, sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'bottom';
-
-      // Accumulate totals per stack+dataIndex and track highest bar top
       const stacks = {};
       chart.data.datasets.forEach((ds, dsIdx) => {
         const meta = chart.getDatasetMeta(dsIdx);
@@ -614,11 +947,10 @@ function renderMonthly() {
           if (bar.y < stacks[key].top) stacks[key].top = bar.y;
         });
       });
-
       Object.values(stacks).forEach(({ top, total, x }) => {
         if (total <= 0) return;
-        ctx.fillStyle = '#1a2332';
-        ctx.fillText('AED ' + fmtNum(total), x, top - 3);
+        ctx.fillStyle = '#e6ecf5';
+        ctx.fillText('AED ' + fmtCompact(total), x, top - 4);
       });
       ctx.restore();
     }
@@ -632,21 +964,24 @@ function renderMonthly() {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: { display: false },   // using custom legend above
+        legend: { display: false },
         tooltip: {
-          callbacks: {
-            label: ctx => `${ctx.dataset.label}: AED ${fmtNum(ctx.raw)}`
-          }
+          backgroundColor: 'rgba(17,24,38,.95)',
+          borderColor: '#2a3a53',
+          borderWidth: 1,
+          titleColor: '#e6ecf5',
+          bodyColor: '#e6ecf5',
+          callbacks: { label: ctx => `${ctx.dataset.label}: AED ${fmtNum(ctx.raw)}` }
         }
       },
       scales: {
-        x: { ticks: { font: { size: 11 } } },
+        x: { ticks: { font: { size: 11 }, color: '#8a97ad' }, grid: { color: 'rgba(138,151,173,.08)' } },
         y: {
-          ticks: { callback: v => 'AED ' + fmtNum(v), font: { size: 11 } },
-          grid: { color: '#f0f4ff' }
+          ticks: { callback: v => 'AED ' + fmtCompact(v), font: { size: 11 }, color: '#8a97ad' },
+          grid: { color: 'rgba(138,151,173,.08)' }
         }
       },
-      layout: { padding: { top: 24 } }  // room for total labels
+      layout: { padding: { top: 26 } }
     },
     plugins: [stackTotalsPlugin]
   });
@@ -660,7 +995,6 @@ function renderMonthly() {
         sumG     += parseFloat(r.gross_premium||0);
         sumGrand += parseFloat(r.grand_total||0);
         const { from, to } = monthRange(r.month);
-        // Month drill-down: override date range & clear any single-month filter override
         const url = buildDrillUrl({ date_from: from, date_to: to });
         return `<tr class="drillable" onclick="location.href='${url.replace(/'/g,"\\'")}'">
           <td>${fmtMonth(r.month)}</td>
@@ -680,7 +1014,8 @@ function renderMonthly() {
 
 // ── Brokers ────────────────────────────────────────────────────────────────────
 function renderBrokers() {
-  document.getElementById('brokerBody').innerHTML = brokersData.length
+  const body = document.getElementById('brokerBody');
+  body.innerHTML = brokersData.length
     ? brokersData.map(r => {
         const url = buildDrillUrl({ broker: r.broker });
         return `<tr class="drillable" onclick="location.href='${url.replace(/'/g,"\\'")}'">
@@ -693,6 +1028,80 @@ function renderBrokers() {
         </tr>`;
       }).join('')
     : '<tr class="empty-row"><td colspan="6">No data for selected filters</td></tr>';
+  buildBrokerPunchline();
+}
+
+function buildBrokerPunchline() {
+  const el = document.getElementById('brokerPunch');
+  if (!el) return;
+  const body = el.querySelector('.pl-body');
+  el.classList.remove('good','alert');
+  if (!brokersData.length) { body.innerHTML = 'No broker activity for the current filter set.'; return; }
+  const totalGrand = brokersData.reduce((s,b) => s + parseFloat(b.total_grand||0), 0);
+  const top = brokersData[0];
+  if (!totalGrand || !top) { body.innerHTML = 'No material broker contribution recorded.'; return; }
+  const share = top.total_grand / totalGrand * 100;
+  const topN = brokersData.slice(0, 3);
+  const top3share = topN.reduce((s,b) => s + parseFloat(b.total_grand||0), 0) / totalGrand * 100;
+  if (share > 40) {
+    el.classList.add('alert');
+    body.innerHTML = `<strong>Concentration risk.</strong> ${top.broker} alone contributes ${share.toFixed(0)}% of grand total. Top 3 brokers: ${top3share.toFixed(0)}%. Consider diversifying pipeline before this becomes a single-point dependency.`;
+    return;
+  }
+  if (share > 25) {
+    body.innerHTML = `<strong>${top.broker}</strong> leads at ${share.toFixed(0)}% of grand total — top 3 brokers carry ${top3share.toFixed(0)}%. Healthy lead, but worth protecting the relationship.`;
+    return;
+  }
+  el.classList.add('good');
+  body.innerHTML = `Broker mix is well-distributed — top broker ${top.broker} at ${share.toFixed(0)}% and top 3 at ${top3share.toFixed(0)}%. Portfolio is resilient to the loss of any single broker.`;
+}
+
+// ── Take Rate ──────────────────────────────────────────────────────────────────
+function renderTakeRate(data) {
+  const plans = data?.plans || [];
+  const total = data?.total || {};
+  const fmtP  = v => Number(v).toFixed(2) + '%';
+  document.getElementById('takeRateBody').innerHTML = plans.length
+    ? plans.map(p => {
+        const url = buildDrillUrl({ plan: p.plan });
+        return `<tr class="drillable" onclick="location.href='${url.replace(/'/g,"\\'")}'">
+          <td><strong>${p.plan}</strong></td>
+          <td class="num">${fmtNum(p.policy_count)}</td>
+          <td class="num">${fmtNum(p.total_premium)}</td>
+          <td class="num">${fmtNum(p.commission_amount)}</td>
+          <td class="num" style="font-weight:700;color:var(--accent)">${fmtP(p.take_rate_pct)}</td>
+        </tr>`;
+      }).join('')
+    : '<tr class="empty-row"><td colspan="5">No data</td></tr>';
+  document.getElementById('trfPolicies').textContent = fmtNum(plans.reduce((s,p) => s + p.policy_count, 0));
+  document.getElementById('trfPremium').textContent  = fmtNum(total.total_premium || 0);
+  document.getElementById('trfComm').textContent     = fmtNum(total.commission_amount || 0);
+  document.getElementById('trfRate').textContent     = total.take_rate_pct != null ? fmtP(total.take_rate_pct) : '—';
+  document.getElementById('kRevenue').textContent    = 'AED ' + fmtCompact(total.commission_amount || 0);
+  buildTakeRatePunchline(plans, total);
+}
+
+function buildTakeRatePunchline(plans, total) {
+  const el = document.getElementById('takeRatePunch');
+  if (!el) return;
+  const body = el.querySelector('.pl-body');
+  el.classList.remove('good','alert');
+  if (!plans.length) { body.innerHTML = 'No plan revenue recorded.'; return; }
+  const totalRate = total?.take_rate_pct || 0;
+  const bestPlan  = plans.reduce((a,b) => (a.take_rate_pct||0) > (b.take_rate_pct||0) ? a : b);
+  const worstPlan = plans.reduce((a,b) => (a.take_rate_pct||0) < (b.take_rate_pct||0) ? a : b);
+  const spread = (bestPlan.take_rate_pct || 0) - (worstPlan.take_rate_pct || 0);
+  if (totalRate < 3) {
+    el.classList.add('alert');
+    body.innerHTML = `Blended take rate of <strong>${totalRate.toFixed(2)}%</strong> is below the 3% healthy-margin floor. Check RM % configuration on newer policies and whether Wellx admin share is being captured on all plans.`;
+    return;
+  }
+  if (spread > 4) {
+    body.innerHTML = `<strong>${bestPlan.plan}</strong> leads at ${bestPlan.take_rate_pct.toFixed(2)}% while <strong>${worstPlan.plan}</strong> is at ${worstPlan.take_rate_pct.toFixed(2)}% — a ${spread.toFixed(1)}pt spread. Blended rate: ${totalRate.toFixed(2)}%. Revenue quality varies sharply by plan.`;
+    return;
+  }
+  el.classList.add('good');
+  body.innerHTML = `Blended take rate <strong>${totalRate.toFixed(2)}%</strong> with only ${spread.toFixed(1)}pt spread across plans — revenue quality is consistent.`;
 }
 
 // ── RM vs Targets ──────────────────────────────────────────────────────────────
@@ -721,30 +1130,29 @@ function renderRM() {
     ...(rmData.actuals||[]).map(a => a.rm_name),
   ])].filter(Boolean);
 
-  // Rank by REVENUE (descending)
   allRMs.sort((a, b) => (actualMap[b]?.revenue || 0) - (actualMap[a]?.revenue || 0));
 
   if (!allRMs.length) {
     document.getElementById('rmBody').innerHTML = '<tr class="empty-row"><td colspan="7">No RM data for selected filters</td></tr>';
+    buildRmPunchline([], targetMap, {});
     return;
   }
 
-  // Build date range for RM drill-down based on selected rmYear/rmMonth
   const { from: rmFrom, to: rmTo } = monthRange(`${year}-${String(month).padStart(2,'0')}`);
 
   document.getElementById('rmBody').innerHTML = allRMs.map((rm, idx) => {
-    const revenue  = actualMap[rm]?.revenue || 0;
-    const actual   = actualMap[rm]?.amount  || 0;
-    const count    = actualMap[rm]?.count   || 0;
-    const target   = targetMap[rm] || 0;
-    const gap      = Math.max(target - actual, 0);
+    const revenue   = actualMap[rm]?.revenue || 0;
+    const actual    = actualMap[rm]?.amount  || 0;
+    const count     = actualMap[rm]?.count   || 0;
+    const target    = targetMap[rm] || 0;
+    const gap       = Math.max(target - actual, 0);
     const hitTarget = target > 0 && actual >= target;
-    const pct      = target > 0 ? actual / target * 100 : null;
-    const pctClass = pct === null ? '' : pct >= 100 ? 'pct-good' : pct >= 70 ? 'pct-warn' : 'pct-bad';
-    const pctLabel = pct === null ? '—' : `<span class="pct ${pctClass}">${pct.toFixed(0)}%</span>`;
-    const safeId   = rm.replace(/\W+/g,'_');
-    const trophy   = idx === 0 && revenue > 0 ? '<span class="trophy">🏆</span>' : '';
-    const drillUrl = buildDrillUrl({ rm, date_from: rmFrom, date_to: rmTo });
+    const pct       = target > 0 ? actual / target * 100 : null;
+    const pctClass  = pct === null ? '' : pct >= 100 ? 'pct-good' : pct >= 70 ? 'pct-warn' : 'pct-bad';
+    const pctLabel  = pct === null ? '—' : `<span class="pct ${pctClass}">${pct.toFixed(0)}%</span>`;
+    const safeId    = rm.replace(/\W+/g,'_');
+    const trophy    = idx === 0 && revenue > 0 ? '<span class="trophy">🏆</span>' : '';
+    const drillUrl  = buildDrillUrl({ rm, date_from: rmFrom, date_to: rmTo });
     return `<tr class="drillable" onclick="location.href='${drillUrl}'">
       <td><strong>${trophy}${rm}</strong></td>
       <td class="num">${fmtCompact(revenue)}</td>
@@ -758,14 +1166,226 @@ function renderRM() {
           onblur="if(this.value)this.value=Number(this.value.replace(/,/g,'')).toLocaleString('en-AE',{maximumFractionDigits:0})">
         <button class="save-btn" onclick="event.stopPropagation();saveTarget('${rm.replace(/'/g,"\\'")}')">Save</button>
       </td>
-      <td class="num" style="color:${hitTarget?'#16a34a':'#dc2626'};font-weight:600">
+      <td class="num" style="color:${hitTarget?'var(--good)':'var(--bad)'};font-weight:600">
         ${target > 0 ? fmtCompact(gap) : '—'}
       </td>
       <td class="num">${pctLabel}</td>
     </tr>`;
   }).join('');
+
+  buildRmPunchline(allRMs, targetMap, actualMap);
 }
 
+function buildRmPunchline(rms, targetMap, actualMap) {
+  const el = document.getElementById('rmPunch');
+  if (!el) return;
+  const body = el.querySelector('.pl-body');
+  el.classList.remove('good','alert');
+  const withTargets = rms.filter(r => (targetMap[r] || 0) > 0);
+  if (!withTargets.length) {
+    body.innerHTML = 'No targets set for the selected month. Set targets per RM to activate the pace-to-target view.';
+    return;
+  }
+  const hitting = withTargets.filter(r => (actualMap[r]?.amount || 0) >= (targetMap[r] || 0));
+  const nearMiss = withTargets.filter(r => {
+    const t = targetMap[r] || 0, a = actualMap[r]?.amount || 0;
+    return t > 0 && a < t && a / t >= 0.7;
+  });
+  if (hitting.length === withTargets.length) {
+    el.classList.add('good');
+    body.innerHTML = `<strong>Full team on target.</strong> All ${withTargets.length} RMs with targets have hit or exceeded them for this month.`;
+    return;
+  }
+  if (!hitting.length && nearMiss.length) {
+    el.classList.add('alert');
+    body.innerHTML = `<strong>No RM has hit target yet.</strong> ${nearMiss.length} of ${withTargets.length} are within 30% of target — push the nearest to convert.`;
+    return;
+  }
+  body.innerHTML = `<strong>${hitting.length} of ${withTargets.length}</strong> RMs are at or above target. ${nearMiss.length - hitting.length > 0 ? (nearMiss.length - hitting.length) + ' within 30% of target; ' : ''}Focus effort on RMs below 70% pace to recover the month.`;
+}
+
+// ── MTD heartbeat ──────────────────────────────────────────────────────────────
+function renderMTD() {
+  // Derive from monthlyRows: current calendar month vs prior calendar month, same-point-in-month scaling
+  const nowY = now.getFullYear(), nowM = now.getMonth() + 1, day = now.getDate();
+  const curYm = `${nowY}-${String(nowM).padStart(2,'0')}`;
+  const prvYm = `${nowM === 1 ? nowY-1 : nowY}-${String(nowM === 1 ? 12 : nowM-1).padStart(2,'0')}`;
+  const cur = monthlyRows.find(r => r.month === curYm);
+  const prv = monthlyRows.find(r => r.month === prvYm);
+
+  // Days in prior month
+  const prvDays = new Date(nowM === 1 ? nowY-1 : nowY, nowM === 1 ? 12 : nowM-1, 0).getDate();
+  // Same-point-in-prior-month = prv_total * (day / prvDays)
+  const pointProj = v => (v || 0) * (day / prvDays);
+
+  const curPol = parseInt(cur?.policy_count || 0);
+  const curGro = parseFloat(cur?.gross_premium || 0);
+  const curMem = parseInt(cur?.member_count || 0);
+
+  document.getElementById('mtdPolicies').textContent = fmtNum(curPol);
+  document.getElementById('mtdGross').textContent    = 'AED ' + fmtCompact(curGro);
+  document.getElementById('mtdMembers').textContent  = fmtNum(curMem);
+
+  const setSub = (id, cur, ref, label) => {
+    const el = document.getElementById(id);
+    if (!ref || !cur) { el.className = 'tile-sub'; el.textContent = `vs ${label}`; return; }
+    const d = (cur - ref) / ref * 100;
+    el.className = 'tile-sub ' + (d > 1 ? 'up' : d < -1 ? 'down' : '');
+    el.textContent = `${d > 0 ? '▲' : d < 0 ? '▼' : '—'} ${Math.abs(d).toFixed(0)}% vs ${label}`;
+  };
+  setSub('mtdPoliciesDelta', curPol, pointProj(parseInt(prv?.policy_count || 0)),  `day ${day} of last month`);
+  setSub('mtdGrossDelta',    curGro, pointProj(parseFloat(prv?.gross_premium || 0)), `day ${day} of last month`);
+  setSub('mtdMembersDelta',  curMem, pointProj(parseInt(prv?.member_count || 0)),  `day ${day} of last month`);
+}
+
+// ── Forecast ───────────────────────────────────────────────────────────────────
+function renderForecast() {
+  if (!forecastData) return;
+  const actuals = forecastData.actuals || [];
+  const projected = forecastData.projected || [];
+  const ytd = forecastData.ytd || {};
+  const ye  = forecastData.year_end || {};
+
+  document.getElementById('ytdGross').textContent = 'AED ' + fmtCompact(ytd.gross_premium || 0);
+  document.getElementById('ytdGrossSub').textContent = `Actuals through ${fmtMonth(actuals[actuals.length-1]?.month || '')}`;
+
+  document.getElementById('yeGross').textContent = 'AED ' + fmtCompact(ye.gross_premium || 0);
+  document.getElementById('yeGrossSub').textContent = forecastData.window_months
+    ? `Last-${forecastData.window_months}-month run-rate`
+    : 'Insufficient history';
+
+  document.getElementById('yePolicies').textContent = fmtNum(ye.policy_count || 0);
+  document.getElementById('yePoliciesSub').textContent = `${fmtNum(ytd.policy_count||0)} actual + ${fmtNum((ye.policy_count||0) - (ytd.policy_count||0))} projected`;
+
+  // Build chart datasets — 12 months of current year
+  const year = forecastData.year;
+  const labels = [];
+  const actualsData = [];
+  const projData = [];
+  for (let m = 1; m <= 12; m++) {
+    const key = `${year}-${String(m).padStart(2,'0')}`;
+    labels.push(fmtMonth(key));
+    const a = actuals.find(x => x.month === key);
+    const p = projected.find(x => x.month === key);
+    actualsData.push(a ? a.gross_premium : null);
+    projData.push(p ? p.gross_premium : null);
+  }
+
+  if (forecastChart) forecastChart.destroy();
+  forecastChart = new Chart(document.getElementById('forecastChart'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Actual',
+          data: actualsData,
+          backgroundColor: '#35c5fc',
+          borderColor: '#35c5fc',
+          borderWidth: 0,
+          borderRadius: 4,
+        },
+        {
+          label: 'Projected',
+          data: projData,
+          backgroundColor: 'rgba(132,49,203,.35)',
+          borderColor: '#8431cb',
+          borderWidth: 2,
+          borderDash: [6, 4],
+          borderRadius: 4,
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          labels: { color: '#e6ecf5', font: { size: 12, weight: '500' }, padding: 14 }
+        },
+        tooltip: {
+          backgroundColor: 'rgba(17,24,38,.95)',
+          borderColor: '#2a3a53',
+          borderWidth: 1,
+          titleColor: '#e6ecf5',
+          bodyColor: '#e6ecf5',
+          callbacks: { label: ctx => `${ctx.dataset.label}: AED ${fmtNum(ctx.raw||0)}` }
+        }
+      },
+      scales: {
+        x: { ticks: { color: '#8a97ad', font: { size: 11 } }, grid: { color: 'rgba(138,151,173,.08)' } },
+        y: {
+          ticks: { callback: v => 'AED ' + fmtCompact(v), color: '#8a97ad', font: { size: 11 } },
+          grid: { color: 'rgba(138,151,173,.08)' }
+        }
+      }
+    }
+  });
+
+  // Forecast punchline
+  const el = document.getElementById('forecastPunch');
+  const body = el.querySelector('.pl-body');
+  el.classList.remove('good','alert');
+  if (!forecastData.window_months || !projected.length) {
+    body.innerHTML = `<strong>Not enough history for a projection.</strong> Showing actuals only. Add more months (or widen filters) to enable the year-end run-rate forecast.`;
+    return;
+  }
+  const yeGross = ye.gross_premium || 0;
+  const ytdGross = ytd.gross_premium || 0;
+  const remaining = yeGross - ytdGross;
+  el.classList.add('good');
+  body.innerHTML = `At the current <strong>last-${forecastData.window_months}-month run-rate</strong>, ${year} projects to <strong>AED ${fmtCompact(yeGross)}</strong> in gross premium (YTD AED ${fmtCompact(ytdGross)} + AED ${fmtCompact(remaining)} projected over the remaining ${12 - forecastData.current_month} months). Change any filter to model a different scenario — broker loss, plan focus, or RM swap.`;
+}
+
+// ── Download / Print ───────────────────────────────────────────────────────────
+async function downloadDashboard() {
+  const btn = document.getElementById('dashDlBtn');
+  btn.disabled = true; btn.textContent = '⏳ Generating…';
+  try {
+    const res = await fetch('/api/dashboard/export' + filterParams());
+    if (!res.ok) { alert('Export failed: ' + res.statusText); return; }
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    const cd   = res.headers.get('Content-Disposition') || '';
+    const match = cd.match(/filename="?([^"]+)"?/);
+    a.download = match ? match[1] : 'Wellx Policies Report.xlsx';
+    a.href = url; document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+  } catch(e) { alert('Network error: ' + e.message); }
+  finally { btn.disabled = false; btn.textContent = '⬇ Excel'; }
+}
+
+function printDashboard() {
+  if (window.Chart && Chart.instances) {
+    Object.values(Chart.instances).forEach(c => { try { c.resize(); } catch(e){} });
+  }
+  setTimeout(() => window.print(), 100);
+}
+
+// ── Bionic W stub ──────────────────────────────────────────────────────────────
+function toggleBionic() {
+  const d = document.getElementById('bionicDrawer');
+  d.classList.toggle('open');
+  if (d.classList.contains('open')) {
+    document.getElementById('bionicContext').textContent = 'Ready to answer questions about your business.';
+  }
+}
+function closeBionic() {
+  document.getElementById('bionicDrawer').classList.remove('open');
+}
+function openBionic(context) {
+  document.getElementById('bionicDrawer').classList.add('open');
+  document.getElementById('bionicContext').textContent = `Focused on: ${context}.`;
+}
+document.addEventListener('click', (e) => {
+  const d = document.getElementById('bionicDrawer');
+  const btn = document.querySelector('.bionic-btn');
+  const local = e.target.closest('.local-ask');
+  if (!d.contains(e.target) && e.target !== btn && !local) d.classList.remove('open');
+});
+
+// ── RM target save ─────────────────────────────────────────────────────────────
 async function saveTarget(rmName) {
   const year  = parseInt(document.getElementById('rmYear').value);
   const month = parseInt(document.getElementById('rmMonth').value);
@@ -792,13 +1412,6 @@ function fmtMonth(s) {
 function fmtNum(n) {
   return Number(n||0).toLocaleString('en-AE', {minimumFractionDigits:0, maximumFractionDigits:0});
 }
-function printDashboard() {
-  // Ensure Chart.js canvases re-render at print size
-  if (window.Chart && Chart.instances) {
-    Object.values(Chart.instances).forEach(c => { try { c.resize(); } catch(e){} });
-  }
-  setTimeout(() => window.print(), 100);
-}
 function fmtCompact(n) {
   const v = Number(n||0);
   const a = Math.abs(v);
@@ -811,8 +1424,8 @@ function fmtCompact(n) {
 document.getElementById('rmYear').addEventListener('change', renderRM);
 document.getElementById('rmMonth').addEventListener('change', renderRM);
 
-loadMeta();
-loadAll();
+buildDateBasisChip();
+loadMeta().then(loadAll);
 </script>
 </body>
 </html>
