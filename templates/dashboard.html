@@ -166,7 +166,8 @@ tbody tr.drillable:hover{background:rgba(53,197,252,.08)}
 .tile-sub.down{color:var(--bad)}
 
 /* ── Bionic W floating button ── */
-.bionic-btn{position:fixed;right:26px;bottom:26px;width:58px;height:58px;border-radius:50%;background:var(--grad);border:none;color:#fff;font-family:'Raleway',sans-serif;font-weight:900;font-size:1.4rem;cursor:pointer;box-shadow:0 10px 30px rgba(53,197,252,.35),0 0 30px rgba(132,49,203,.25);display:flex;align-items:center;justify-content:center;z-index:1000;transition:.2s;letter-spacing:-.02em}
+.bionic-btn{position:fixed;right:26px;bottom:26px;width:62px;height:62px;border-radius:50%;background:var(--grad);border:none;cursor:pointer;box-shadow:0 10px 30px rgba(53,197,252,.35),0 0 30px rgba(132,49,203,.25);display:flex;align-items:center;justify-content:center;z-index:1000;transition:.2s;padding:0}
+.bionic-btn img{width:62%;height:62%;object-fit:contain;filter:drop-shadow(0 1px 2px rgba(0,0,0,.25))}
 .bionic-btn:hover{transform:translateY(-2px) scale(1.05);box-shadow:0 14px 40px rgba(53,197,252,.5),0 0 40px rgba(132,49,203,.35)}
 .bionic-btn::before{content:'';position:absolute;inset:-3px;border-radius:50%;background:var(--grad);opacity:.3;z-index:-1;filter:blur(10px);animation:bionic-pulse 3s ease-in-out infinite}
 @keyframes bionic-pulse{0%,100%{opacity:.3;transform:scale(1)}50%{opacity:.5;transform:scale(1.1)}}
@@ -548,7 +549,9 @@ tbody tr.drillable:hover{background:rgba(53,197,252,.08)}
 </div>
 
 <!-- Bionic W floating button + stub drawer -->
-<button class="bionic-btn" onclick="toggleBionic()" title="Ask Jasper">W</button>
+<button class="bionic-btn" onclick="toggleBionic()" title="Ask Jasper" aria-label="Ask Jasper">
+  <img src="/style/Wellxinvertedsymbolfordarkbackgrounds-01_728a6f7f.png" alt="Wellx">
+</button>
 <div class="bionic-drawer" id="bionicDrawer">
   <button class="bd-close" onclick="closeBionic()">✕</button>
   <h3><span class="bw-dot"></span> Jasper</h3>

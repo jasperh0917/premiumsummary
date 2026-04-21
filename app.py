@@ -2579,6 +2579,12 @@ def index():
 def brand_logo():
     return send_file(BRAND_LOGO_PATH, mimetype='image/png')
 
+
+@app.route('/style/<path:filename>')
+def style_asset(filename):
+    from flask import send_from_directory
+    return send_from_directory(os.path.join(_ROOT, 'Style'), filename)
+
 @app.route('/api/upload', methods=['POST'])
 def api_upload():
     plan         = request.form.get('plan', '')
