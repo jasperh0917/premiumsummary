@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Intelligence Dashboard — Wellx Labs</title>
+<title>Management Dashboard — Wellx Labs</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Raleway:wght@700;800;900&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -25,15 +25,19 @@
   --alert:      #ff5a7a;
   --good:       #22d3a8;
   --bad:        #ff5a7a;
+  --dot-blue:   #35c5fc;
+  --dot-green:  #00e5a0;
+  --dot-orange: #f5a742;
+  --dot-pink:   #ff5a7a;
+  --dot-purple: #8431cb;
   --glow:       0 0 40px rgba(53,197,252,.20);
   --glow-soft:  0 0 24px rgba(53,197,252,.12);
   --grad:       linear-gradient(135deg,#35c5fc,#8431cb);
   --grad-soft:  linear-gradient(135deg,rgba(53,197,252,.12),rgba(132,49,203,.08));
-  --grad-green: linear-gradient(135deg,#00e5a0,#35c5fc);
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{background:var(--bg);min-height:100vh}
-body{font-family:'Inter',system-ui,sans-serif;color:var(--text);padding:0 0 120px;line-height:1.45;-webkit-font-smoothing:antialiased}
+body{font-family:'Inter',system-ui,sans-serif;color:var(--text);padding:0 0 100px;line-height:1.45;-webkit-font-smoothing:antialiased}
 
 /* ── Top nav ── */
 .top-nav{background:var(--bg-2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:14px 32px;position:sticky;top:0;z-index:20;backdrop-filter:blur(6px)}
@@ -44,25 +48,23 @@ body{font-family:'Inter',system-ui,sans-serif;color:var(--text);padding:0 0 120p
 .nav-links a.active{background:var(--surface);color:#fff;box-shadow:inset 0 0 0 1px var(--border-2)}
 
 /* ── Page shell ── */
-.page{max-width:1320px;margin:32px auto;padding:0 24px}
-h1{font-family:'Raleway',sans-serif;font-weight:900;font-size:1.85rem;color:#fff;margin-bottom:6px;letter-spacing:-.01em}
-.sub{color:var(--text-dim);font-size:.9rem;margin-bottom:26px;max-width:680px}
-.sub strong{color:var(--text)}
+.page{max-width:1400px;margin:24px auto;padding:0 24px}
+
+.page-header{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin-bottom:16px;flex-wrap:wrap}
+.page-header .brand-tag{font-family:'Raleway',sans-serif;font-weight:900;font-size:.72rem;letter-spacing:3px;text-transform:uppercase;color:var(--brand);display:block;margin-bottom:2px}
+.page-header h1{font-family:'Raleway',sans-serif;font-weight:900;font-size:1.7rem;color:#fff;letter-spacing:-.01em;line-height:1.1;display:inline}
+.page-header .sub{color:var(--text-dim);font-size:.9rem;margin-left:14px;display:inline}
+.page-actions{display:flex;gap:8px}
+.btn{padding:8px 18px;border:none;border-radius:10px;font-size:.82rem;font-weight:600;font-family:inherit;cursor:pointer;transition:.15s;color:var(--text);background:var(--surface);border:1px solid var(--border)}
+.btn:hover{border-color:var(--border-2);background:var(--surface-2)}
+.btn-primary{background:var(--grad);color:#fff;border:none}
+.btn-primary:hover{filter:brightness(1.1);box-shadow:var(--glow-soft)}
 
 /* ── Filter bar ── */
-.filter-bar{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 18px;margin-bottom:28px;display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
-.fg{display:flex;flex-direction:column;gap:3px}
-.fg label{font-size:.66rem;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.6px}
-.btn{padding:8px 16px;border:none;border-radius:8px;font-size:.82rem;font-weight:600;font-family:inherit;cursor:pointer;transition:.15s;color:#fff}
-.btn-primary{background:var(--grad)}
-.btn-primary:hover{filter:brightness(1.1);box-shadow:var(--glow-soft)}
-.btn-ghost{background:var(--surface-2);color:var(--text);border:1px solid var(--border)}
-.btn-ghost:hover{background:var(--bg-2);border-color:var(--border-2)}
-
-/* ── Multi-select chip ── */
+.filter-bar{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px 16px;margin-bottom:18px;display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
 .ms{position:relative;display:flex;flex-direction:column;gap:3px}
-.ms-label{font-size:.66rem;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.6px}
-.ms-chip{border:1px solid var(--border);border-radius:8px;padding:7px 28px 7px 12px;font-size:.82rem;font-family:inherit;color:var(--text);background:var(--surface-2);outline:none;min-width:150px;max-width:240px;cursor:pointer;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;position:relative;transition:.15s}
+.ms-label{font-size:.64rem;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.6px}
+.ms-chip{border:1px solid var(--border);border-radius:10px;padding:8px 28px 8px 12px;font-size:.82rem;font-family:inherit;color:var(--text);background:var(--surface-2);outline:none;min-width:150px;max-width:220px;cursor:pointer;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;position:relative;transition:.15s}
 .ms-chip:hover{border-color:var(--accent);background:var(--bg-2)}
 .ms-chip.has-selection{border-color:var(--accent);color:#fff;background:linear-gradient(135deg,rgba(53,197,252,.14),rgba(132,49,203,.06))}
 .ms-chip::after{content:'▾';position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:.7rem}
@@ -72,98 +74,131 @@ h1{font-family:'Raleway',sans-serif;font-weight:900;font-size:1.85rem;color:#fff
 .ms-opt:hover{background:var(--surface-2)}
 .ms-opt input{accent-color:var(--accent);cursor:pointer}
 .ms-opt.ms-all{border-bottom:1px solid var(--border);font-weight:600;color:var(--accent)}
+.filter-bar .spacer{flex:1}
 
-/* ── Section headers ── */
-.s-wrap{margin-bottom:36px}
-.s-header{display:flex;align-items:baseline;gap:14px;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border)}
-.s-tag{font-family:'Raleway',sans-serif;font-size:.6rem;font-weight:900;letter-spacing:3px;text-transform:uppercase;padding:4px 10px;border-radius:6px;color:#fff;background:var(--grad)}
-.s-title{font-family:'Raleway',sans-serif;font-weight:900;font-size:1.4rem;color:#fff;letter-spacing:-.01em}
-.s-sub{color:var(--text-dim);font-size:.82rem;margin-left:auto}
+/* ── KPI row (4) ── */
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:14px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 22px;position:relative;overflow:hidden;transition:.2s}
+.kpi:hover{border-color:var(--border-2)}
+.kpi-head{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.kpi-dot{width:11px;height:11px;border-radius:50%;background:var(--dot,var(--accent));box-shadow:0 0 10px var(--dot,var(--accent));flex-shrink:0}
+.kpi-label{font-size:.8rem;font-weight:500;color:var(--text-dim)}
+.kpi-value{font-family:'Raleway',sans-serif;font-weight:900;font-size:2rem;color:#fff;line-height:1.05;letter-spacing:-.01em}
+.kpi-delta{font-size:.78rem;font-weight:600;margin-top:6px}
+.kpi-delta.up{color:var(--good)}
+.kpi-delta.down{color:var(--bad)}
+.kpi-delta.flat{color:var(--text-mute)}
 
-/* ── Cards / sections ── */
-.section{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:22px 24px;margin-bottom:20px;transition:box-shadow .2s,border-color .2s}
-.section.spotlight{box-shadow:var(--glow);border-color:rgba(53,197,252,.35)}
-.section-title{font-family:'Raleway',sans-serif;font-weight:800;font-size:.92rem;color:#fff;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:16px;display:flex;align-items:center;gap:10px}
-.section-title .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px var(--accent)}
-.section-sub{color:var(--text-dim);font-size:.78rem;margin-top:-10px;margin-bottom:16px}
-.local-ask{margin-left:auto;width:28px;height:28px;border-radius:50%;border:1px solid var(--border-2);background:var(--surface-2);color:var(--text-dim);font-size:.82rem;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:.15s}
+/* Dot variants by KPI index */
+.kpi[data-dot=blue]   { --dot: var(--dot-blue); }
+.kpi[data-dot=green]  { --dot: var(--dot-green); }
+.kpi[data-dot=orange] { --dot: var(--dot-orange); }
+.kpi[data-dot=pink]   { --dot: var(--dot-pink); }
+
+/* ── Stat strip (3 density) ── */
+.stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 22px;display:flex;flex-direction:column;gap:6px}
+.stat-card .stat-label{font-size:.78rem;font-weight:500;color:var(--text-dim)}
+.stat-card .stat-value{font-family:'Raleway',sans-serif;font-weight:900;font-size:1.5rem;color:#fff;line-height:1.05}
+
+/* ── Main grid: chart + side col ── */
+.main-grid{display:grid;grid-template-columns:1.75fr 1fr;gap:14px;margin-bottom:20px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px 22px;transition:.2s}
+.card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:14px}
+.card-head h3{font-family:'Raleway',sans-serif;font-weight:800;font-size:1.05rem;color:#fff;line-height:1.1;margin-bottom:2px;letter-spacing:-.005em}
+.card-head p{font-size:.78rem;color:var(--text-dim);margin:0}
+.local-ask{width:26px;height:26px;min-width:26px;border-radius:50%;border:1px solid var(--border);background:var(--surface-2);color:var(--text-dim);font-size:.78rem;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:.15s;padding:0}
 .local-ask:hover{border-color:var(--accent);color:var(--accent);box-shadow:var(--glow-soft)}
 
-/* ── KPI row ── */
-.kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:18px}
-.kpi{background:linear-gradient(180deg,var(--surface),var(--surface-2));border:1px solid var(--border);border-radius:14px;padding:16px 20px;position:relative;overflow:hidden}
-.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--grad);opacity:.7}
-.kpi .kl{font-size:.66rem;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.7px;margin-bottom:6px;display:flex;align-items:center;gap:6px}
-.kpi .kv{font-family:'Raleway',sans-serif;font-weight:900;font-size:1.6rem;color:#fff;line-height:1.1}
-.kpi .kd{font-size:.72rem;font-weight:600;margin-top:6px;display:flex;align-items:center;gap:4px}
-.kpi .kd.up{color:var(--good)}
-.kpi .kd.down{color:var(--bad)}
-.kpi .kd.flat{color:var(--text-mute)}
-.kpi-multi{display:flex;flex-direction:column;gap:8px}
-.kpi-multi .kpi-header{font-size:.66rem;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.7px;border-bottom:1px solid var(--border);padding-bottom:6px;margin-bottom:4px}
-.kpi-multi .kpi-item{display:flex;justify-content:space-between;align-items:baseline}
-.kpi-multi .kpi-item .kl{font-size:.62rem;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px;margin:0;display:block}
-.kpi-multi .kpi-item .kv{font-family:'Raleway',sans-serif;font-weight:900;font-size:1.05rem;color:#fff}
+/* ── Chart legend + wrap ── */
+.chart-legend{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:10px;font-size:.76rem;font-weight:500;color:var(--text-dim)}
+.legend-item{display:flex;align-items:center;gap:6px}
+.legend-swatch{width:12px;height:12px;border-radius:2px;flex-shrink:0}
+.legend-note{color:var(--text-mute);font-size:.72rem;font-style:italic;margin-left:auto}
+.chart-wrap{position:relative;height:340px;margin-bottom:8px}
+.chart-wrap-sm{position:relative;height:220px;margin-bottom:4px}
 
-/* ── Punchline block ── */
-.punchline{background:var(--grad-soft);border:1px solid rgba(53,197,252,.22);border-radius:12px;padding:14px 18px;margin-top:14px;display:flex;gap:12px;align-items:flex-start}
-.punchline .pl-icon{width:28px;height:28px;min-width:28px;border-radius:8px;background:var(--grad);color:#fff;font-weight:900;font-size:.72rem;display:inline-flex;align-items:center;justify-content:center;font-family:'Raleway',sans-serif;letter-spacing:.5px}
-.punchline .pl-body{color:var(--text);font-size:.86rem;line-height:1.5}
+/* ── Monthly summary strip ── */
+.summary-strip{display:grid;grid-template-columns:repeat(5,1fr);gap:0;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-top:12px}
+.summary-strip > div{display:flex;flex-direction:column;gap:2px;border-right:1px solid var(--border);padding:0 10px}
+.summary-strip > div:last-child{border-right:none}
+.summary-strip > div:first-child{padding-left:4px}
+.summary-strip .sl{font-size:.66rem;font-weight:500;color:var(--text-dim);text-transform:uppercase;letter-spacing:.5px}
+.summary-strip .sv{font-family:'Raleway',sans-serif;font-weight:800;font-size:.95rem;color:#fff}
+
+/* ── Side column ── */
+.side-col{display:flex;flex-direction:column;gap:14px}
+
+/* ── Broker horizontal bars ── */
+.broker-bars{display:flex;flex-direction:column;gap:14px}
+.broker-bar{position:relative;cursor:pointer;transition:.15s}
+.broker-bar:hover .bb-name{color:#fff}
+.bb-name{font-size:.85rem;font-weight:600;color:var(--text);margin-bottom:4px;display:flex;justify-content:space-between;align-items:baseline;gap:8px;transition:.15s}
+.bb-name .bb-count{color:var(--text-dim);font-size:.76rem;font-weight:500;flex-shrink:0}
+.bb-track{height:12px;border-radius:6px;background:var(--surface-2);border:1px solid var(--border);overflow:hidden;position:relative}
+.bb-fill{height:100%;border-radius:6px;background:var(--grad);transition:width .5s ease}
+.bb-amount{font-size:.72rem;color:var(--text-dim);margin-top:3px}
+
+/* ── Mini table ── */
+.mini-table{width:100%;border-collapse:collapse;font-size:.82rem}
+.mini-table thead th{font-size:.66rem;font-weight:700;color:var(--text-dim);padding:6px 8px 6px 0;text-align:left;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border)}
+.mini-table thead th.num{text-align:right}
+.mini-table tbody td{padding:8px 8px 8px 0;color:var(--text);border-bottom:1px dashed var(--border)}
+.mini-table tbody td.num{text-align:right;font-variant-numeric:tabular-nums}
+.mini-table tbody tr:last-child td{border-bottom:none}
+.mini-table tbody tr{cursor:pointer;transition:.15s}
+.mini-table tbody tr:hover td{color:#fff}
+.mini-table .plan-strong{font-weight:600}
+.mini-table .rate-val{color:var(--accent);font-weight:700}
+
+/* ── RM pills ── */
+.rm-pills{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:10px;margin-bottom:10px}
+.rm-pill{background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;cursor:pointer;transition:.15s;position:relative;overflow:hidden}
+.rm-pill:hover{border-color:var(--border-2);transform:translateY(-1px)}
+.rm-pill::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--pill-color,var(--accent))}
+.rm-pill[data-tier=good]::before  { --pill-color: var(--good) }
+.rm-pill[data-tier=warn]::before  { --pill-color: var(--warn) }
+.rm-pill[data-tier=bad]::before   { --pill-color: var(--bad) }
+.rm-pill[data-tier=empty]::before { --pill-color: var(--text-mute) }
+.rm-pill-bar{height:6px;border-radius:3px;background:var(--bg-2);margin:6px 0;overflow:hidden;position:relative}
+.rm-pill-bar-fill{height:100%;background:var(--pill-color,var(--accent));border-radius:3px;transition:width .5s}
+.rm-pill[data-tier=good]  .rm-pill-bar-fill { background: var(--good) }
+.rm-pill[data-tier=warn]  .rm-pill-bar-fill { background: var(--warn) }
+.rm-pill[data-tier=bad]   .rm-pill-bar-fill { background: var(--bad) }
+.rm-pill-name{font-size:.8rem;font-weight:600;color:#fff;letter-spacing:-.005em;display:flex;justify-content:space-between;align-items:baseline;gap:6px}
+.rm-pill-name .trophy{font-size:.78rem}
+.rm-pill-pct{font-size:.72rem;color:var(--text-dim);font-weight:500}
+.rm-pill-pct .pct-val{color:var(--pill-color,var(--text));font-weight:700}
+.rm-pill[data-tier=good]  .rm-pill-pct .pct-val { color: var(--good) }
+.rm-pill[data-tier=warn]  .rm-pill-pct .pct-val { color: var(--warn) }
+.rm-pill[data-tier=bad]   .rm-pill-pct .pct-val { color: var(--bad) }
+
+/* ── RM controls + edit mode ── */
+.rm-controls{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.rm-controls select{border:1px solid var(--border);border-radius:8px;padding:5px 8px;font-size:.76rem;font-family:inherit;color:var(--text);background:var(--surface-2);outline:none}
+.rm-controls select:focus{border-color:var(--accent)}
+.rm-edit-toggle{font-size:.74rem;font-weight:500;color:var(--text-dim);cursor:pointer;user-select:none;padding:4px 10px;border-radius:6px;border:1px solid transparent;transition:.15s}
+.rm-edit-toggle:hover{color:var(--accent);border-color:var(--border)}
+.rm-edit-toggle.on{color:var(--accent);border-color:var(--border)}
+.rm-edit-panel{display:none;flex-direction:column;gap:6px;padding-top:10px;margin-top:6px;border-top:1px dashed var(--border)}
+.rm-edit-panel.open{display:flex}
+.rm-edit-row{display:grid;grid-template-columns:1fr 110px 60px;gap:8px;align-items:center;font-size:.8rem}
+.rm-edit-row .ere-name{color:var(--text)}
+.rm-edit-row input{border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:.78rem;font-family:inherit;text-align:right;outline:none;background:var(--bg-2);color:var(--text)}
+.rm-edit-row input:focus{border-color:var(--accent)}
+.rm-edit-row button{padding:5px 10px;background:var(--grad);color:#fff;border:none;border-radius:6px;font-size:.72rem;font-weight:600;cursor:pointer;transition:.15s}
+.rm-edit-row button:hover{filter:brightness(1.1)}
+
+/* ── Punchline (compact, with ribbon image) ── */
+.punchline{background:var(--grad-soft);border:1px solid rgba(53,197,252,.22);border-radius:10px;padding:10px 14px;margin-top:14px;display:flex;gap:10px;align-items:flex-start}
+.pl-icon-img{width:22px;height:22px;min-width:22px;object-fit:contain;margin-top:1px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.2))}
+.punchline .pl-body{color:var(--text);font-size:.82rem;line-height:1.5}
 .punchline .pl-body strong{color:#fff}
 .punchline.alert{background:linear-gradient(135deg,rgba(255,90,122,.12),rgba(245,194,66,.06));border-color:rgba(255,90,122,.3)}
-.punchline.alert .pl-icon{background:linear-gradient(135deg,#ff5a7a,#f5c242)}
 .punchline.good{background:linear-gradient(135deg,rgba(0,229,160,.12),rgba(53,197,252,.06));border-color:rgba(0,229,160,.3)}
-.punchline.good .pl-icon{background:var(--grad-green)}
 
-/* ── Chart wrap ── */
-.chart-wrap{position:relative;height:360px;margin-bottom:8px}
-.chart-legend{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:14px;font-size:.76rem;font-weight:500;color:var(--text-dim)}
-.legend-item{display:flex;align-items:center;gap:6px}
-.legend-swatch{width:12px;height:12px;border-radius:3px;flex-shrink:0}
-.legend-note{color:var(--text-mute);font-size:.72rem;font-style:italic;margin-left:auto}
-
-/* ── Tables ── */
-.tbl-wrap{overflow-x:auto;border-radius:10px;border:1px solid var(--border);background:var(--surface-2)}
-table{width:100%;border-collapse:collapse}
-thead tr{background:var(--bg-2)}
-thead th{color:var(--text-dim);font-size:.7rem;font-weight:700;padding:10px 14px;text-align:left;white-space:nowrap;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border)}
-tbody tr{border-bottom:1px solid var(--border)}
-tbody tr:last-child{border-bottom:none}
-tbody tr:hover{background:rgba(53,197,252,.05)}
-tbody td{padding:11px 14px;font-size:.84rem;color:var(--text)}
-.num{text-align:right;font-variant-numeric:tabular-nums}
-tfoot tr{background:var(--bg-2)}
-tfoot td{padding:11px 14px;font-size:.85rem;font-weight:700;color:var(--accent);border-top:1px solid var(--border-2)}
-.empty-row td{text-align:center;color:var(--text-mute);padding:28px!important;font-style:italic}
-tbody tr.drillable{cursor:pointer}
-tbody tr.drillable:hover{background:rgba(53,197,252,.08)}
-.trophy{margin-right:5px}
-
-/* ── % badges ── */
-.pct{font-size:.72rem;font-weight:700;padding:3px 8px;border-radius:10px;display:inline-block}
-.pct-good{background:rgba(0,229,160,.15);color:var(--good);border:1px solid rgba(0,229,160,.3)}
-.pct-warn{background:rgba(245,194,66,.15);color:var(--warn);border:1px solid rgba(245,194,66,.3)}
-.pct-bad{background:rgba(255,90,122,.15);color:var(--bad);border:1px solid rgba(255,90,122,.3)}
-
-/* ── RM controls ── */
-.rm-controls{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
-.rm-controls label{font-size:.76rem;font-weight:600;color:var(--text-dim)}
-.rm-controls select{border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:.82rem;font-family:inherit;color:var(--text);background:var(--surface-2);outline:none}
-.rm-controls select:focus{border-color:var(--accent)}
-.target-input{border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:.82rem;font-family:inherit;width:110px;text-align:right;outline:none;transition:.15s;background:var(--bg-2);color:var(--text)}
-.target-input:focus{border-color:var(--accent)}
-.save-btn{padding:5px 10px;background:var(--grad);color:#fff;border:none;border-radius:6px;font-size:.74rem;font-weight:600;cursor:pointer;transition:.15s;margin-left:4px}
-.save-btn:hover{filter:brightness(1.1)}
-
-/* ── Grid tiles ── */
-.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
-.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px}
-.tile{background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:16px 18px}
-.tile-label{font-size:.68rem;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px}
-.tile-value{font-family:'Raleway',sans-serif;font-weight:900;font-size:1.35rem;color:#fff;line-height:1.1}
-.tile-sub{font-size:.75rem;color:var(--text-dim);margin-top:6px}
-.tile-sub.up{color:var(--good)}
-.tile-sub.down{color:var(--bad)}
+/* ── Empty state ── */
+.empty{color:var(--text-mute);font-size:.82rem;text-align:center;padding:28px 0;font-style:italic}
 
 /* ── Bionic W floating button ── */
 .bionic-btn{position:fixed;right:26px;bottom:26px;width:62px;height:62px;border-radius:50%;background:var(--grad);border:none;cursor:pointer;box-shadow:0 10px 30px rgba(53,197,252,.35),0 0 30px rgba(132,49,203,.25);display:flex;align-items:center;justify-content:center;z-index:1000;transition:.2s;padding:0}
@@ -185,13 +220,20 @@ tbody tr.drillable:hover{background:rgba(53,197,252,.08)}
 .bionic-drawer .bd-close:hover{color:var(--text)}
 
 /* ── Responsive ── */
-@media (max-width: 900px){
-  .page{padding:0 16px;margin:20px auto}
-  h1{font-size:1.4rem}
-  .grid-2,.grid-3{grid-template-columns:1fr}
-  .s-sub{display:none}
-  .chart-wrap{height:280px}
-  .bionic-btn{right:16px;bottom:16px;width:50px;height:50px;font-size:1.2rem}
+@media (max-width: 1100px){
+  .main-grid{grid-template-columns:1fr;gap:14px}
+}
+@media (max-width: 760px){
+  .page{padding:0 14px;margin:18px auto}
+  .page-header{flex-direction:column;align-items:flex-start}
+  .page-header .sub{display:block;margin-left:0;margin-top:4px}
+  .kpi-row{grid-template-columns:repeat(2,1fr)}
+  .stat-row{grid-template-columns:1fr}
+  .kpi-value{font-size:1.5rem}
+  .summary-strip{grid-template-columns:1fr 1fr;gap:6px}
+  .summary-strip > div{border-right:none}
+  .chart-wrap{height:260px}
+  .bionic-btn{right:16px;bottom:16px;width:52px;height:52px}
   .bionic-drawer{right:16px;bottom:78px;width:calc(100vw - 32px)}
 }
 
@@ -200,38 +242,38 @@ tbody tr.drillable:hover{background:rgba(53,197,252,.08)}
   @page { size: A4; margin: 12mm; }
   html, body { background: #fff !important; color: #000 !important; padding: 0 !important; }
   .top-nav, .nav-links, .nav-brand,
-  .filter-bar .btn, #dashDlBtn, #dashPrintBtn,
-  .target-input, .save-btn,
-  .rm-controls select, .rm-controls label,
-  .bionic-btn, .bionic-drawer, .local-ask { display: none !important; }
+  .page-actions, .bionic-btn, .bionic-drawer, .local-ask,
+  .rm-edit-toggle, .rm-edit-panel, .rm-controls select { display: none !important; }
   .filter-bar { box-shadow: none !important; border: 1px solid #e0e7f0; padding: 10px 14px; background:#fff !important; }
   .ms-chip{background:#fff !important;color:#000 !important;border:1px solid #cbd5e1 !important}
   .page { max-width: 100% !important; margin: 0 !important; padding: 0 !important; }
-  h1, .s-title { color: #003780 !important; font-family:'Raleway',sans-serif; }
-  .sub, .s-sub, .section-sub { color: #475569 !important; }
-  .section, .kpi, .filter-bar, .tile { box-shadow: none !important; border: 1px solid #e5ecf6 !important; page-break-inside: avoid; background:#fff !important; }
-  .kpi .kv, .tile-value { color: #003780 !important; }
-  .kpi .kl, .tile-label { color: #475569 !important; }
-  .section-title { color: #003780 !important; }
-  .section-title .dot{display:none !important}
-  .chart-wrap { height: 260px !important; page-break-inside: avoid; }
-  .tbl-wrap{border:1px solid #e5ecf6 !important;background:#fff !important}
-  thead tr { background: #003780 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  thead th { color: #fff !important; border-bottom:none !important }
-  tbody tr { border-bottom: 1px solid #f0f4ff !important }
-  tbody tr:nth-child(even) { background: #f4f8ff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  tbody td, tfoot td { color: #000 !important; }
-  tfoot tr { background: #e8f0fe !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .pct-good { background: #dcfce7 !important; color: #166534 !important; border:none !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .pct-warn { background: #fef9c3 !important; color: #854d0e !important; border:none !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .pct-bad  { background: #fee2e2 !important; color: #991b1b !important; border:none !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .page-header h1 { color:#003780 !important; font-size:1.3rem; display:inline; }
+  .page-header .sub { color:#475569 !important; display:inline; margin-left:14px; }
+  .page-header .brand-tag{color:#003780 !important}
+  .main-grid{grid-template-columns:1.6fr 1fr !important;gap:10px}
+  .card, .kpi, .stat-card { box-shadow: none !important; border: 1px solid #e5ecf6 !important; background:#fff !important; page-break-inside: avoid; }
+  .kpi-value, .stat-value { color:#003780 !important; }
+  .kpi-label, .stat-label, .kpi-delta { color:#475569 !important; }
+  .card-head h3 { color:#003780 !important; }
+  .card-head p { color:#475569 !important; }
+  .chart-wrap { height: 240px !important; page-break-inside: avoid; }
+  .chart-wrap-sm { height: 180px !important; page-break-inside: avoid; }
+  .broker-bar .bb-name, .broker-bar .bb-amount { color:#1e293b !important; }
+  .broker-bar .bb-fill { background:#003780 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .broker-bar .bb-track { background:#eef3ff !important; border-color:#d4dff5 !important; }
+  .mini-table thead th { color:#475569 !important; border-bottom:1px solid #d4dff5 !important; }
+  .mini-table tbody td { color:#1e293b !important; border-bottom:1px solid #eef3ff !important; }
+  .mini-table .rate-val { color:#003780 !important; }
+  .rm-pill { background:#fff !important; border:1px solid #d4dff5 !important; }
+  .rm-pill-name{color:#1e293b !important}
+  .rm-pill-pct{color:#475569 !important}
+  .summary-strip{background:#f4f8ff !important;border-color:#d4dff5 !important}
+  .summary-strip .sv{color:#003780 !important}
+  .summary-strip .sl{color:#475569 !important}
+  .summary-strip > div{border-right:1px solid #d4dff5 !important}
   .punchline { background:#f0f9ff !important; border:1px solid #bae6fd !important; color:#0c4a6e !important; page-break-inside: avoid; }
   .punchline .pl-body, .punchline .pl-body strong { color:#0c4a6e !important }
-  .punchline .pl-icon{background:#003780 !important}
-  .s-tag{background:#003780 !important;color:#fff !important}
-  .section { page-break-inside: avoid; }
-  .s-header{border-bottom:2px solid #003780 !important}
-  .kpi::before{background:#003780 !important}
+  .punchline .pl-icon-img{filter:none !important}
 }
 </style>
 </head>
@@ -248,10 +290,18 @@ tbody tr.drillable:hover{background:rgba(53,197,252,.08)}
 </nav>
 
 <div class="page">
-  <h1>Intelligence Dashboard</h1>
-  <p class="sub">A decision surface for sales intelligence, broker activity, and forward outlook. <strong>Report-by Insurance Start Date</strong> by default — switch to confirmation date for reconciliation.</p>
+  <div class="page-header">
+    <div>
+      <span class="brand-tag">Wellx Labs</span>
+      <h1>Management Dashboard</h1><span class="sub">Sales intelligence, broker activity, and RM target visibility.</span>
+    </div>
+    <div class="page-actions">
+      <button class="btn" id="dashDlBtn"    onclick="downloadDashboard()">⬇ Export</button>
+      <button class="btn" id="dashPrintBtn" onclick="printDashboard()">🖨 Print / PDF</button>
+    </div>
+  </div>
 
-  <!-- Global Filters -->
+  <!-- Filters -->
   <div class="filter-bar">
     <div class="ms" id="msDateBasis">
       <span class="ms-label">Report by</span>
@@ -277,275 +327,159 @@ tbody tr.drillable:hover{background:rgba(53,197,252,.08)}
       <span class="ms-label">Month</span>
       <button type="button" class="ms-chip">All Months</button>
     </div>
+    <span class="spacer"></span>
     <button class="btn btn-primary" onclick="applyFilters()">Apply</button>
-    <button class="btn btn-ghost" onclick="clearFilters()">Clear</button>
-    <button class="btn btn-ghost" id="dashDlBtn" onclick="downloadDashboard()" style="margin-left:auto">⬇ Excel</button>
-    <button class="btn btn-ghost" id="dashPrintBtn" onclick="printDashboard()">🖨 Print / PDF</button>
+    <button class="btn" onclick="clearFilters()">Clear</button>
   </div>
 
-  <!-- ═══════════════════════════════════════════════════════════════ -->
-  <!-- SECTION 1 — WHAT WE'VE BUILT                                    -->
-  <!-- ═══════════════════════════════════════════════════════════════ -->
-  <div class="s-wrap" id="sec1">
-    <div class="s-header">
-      <span class="s-tag">§1</span>
-      <h2 class="s-title">What We've Built</h2>
-      <span class="s-sub">Business as it stands today vs historical baselines</span>
+  <!-- KPI row (4) -->
+  <div class="kpi-row">
+    <div class="kpi" data-dot="blue">
+      <div class="kpi-head"><span class="kpi-dot"></span><span class="kpi-label">Total Revenue</span></div>
+      <div class="kpi-value" id="kRevenue">—</div>
+      <div class="kpi-delta flat" id="kRevenueDelta">&nbsp;</div>
     </div>
+    <div class="kpi" data-dot="green">
+      <div class="kpi-head"><span class="kpi-dot"></span><span class="kpi-label">Total Policies</span></div>
+      <div class="kpi-value" id="kTotal">—</div>
+      <div class="kpi-delta flat" id="kTotalDelta">&nbsp;</div>
+    </div>
+    <div class="kpi" data-dot="orange">
+      <div class="kpi-head"><span class="kpi-dot"></span><span class="kpi-label">Gross Premium</span></div>
+      <div class="kpi-value" id="kGross">—</div>
+      <div class="kpi-delta flat" id="kGrossDelta">&nbsp;</div>
+    </div>
+    <div class="kpi" data-dot="pink">
+      <div class="kpi-head"><span class="kpi-dot"></span><span class="kpi-label">Total Members</span></div>
+      <div class="kpi-value" id="kMembers">—</div>
+      <div class="kpi-delta flat" id="kMembersDelta">&nbsp;</div>
+    </div>
+  </div>
 
-    <!-- KPI row with YoY deltas -->
-    <div class="kpi-row">
-      <div class="kpi">
-        <div class="kl">Total Revenue</div>
-        <div class="kv" id="kRevenue">—</div>
-        <div class="kd" id="kRevenueDelta">&nbsp;</div>
-      </div>
-      <div class="kpi">
-        <div class="kl">Total Policies</div>
-        <div class="kv" id="kTotal">—</div>
-        <div class="kd" id="kTotalDelta">&nbsp;</div>
-      </div>
-      <div class="kpi">
-        <div class="kl">Gross Premium</div>
-        <div class="kv" id="kGross">—</div>
-        <div class="kd" id="kGrossDelta">&nbsp;</div>
-      </div>
-      <div class="kpi">
-        <div class="kl">Total Members</div>
-        <div class="kv" id="kMembers">—</div>
-        <div class="kd" id="kMembersDelta">&nbsp;</div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-multi">
-          <div class="kpi-header">Density</div>
-          <div class="kpi-item"><div class="kl">Premium / Policy</div><div class="kv" id="kAvg">—</div></div>
-          <div class="kpi-item"><div class="kl">Census / Policy</div><div class="kv" id="kAvgCensus">—</div></div>
-          <div class="kpi-item"><div class="kl">Premium / Member</div><div class="kv" id="kPerCapita">—</div></div>
+  <!-- Density strip (3) -->
+  <div class="stat-row">
+    <div class="stat-card">
+      <div class="stat-label">Premium / Policy</div>
+      <div class="stat-value" id="kAvg">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Census / Policy</div>
+      <div class="stat-value" id="kAvgCensus">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Premium / Member</div>
+      <div class="stat-value" id="kPerCapita">—</div>
+    </div>
+  </div>
+
+  <!-- Main grid: line chart left, 3 modules right -->
+  <div class="main-grid">
+    <!-- LEFT: Monthly Sales line chart -->
+    <section class="card">
+      <div class="card-head">
+        <div>
+          <h3>Monthly Sales</h3>
+          <p>Plan mix across new and renewal business</p>
         </div>
-      </div>
-    </div>
-
-    <!-- Monthly Sales chart -->
-    <div class="section">
-      <div class="section-title">
-        <span class="dot"></span>
-        Monthly Sales — Plan Mix
         <button class="local-ask" onclick="openBionic('monthly sales and plan mix')" title="Ask Jasper">?</button>
       </div>
-      <div class="section-sub">Gross premium by plan and type. Same-month-last-year shown as dashed overlay where available.</div>
 
-      <div class="chart-legend">
-        <span class="legend-item"><span class="legend-swatch" style="background:#00e5a0"></span>Healthx — New</span>
-        <span class="legend-item"><span class="legend-swatch" style="background:#6ef5c3"></span>Healthx — Renewal</span>
-        <span class="legend-item"><span class="legend-swatch" style="background:#ff5a7a"></span>Healthxclusive — New</span>
-        <span class="legend-item"><span class="legend-swatch" style="background:#ffa5b6"></span>Healthxclusive — Renewal</span>
-        <span class="legend-item"><span class="legend-swatch" style="background:#35c5fc"></span>Openx — New</span>
-        <span class="legend-item"><span class="legend-swatch" style="background:#8cddff"></span>Openx — Renewal</span>
-        <span class="legend-note">Actuals solid · Prior year dashed</span>
-      </div>
-
+      <div class="chart-legend" id="monthlyLegend"></div>
       <div class="chart-wrap"><canvas id="monthChart"></canvas></div>
 
-      <div class="tbl-wrap">
-        <table>
-          <thead><tr>
-            <th>Month</th>
-            <th class="num">Policies</th>
-            <th class="num">Members</th>
-            <th class="num">Gross Premium</th>
-            <th class="num">Grand Total</th>
-          </tr></thead>
-          <tbody id="monthBody"></tbody>
-          <tfoot><tr>
-            <td>TOTAL</td>
-            <td class="num" id="mfCount">—</td>
-            <td class="num" id="mfMembers">—</td>
-            <td class="num" id="mfGross">—</td>
-            <td class="num" id="mfGrand">—</td>
-          </tr></tfoot>
-        </table>
+      <div class="summary-strip">
+        <div><span class="sl">Month</span><span class="sv">TOTAL</span></div>
+        <div><span class="sl">Policies</span><span class="sv" id="mfCount">—</span></div>
+        <div><span class="sl">Members</span><span class="sv" id="mfMembers">—</span></div>
+        <div><span class="sl">Gross Premium</span><span class="sv" id="mfGross">—</span></div>
+        <div><span class="sl">Grand Total</span><span class="sv" id="mfGrand">—</span></div>
       </div>
 
       <div class="punchline" id="monthlyPunch">
-        <div class="pl-icon">W</div>
+        <img class="pl-icon-img" src="/style/Wellxinvertedsymbolfordarkbackgrounds-01_728a6f7f.png" alt="W">
         <div class="pl-body">Loading interpretation…</div>
       </div>
-    </div>
-  </div>
+    </section>
 
-  <!-- ═══════════════════════════════════════════════════════════════ -->
-  <!-- SECTION 2 — WHAT NEEDS ATTENTION                                -->
-  <!-- ═══════════════════════════════════════════════════════════════ -->
-  <div class="s-wrap" id="sec2">
-    <div class="s-header">
-      <span class="s-tag">§2</span>
-      <h2 class="s-title">What Needs Attention</h2>
-      <span class="s-sub">Current-month operating heartbeat</span>
-    </div>
+    <!-- RIGHT: broker, take rate, RM pills -->
+    <aside class="side-col">
+      <section class="card">
+        <div class="card-head">
+          <div>
+            <h3>Broker Performance</h3>
+            <p>Top brokers by revenue contribution</p>
+          </div>
+          <button class="local-ask" onclick="openBionic('broker performance')" title="Ask Jasper">?</button>
+        </div>
+        <div id="brokerBars" class="broker-bars"></div>
+        <div class="punchline" id="brokerPunch">
+          <img class="pl-icon-img" src="/style/Wellxinvertedsymbolfordarkbackgrounds-01_728a6f7f.png" alt="W">
+          <div class="pl-body">—</div>
+        </div>
+      </section>
 
-    <!-- MTD heartbeat tiles -->
-    <div class="grid-3">
-      <div class="tile">
-        <div class="tile-label">MTD Policies</div>
-        <div class="tile-value" id="mtdPolicies">—</div>
-        <div class="tile-sub" id="mtdPoliciesDelta">vs same point last month</div>
-      </div>
-      <div class="tile">
-        <div class="tile-label">MTD Gross Premium</div>
-        <div class="tile-value" id="mtdGross">—</div>
-        <div class="tile-sub" id="mtdGrossDelta">vs same point last month</div>
-      </div>
-      <div class="tile">
-        <div class="tile-label">MTD Members</div>
-        <div class="tile-value" id="mtdMembers">—</div>
-        <div class="tile-sub" id="mtdMembersDelta">vs same point last month</div>
-      </div>
-    </div>
-
-    <!-- Broker Performance -->
-    <div class="section">
-      <div class="section-title">
-        <span class="dot"></span>
-        Broker Performance
-        <button class="local-ask" onclick="openBionic('broker performance')" title="Ask Jasper">?</button>
-      </div>
-      <div class="section-sub">Ranked by grand total. Click a row to drill into the broker's policies.</div>
-      <div class="tbl-wrap">
-        <table>
-          <thead><tr>
-            <th>Broker</th>
-            <th class="num">Policies</th>
-            <th class="num">Members</th>
-            <th class="num">Gross Premium</th>
-            <th class="num">Grand Total</th>
-            <th class="num">Avg Policy</th>
-          </tr></thead>
-          <tbody id="brokerBody"></tbody>
-        </table>
-      </div>
-      <div class="punchline" id="brokerPunch">
-        <div class="pl-icon">W</div>
-        <div class="pl-body">Loading interpretation…</div>
-      </div>
-    </div>
-
-    <!-- Take Rate -->
-    <div class="section">
-      <div class="section-title">
-        <span class="dot"></span>
-        Take Rate by Plan
-        <button class="local-ask" onclick="openBionic('take rate by plan')" title="Ask Jasper">?</button>
-      </div>
-      <div class="section-sub">Commission as a % of gross premium. Click to drill into that plan.</div>
-      <div class="tbl-wrap">
-        <table>
+      <section class="card">
+        <div class="card-head">
+          <div>
+            <h3>Take Rate by Plan</h3>
+            <p>Revenue efficiency across product lines</p>
+          </div>
+          <button class="local-ask" onclick="openBionic('take rate by plan')" title="Ask Jasper">?</button>
+        </div>
+        <table class="mini-table">
           <thead><tr>
             <th>Plan</th>
             <th class="num">Policies</th>
-            <th class="num">Total Premium</th>
+            <th class="num">Premium</th>
             <th class="num">Revenue</th>
-            <th class="num">Take Rate %</th>
+            <th class="num">Take %</th>
           </tr></thead>
           <tbody id="takeRateBody"></tbody>
-          <tfoot><tr>
-            <td><strong>TOTAL</strong></td>
-            <td class="num" id="trfPolicies">—</td>
-            <td class="num" id="trfPremium">—</td>
-            <td class="num" id="trfComm">—</td>
-            <td class="num" id="trfRate">—</td>
-          </tr></tfoot>
         </table>
-      </div>
-      <div class="punchline" id="takeRatePunch">
-        <div class="pl-icon">W</div>
-        <div class="pl-body">Loading interpretation…</div>
-      </div>
-    </div>
+      </section>
 
-    <!-- RM vs Targets -->
-    <div class="section">
-      <div class="section-title">
-        <span class="dot"></span>
-        RM Sales vs Targets
-        <button class="local-ask" onclick="openBionic('RM sales and targets')" title="Ask Jasper">?</button>
-      </div>
-      <div class="rm-controls">
-        <label>View Month:</label>
-        <select id="rmYear"></select>
-        <select id="rmMonth">
-          <option value="1">January</option><option value="2">February</option>
-          <option value="3">March</option><option value="4">April</option>
-          <option value="5">May</option><option value="6">June</option>
-          <option value="7">July</option><option value="8">August</option>
-          <option value="9">September</option><option value="10">October</option>
-          <option value="11">November</option><option value="12">December</option>
-        </select>
-      </div>
-      <div class="tbl-wrap">
-        <table>
-          <thead><tr>
-            <th>RM</th>
-            <th class="num">Revenue</th>
-            <th class="num">Policies</th>
-            <th class="num">Actual</th>
-            <th class="num">Target</th>
-            <th class="num">To reach target</th>
-            <th class="num">% of Target</th>
-          </tr></thead>
-          <tbody id="rmBody"></tbody>
-        </table>
-      </div>
-      <div class="punchline" id="rmPunch">
-        <div class="pl-icon">W</div>
-        <div class="pl-body">Loading interpretation…</div>
-      </div>
-    </div>
+      <section class="card">
+        <div class="card-head">
+          <div>
+            <h3>RM Sales vs Targets</h3>
+            <p>Current-month performance</p>
+          </div>
+          <div class="rm-controls">
+            <select id="rmYear"></select>
+            <select id="rmMonth">
+              <option value="1">Jan</option><option value="2">Feb</option><option value="3">Mar</option>
+              <option value="4">Apr</option><option value="5">May</option><option value="6">Jun</option>
+              <option value="7">Jul</option><option value="8">Aug</option><option value="9">Sep</option>
+              <option value="10">Oct</option><option value="11">Nov</option><option value="12">Dec</option>
+            </select>
+            <span class="rm-edit-toggle" id="rmEditToggle" onclick="toggleRmEdit()">✎ Targets</span>
+          </div>
+        </div>
+        <div id="rmPills" class="rm-pills"></div>
+        <div id="rmEditPanel" class="rm-edit-panel"></div>
+        <div class="punchline" id="rmPunch">
+          <img class="pl-icon-img" src="/style/Wellxinvertedsymbolfordarkbackgrounds-01_728a6f7f.png" alt="W">
+          <div class="pl-body">—</div>
+        </div>
+      </section>
+    </aside>
   </div>
 
-  <!-- ═══════════════════════════════════════════════════════════════ -->
-  <!-- SECTION 3 — WHERE WE'RE HEADING                                 -->
-  <!-- ═══════════════════════════════════════════════════════════════ -->
-  <div class="s-wrap" id="sec3">
-    <div class="s-header">
-      <span class="s-tag">§3</span>
-      <h2 class="s-title">Where We're Heading</h2>
-      <span class="s-sub">Year-end run-rate & portfolio outlook</span>
+  <!-- Year-end forecast (full width, below) -->
+  <section class="card">
+    <div class="card-head">
+      <div>
+        <h3>Year-End Run-Rate — Gross Premium</h3>
+        <p>Solid bars are actuals. Dashed bars project the remaining months at the last-3-month average run-rate.</p>
+      </div>
+      <button class="local-ask" onclick="openBionic('year-end forecast')" title="Ask Jasper">?</button>
     </div>
-
-    <div class="grid-3">
-      <div class="tile">
-        <div class="tile-label">YTD Gross Premium</div>
-        <div class="tile-value" id="ytdGross">—</div>
-        <div class="tile-sub" id="ytdGrossSub">Actuals through month N</div>
-      </div>
-      <div class="tile">
-        <div class="tile-label">Projected Year-End Gross</div>
-        <div class="tile-value" id="yeGross">—</div>
-        <div class="tile-sub" id="yeGrossSub">Last-3-month run-rate</div>
-      </div>
-      <div class="tile">
-        <div class="tile-label">Projected Year-End Policies</div>
-        <div class="tile-value" id="yePolicies">—</div>
-        <div class="tile-sub" id="yePoliciesSub">Actuals + projection</div>
-      </div>
+    <div class="chart-wrap chart-wrap-sm"><canvas id="forecastChart"></canvas></div>
+    <div class="punchline good" id="forecastPunch">
+      <img class="pl-icon-img" src="/style/Wellxinvertedsymbolfordarkbackgrounds-01_728a6f7f.png" alt="W">
+      <div class="pl-body">Loading projection…</div>
     </div>
-
-    <div class="section spotlight">
-      <div class="section-title">
-        <span class="dot"></span>
-        Year-End Run-Rate — Gross Premium
-        <button class="local-ask" onclick="openBionic('year-end forecast')" title="Ask Jasper">?</button>
-      </div>
-      <div class="section-sub">Solid bars = actuals. Dashed bars = projection at last-3-month average run-rate.</div>
-
-      <div class="chart-wrap"><canvas id="forecastChart"></canvas></div>
-
-      <div class="punchline good" id="forecastPunch">
-        <div class="pl-icon">W</div>
-        <div class="pl-body">Loading projection…</div>
-      </div>
-    </div>
-  </div>
+  </section>
 </div>
 
 <!-- Bionic W floating button + stub drawer -->
@@ -559,13 +493,13 @@ tbody tr.drillable:hover{background:rgba(53,197,252,.08)}
   <div class="bd-stub">
     <strong>Jasper is waking up.</strong><br>
     Live Q&amp;A arrives in Phase 2 — it will answer questions about any chart, broker, RM, or trend using your filtered data.<br><br>
-    For now: toggle <strong>Report by</strong> in the filter bar, drill into a broker row, or scroll to §3 for the year-end projection.
+    For now: toggle <strong>Report by</strong> in the filter bar, click a broker bar to drill in, or scroll down for the year-end projection.
   </div>
   <input type="text" placeholder="Ask about policies, brokers, RMs…" onfocus="this.blur()" readonly>
 </div>
 
 <script>
-// ── Plan colours (dark theme) ──────────────────────────────────────────────────
+// ── Palette (dark) ─────────────────────────────────────────────────────────────
 const PLAN_COLORS = {
   'Healthx':        { New: '#00e5a0', Renewal: '#6ef5c3' },
   'Healthxclusive': { New: '#ff5a7a', Renewal: '#ffa5b6' },
@@ -578,6 +512,7 @@ const TYPES = ['New', 'Renewal'];
 let monthlyRows = [], breakdownRows = [], brokersData = [], rmData = {actuals: [], targets: []};
 let forecastData = null, lastTakeRate = null;
 let monthChart = null, forecastChart = null;
+let rmEditMode = false;
 
 // ── Year selector ──────────────────────────────────────────────────────────────
 const now = new Date();
@@ -621,7 +556,6 @@ function createMultiSelect(containerId, stateKey, allLabel, options, opts) {
     } else if (sel.length === 1) {
       const found = options.find(o => String(o.value) === sel[0]);
       chip.textContent = found ? found.label : sel[0];
-      // For single-select with a default (date_basis), show neutral if it equals the implicit default
       if (singleSelect && opts.defaultValue && sel[0] === opts.defaultValue) {
         chip.classList.remove('has-selection');
       } else {
@@ -782,23 +716,19 @@ async function loadAll() {
 
   renderTakeRate(trJson);
   renderKPIs();
-  renderMonthly();
-  renderBrokers();
-  renderRM();
-  renderMTD();
+  renderMonthlyLine();
+  renderBrokerBars();
+  renderRmPills();
   renderForecast();
 }
 
 // ── KPIs + YoY ─────────────────────────────────────────────────────────────────
 function ymToParts(ym){ const [y,m]=ym.split('-').map(Number); return {y,m}; }
 function computeYoY(rows) {
-  // If the user hasn't filtered to any months, compare current-year total to same-months of prior year.
-  // If user filtered to a specific year, try to find matching months in the year prior.
   const byYm = {};
   rows.forEach(r => { byYm[r.month] = r; });
   const months = Object.keys(byYm).sort();
   if (!months.length) return null;
-  // Group by year
   const yrs = {};
   months.forEach(m => { const {y} = ymToParts(m); (yrs[y] = yrs[y] || []).push(m); });
   const years = Object.keys(yrs).map(Number).sort();
@@ -806,20 +736,19 @@ function computeYoY(rows) {
   const prvYr = curYr - 1;
   if (!yrs[prvYr]) return null;
   const curSet = new Set(yrs[curYr].map(m => ymToParts(m).m));
-  // Only compare months that exist in both years
   const prvMatching = yrs[prvYr].filter(m => curSet.has(ymToParts(m).m));
   if (!prvMatching.length) return null;
   const sum = (arr, key) => arr.reduce((s,m) => s + parseFloat(byYm[m][key]||0), 0);
   const cnt = (arr, key) => arr.reduce((s,m) => s + parseInt(byYm[m][key]||0), 0);
   return {
-    policies_cur:  cnt(yrs[curYr],    'policy_count'),
-    policies_prv:  cnt(prvMatching,   'policy_count'),
-    gross_cur:     sum(yrs[curYr],    'gross_premium'),
-    gross_prv:     sum(prvMatching,   'gross_premium'),
-    grand_cur:     sum(yrs[curYr],    'grand_total'),
-    grand_prv:     sum(prvMatching,   'grand_total'),
-    members_cur:   cnt(yrs[curYr],    'member_count'),
-    members_prv:   cnt(prvMatching,   'member_count'),
+    policies_cur: cnt(yrs[curYr], 'policy_count'),
+    policies_prv: cnt(prvMatching, 'policy_count'),
+    gross_cur:    sum(yrs[curYr], 'gross_premium'),
+    gross_prv:    sum(prvMatching, 'gross_premium'),
+    grand_cur:    sum(yrs[curYr], 'grand_total'),
+    grand_prv:    sum(prvMatching, 'grand_total'),
+    members_cur:  cnt(yrs[curYr], 'member_count'),
+    members_prv:  cnt(prvMatching, 'member_count'),
     months_matched: prvMatching.length,
   };
 }
@@ -828,15 +757,15 @@ function pctDelta(cur, prv) {
   if (!prv) return null;
   return (cur - prv) / prv * 100;
 }
-function renderDelta(id, cur, prv, label) {
+function renderDelta(id, cur, prv, suffix) {
   const el = document.getElementById(id);
   if (!el) return;
   const d = pctDelta(cur, prv);
-  if (d === null || !isFinite(d)) { el.innerHTML = '&nbsp;'; return; }
+  if (d === null || !isFinite(d)) { el.className = 'kpi-delta flat'; el.innerHTML = '&nbsp;'; return; }
   const cls = d > 1 ? 'up' : d < -1 ? 'down' : 'flat';
   const arrow = d > 1 ? '▲' : d < -1 ? '▼' : '—';
-  el.className = 'kd ' + cls;
-  el.textContent = `${arrow} ${Math.abs(d).toFixed(1)}% vs prior year`;
+  el.className = 'kpi-delta ' + cls;
+  el.textContent = `${arrow} ${Math.abs(d).toFixed(1)}% ${suffix || 'vs prior year'}`;
 }
 
 function renderKPIs() {
@@ -846,14 +775,13 @@ function renderKPIs() {
   const avgSize       = totalPolicies ? totalGross / totalPolicies : 0;
   const avgCensus     = totalPolicies ? totalMembers / totalPolicies : 0;
   const perCapita     = totalMembers  ? totalGross / totalMembers : 0;
-  document.getElementById('kTotal').textContent   = fmtNum(totalPolicies);
-  document.getElementById('kGross').textContent   = 'AED ' + fmtCompact(totalGross);
-  document.getElementById('kMembers').textContent = fmtNum(totalMembers);
-  document.getElementById('kAvg').textContent     = 'AED ' + fmtCompact(avgSize);
+  document.getElementById('kTotal').textContent     = fmtNum(totalPolicies);
+  document.getElementById('kGross').textContent     = 'AED ' + fmtCompact(totalGross);
+  document.getElementById('kMembers').textContent   = fmtNum(totalMembers);
+  document.getElementById('kAvg').textContent       = 'AED ' + fmtNum(Math.round(avgSize));
   document.getElementById('kAvgCensus').textContent = avgCensus.toFixed(1);
-  document.getElementById('kPerCapita').textContent = 'AED ' + fmtCompact(perCapita);
-  // Revenue set separately by take-rate call
-  // YoY deltas
+  document.getElementById('kPerCapita').textContent = 'AED ' + fmtNum(Math.round(perCapita));
+
   const yoy = computeYoY(monthlyRows);
   if (yoy) {
     renderDelta('kTotalDelta',   yoy.policies_cur, yoy.policies_prv);
@@ -863,10 +791,9 @@ function renderKPIs() {
   } else {
     ['kTotalDelta','kGrossDelta','kMembersDelta','kRevenueDelta'].forEach(id => {
       const el = document.getElementById(id);
-      if (el) { el.className = 'kd flat'; el.textContent = '—'; }
+      if (el) { el.className = 'kpi-delta flat'; el.textContent = 'no prior-year baseline'; }
     });
   }
-  // Monthly punchline
   buildMonthlyPunchline(yoy, totalPolicies, totalGross, avgSize);
 }
 
@@ -876,96 +803,84 @@ function buildMonthlyPunchline(yoy, totalPolicies, totalGross, avgSize) {
   const body = el.querySelector('.pl-body');
   el.classList.remove('good','alert');
   if (!totalPolicies) {
-    body.innerHTML = 'No policy data for the current filter set. Clear filters or pick a different month range to see trends.';
+    body.innerHTML = 'No policy data for the current filter set. Clear filters or pick a different month range.';
     return;
   }
   if (yoy && yoy.policies_prv && yoy.gross_prv) {
     const pcd = pctDelta(yoy.policies_cur, yoy.policies_prv);
-    const grd = pctDelta(yoy.gross_cur,    yoy.gross_prv);
+    const grd = pctDelta(yoy.gross_cur, yoy.gross_prv);
     const avgCur = yoy.policies_cur ? yoy.gross_cur / yoy.policies_cur : 0;
     const avgPrv = yoy.policies_prv ? yoy.gross_prv / yoy.policies_prv : 0;
     const dense = pctDelta(avgCur, avgPrv);
     if (pcd > 5 && dense < -3) {
       el.classList.add('alert');
-      body.innerHTML = `<strong>Growing volume, softening price.</strong> Policy count is up ${pcd.toFixed(0)}% YoY but premium per policy is down ${Math.abs(dense).toFixed(0)}% — watch for pricing pressure, a mix shift toward smaller groups, or unrecognised loadings.`;
+      body.innerHTML = `<strong>Growing volume, softening price.</strong> Policy count up ${pcd.toFixed(0)}% YoY but premium per policy down ${Math.abs(dense).toFixed(0)}% — watch pricing pressure or mix shift.`;
       return;
     }
     if (pcd > 3 && dense > 3) {
       el.classList.add('good');
-      body.innerHTML = `<strong>Healthy growth on both dimensions.</strong> Volume up ${pcd.toFixed(0)}% and premium per policy up ${dense.toFixed(0)}% YoY — portfolio is getting bigger and richer.`;
+      body.innerHTML = `<strong>Healthy growth on both dimensions.</strong> Volume up ${pcd.toFixed(0)}% and premium per policy up ${dense.toFixed(0)}% YoY.`;
       return;
     }
     if (pcd < -3) {
       el.classList.add('alert');
-      body.innerHTML = `<strong>Volume compressing.</strong> Policy count is down ${Math.abs(pcd).toFixed(0)}% YoY. Check broker pipeline, lost renewals, and whether this is a recognition timing effect of the insurance-start-date basis.`;
+      body.innerHTML = `<strong>Volume compressing.</strong> Policy count down ${Math.abs(pcd).toFixed(0)}% YoY — check broker pipeline and lost renewals.`;
       return;
     }
-    body.innerHTML = `${pcd >= 0 ? 'Up' : 'Down'} ${Math.abs(pcd).toFixed(0)}% in policy count and ${grd >= 0 ? 'up' : 'down'} ${Math.abs(grd).toFixed(0)}% in gross premium vs the same ${yoy.months_matched}-month window last year. Premium per policy ${dense >= 0 ? 'up' : 'down'} ${Math.abs(dense).toFixed(0)}%.`;
+    body.innerHTML = `${pcd >= 0 ? 'Up' : 'Down'} ${Math.abs(pcd).toFixed(0)}% in policy count and ${grd >= 0 ? 'up' : 'down'} ${Math.abs(grd).toFixed(0)}% in gross premium vs the same ${yoy.months_matched}-month window last year.`;
     return;
   }
-  // No YoY comparison available — fall back to level facts
-  body.innerHTML = `<strong>${fmtNum(totalPolicies)} policies</strong> in scope delivering <strong>AED ${fmtCompact(totalGross)}</strong> gross premium — roughly AED ${fmtCompact(avgSize)} per policy. No prior-year data available under this filter set for a YoY comparison.`;
+  body.innerHTML = `<strong>${fmtNum(totalPolicies)} policies</strong> delivering <strong>AED ${fmtCompact(totalGross)}</strong> gross premium (~AED ${fmtCompact(avgSize)} each). No prior-year data under this filter set for a YoY comparison.`;
 }
 
-// ── Monthly chart ──────────────────────────────────────────────────────────────
-function renderMonthly() {
+// ── Monthly line chart ─────────────────────────────────────────────────────────
+function renderMonthlyLine() {
   const months = [...new Set(breakdownRows.map(r => r.month))].sort();
   const lookup = {};
   breakdownRows.forEach(r => {
     lookup[`${r.month}|${r.plan}|${r.plan_type}`] = parseFloat(r.gross_premium || 0);
   });
 
-  const datasets = [];
-  TYPES.forEach(type => {
-    PLANS.forEach(plan => {
-      const color = (PLAN_COLORS[plan] || PLAN_COLORS['Unknown'])[type];
-      datasets.push({
-        label: `${plan} — ${type}`,
-        data:  months.map(m => lookup[`${m}|${plan}|${type}`] || 0),
-        backgroundColor: color,
-        borderRadius: 4,
-        borderSkipped: false,
-        stack: type,
-      });
+  // Build datasets per plan+type; drop series that are all zeros.
+  const seriesDefs = [];
+  PLANS.forEach(plan => {
+    TYPES.forEach(type => {
+      const data = months.map(m => lookup[`${m}|${plan}|${type}`] || 0);
+      if (data.some(v => v > 0)) {
+        const color = (PLAN_COLORS[plan] || PLAN_COLORS['Unknown'])[type];
+        seriesDefs.push({ label: `${plan} — ${type}`, data, color });
+      }
     });
   });
 
-  const stackTotalsPlugin = {
-    id: 'stackTotals',
-    afterDatasetsDraw(chart) {
-      const ctx = chart.ctx;
-      ctx.save();
-      ctx.font = 'bold 10px Inter, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'bottom';
-      const stacks = {};
-      chart.data.datasets.forEach((ds, dsIdx) => {
-        const meta = chart.getDatasetMeta(dsIdx);
-        if (meta.hidden) return;
-        meta.data.forEach((bar, idx) => {
-          const key = `${ds.stack}|${idx}`;
-          const val = Number(chart.data.datasets[dsIdx].data[idx]) || 0;
-          if (!stacks[key]) stacks[key] = { top: bar.y, total: 0, x: bar.x };
-          stacks[key].total += val;
-          if (bar.y < stacks[key].top) stacks[key].top = bar.y;
-        });
-      });
-      Object.values(stacks).forEach(({ top, total, x }) => {
-        if (total <= 0) return;
-        ctx.fillStyle = '#e6ecf5';
-        ctx.fillText('AED ' + fmtCompact(total), x, top - 4);
-      });
-      ctx.restore();
-    }
-  };
+  // Custom legend
+  document.getElementById('monthlyLegend').innerHTML = seriesDefs.map(s =>
+    `<span class="legend-item"><span class="legend-swatch" style="background:${s.color}"></span>${s.label}</span>`
+  ).join('');
+
+  const datasets = seriesDefs.map(s => ({
+    label: s.label,
+    data: s.data,
+    borderColor: s.color,
+    backgroundColor: s.color + '22',
+    borderWidth: 2.5,
+    tension: .3,
+    pointRadius: 3,
+    pointHoverRadius: 5,
+    pointBackgroundColor: s.color,
+    pointBorderColor: '#0a0f1c',
+    pointBorderWidth: 2,
+    fill: false,
+  }));
 
   if (monthChart) monthChart.destroy();
   monthChart = new Chart(document.getElementById('monthChart'), {
-    type: 'bar',
+    type: 'line',
     data: { labels: months.map(fmtMonth), datasets },
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
       plugins: {
         legend: { display: false },
         tooltip: {
@@ -974,63 +889,55 @@ function renderMonthly() {
           borderWidth: 1,
           titleColor: '#e6ecf5',
           bodyColor: '#e6ecf5',
-          callbacks: { label: ctx => `${ctx.dataset.label}: AED ${fmtNum(ctx.raw)}` }
+          padding: 10,
+          callbacks: { label: ctx => `${ctx.dataset.label}: AED ${fmtNum(ctx.raw||0)}` }
         }
       },
       scales: {
-        x: { ticks: { font: { size: 11 }, color: '#8a97ad' }, grid: { color: 'rgba(138,151,173,.08)' } },
+        x: { ticks: { color: '#8a97ad', font: { size: 11 } }, grid: { color: 'rgba(138,151,173,.06)' } },
         y: {
-          ticks: { callback: v => 'AED ' + fmtCompact(v), font: { size: 11 }, color: '#8a97ad' },
-          grid: { color: 'rgba(138,151,173,.08)' }
+          ticks: { callback: v => 'AED ' + fmtCompact(v), color: '#8a97ad', font: { size: 11 } },
+          grid: { color: 'rgba(138,151,173,.06)' },
+          beginAtZero: true,
         }
-      },
-      layout: { padding: { top: 26 } }
-    },
-    plugins: [stackTotalsPlugin]
+      }
+    }
   });
 
-  // Table
+  // Summary strip totals
   let sumC=0, sumM=0, sumG=0, sumGrand=0;
-  document.getElementById('monthBody').innerHTML = monthlyRows.length
-    ? monthlyRows.map(r => {
-        sumC     += parseInt(r.policy_count||0);
-        sumM     += parseInt(r.member_count||0);
-        sumG     += parseFloat(r.gross_premium||0);
-        sumGrand += parseFloat(r.grand_total||0);
-        const { from, to } = monthRange(r.month);
-        const url = buildDrillUrl({ date_from: from, date_to: to });
-        return `<tr class="drillable" onclick="location.href='${url.replace(/'/g,"\\'")}'">
-          <td>${fmtMonth(r.month)}</td>
-          <td class="num">${fmtNum(r.policy_count)}</td>
-          <td class="num">${fmtNum(r.member_count)}</td>
-          <td class="num">${fmtNum(r.gross_premium)}</td>
-          <td class="num">${fmtNum(r.grand_total)}</td>
-        </tr>`;
-      }).join('')
-    : '<tr class="empty-row"><td colspan="5">No data for selected filters</td></tr>';
-
+  monthlyRows.forEach(r => {
+    sumC     += parseInt(r.policy_count||0);
+    sumM     += parseInt(r.member_count||0);
+    sumG     += parseFloat(r.gross_premium||0);
+    sumGrand += parseFloat(r.grand_total||0);
+  });
   document.getElementById('mfCount').textContent   = fmtNum(sumC);
   document.getElementById('mfMembers').textContent = fmtNum(sumM);
-  document.getElementById('mfGross').textContent   = fmtNum(sumG);
-  document.getElementById('mfGrand').textContent   = fmtNum(sumGrand);
+  document.getElementById('mfGross').textContent   = 'AED ' + fmtCompact(sumG);
+  document.getElementById('mfGrand').textContent   = 'AED ' + fmtCompact(sumGrand);
 }
 
-// ── Brokers ────────────────────────────────────────────────────────────────────
-function renderBrokers() {
-  const body = document.getElementById('brokerBody');
-  body.innerHTML = brokersData.length
-    ? brokersData.map(r => {
-        const url = buildDrillUrl({ broker: r.broker });
-        return `<tr class="drillable" onclick="location.href='${url.replace(/'/g,"\\'")}'">
-          <td><strong>${r.broker}</strong></td>
-          <td class="num">${fmtNum(r.policy_count)}</td>
-          <td class="num">${fmtNum(r.total_members)}</td>
-          <td class="num">${fmtNum(r.gross_premium)}</td>
-          <td class="num">${fmtNum(r.total_grand)}</td>
-          <td class="num">${fmtNum(r.avg_policy_size)}</td>
-        </tr>`;
-      }).join('')
-    : '<tr class="empty-row"><td colspan="6">No data for selected filters</td></tr>';
+// ── Broker horizontal bars ─────────────────────────────────────────────────────
+function renderBrokerBars() {
+  const container = document.getElementById('brokerBars');
+  const top = brokersData.slice(0, 5);
+  if (!top.length) {
+    container.innerHTML = '<div class="empty">No broker activity for this filter set.</div>';
+    buildBrokerPunchline();
+    return;
+  }
+  const maxVal = Math.max(...top.map(b => parseFloat(b.total_grand||0)), 1);
+  container.innerHTML = top.map(b => {
+    const grand = parseFloat(b.total_grand || 0);
+    const w = Math.max(grand / maxVal * 100, 2);
+    const drillUrl = buildDrillUrl({ broker: b.broker });
+    return `<div class="broker-bar" onclick="location.href='${drillUrl.replace(/'/g,"\\'")}'" title="${escapeHtml(b.broker)} — click to drill in">
+      <div class="bb-name"><span>${escapeHtml(b.broker)}</span><span class="bb-count">${fmtNum(b.policy_count)} policies</span></div>
+      <div class="bb-track"><div class="bb-fill" style="width:${w.toFixed(1)}%"></div></div>
+      <div class="bb-amount">AED ${fmtCompact(grand)} · ${fmtNum(b.total_members)} members</div>
+    </div>`;
+  }).join('');
   buildBrokerPunchline();
 }
 
@@ -1039,27 +946,26 @@ function buildBrokerPunchline() {
   if (!el) return;
   const body = el.querySelector('.pl-body');
   el.classList.remove('good','alert');
-  if (!brokersData.length) { body.innerHTML = 'No broker activity for the current filter set.'; return; }
+  if (!brokersData.length) { body.textContent = 'No broker contribution to report.'; return; }
   const totalGrand = brokersData.reduce((s,b) => s + parseFloat(b.total_grand||0), 0);
   const top = brokersData[0];
-  if (!totalGrand || !top) { body.innerHTML = 'No material broker contribution recorded.'; return; }
+  if (!totalGrand) { body.textContent = 'No material broker contribution recorded.'; return; }
   const share = top.total_grand / totalGrand * 100;
-  const topN = brokersData.slice(0, 3);
-  const top3share = topN.reduce((s,b) => s + parseFloat(b.total_grand||0), 0) / totalGrand * 100;
+  const top3share = brokersData.slice(0,3).reduce((s,b) => s + parseFloat(b.total_grand||0), 0) / totalGrand * 100;
   if (share > 40) {
     el.classList.add('alert');
-    body.innerHTML = `<strong>Concentration risk.</strong> ${top.broker} alone contributes ${share.toFixed(0)}% of grand total. Top 3 brokers: ${top3share.toFixed(0)}%. Consider diversifying pipeline before this becomes a single-point dependency.`;
+    body.innerHTML = `<strong>Concentration risk.</strong> ${escapeHtml(top.broker)} alone = ${share.toFixed(0)}% of grand total; top 3 = ${top3share.toFixed(0)}%.`;
     return;
   }
   if (share > 25) {
-    body.innerHTML = `<strong>${top.broker}</strong> leads at ${share.toFixed(0)}% of grand total — top 3 brokers carry ${top3share.toFixed(0)}%. Healthy lead, but worth protecting the relationship.`;
+    body.innerHTML = `<strong>${escapeHtml(top.broker)}</strong> leads at ${share.toFixed(0)}%; top 3 carry ${top3share.toFixed(0)}%.`;
     return;
   }
   el.classList.add('good');
-  body.innerHTML = `Broker mix is well-distributed — top broker ${top.broker} at ${share.toFixed(0)}% and top 3 at ${top3share.toFixed(0)}%. Portfolio is resilient to the loss of any single broker.`;
+  body.innerHTML = `Broker mix is well-distributed — top broker at ${share.toFixed(0)}%, top 3 at ${top3share.toFixed(0)}%.`;
 }
 
-// ── Take Rate ──────────────────────────────────────────────────────────────────
+// ── Take Rate mini table ───────────────────────────────────────────────────────
 function renderTakeRate(data) {
   const plans = data?.plans || [];
   const total = data?.total || {};
@@ -1067,48 +973,26 @@ function renderTakeRate(data) {
   document.getElementById('takeRateBody').innerHTML = plans.length
     ? plans.map(p => {
         const url = buildDrillUrl({ plan: p.plan });
-        return `<tr class="drillable" onclick="location.href='${url.replace(/'/g,"\\'")}'">
-          <td><strong>${p.plan}</strong></td>
+        return `<tr onclick="location.href='${url.replace(/'/g,"\\'")}'">
+          <td class="plan-strong">${escapeHtml(p.plan)}</td>
           <td class="num">${fmtNum(p.policy_count)}</td>
-          <td class="num">${fmtNum(p.total_premium)}</td>
-          <td class="num">${fmtNum(p.commission_amount)}</td>
-          <td class="num" style="font-weight:700;color:var(--accent)">${fmtP(p.take_rate_pct)}</td>
+          <td class="num">${fmtCompact(p.total_premium)}</td>
+          <td class="num">${fmtCompact(p.commission_amount)}</td>
+          <td class="num rate-val">${fmtP(p.take_rate_pct)}</td>
         </tr>`;
-      }).join('')
-    : '<tr class="empty-row"><td colspan="5">No data</td></tr>';
-  document.getElementById('trfPolicies').textContent = fmtNum(plans.reduce((s,p) => s + p.policy_count, 0));
-  document.getElementById('trfPremium').textContent  = fmtNum(total.total_premium || 0);
-  document.getElementById('trfComm').textContent     = fmtNum(total.commission_amount || 0);
-  document.getElementById('trfRate').textContent     = total.take_rate_pct != null ? fmtP(total.take_rate_pct) : '—';
-  document.getElementById('kRevenue').textContent    = 'AED ' + fmtCompact(total.commission_amount || 0);
-  buildTakeRatePunchline(plans, total);
+      }).join('') +
+      `<tr style="font-weight:700"><td>TOTAL</td>
+        <td class="num">${fmtNum(plans.reduce((s,p)=>s+p.policy_count,0))}</td>
+        <td class="num">${fmtCompact(total.total_premium||0)}</td>
+        <td class="num">${fmtCompact(total.commission_amount||0)}</td>
+        <td class="num rate-val">${total.take_rate_pct != null ? fmtP(total.take_rate_pct) : '—'}</td>
+      </tr>`
+    : '<tr><td colspan="5" class="empty">No data</td></tr>';
+  document.getElementById('kRevenue').textContent = 'AED ' + fmtCompact(total.commission_amount || 0);
 }
 
-function buildTakeRatePunchline(plans, total) {
-  const el = document.getElementById('takeRatePunch');
-  if (!el) return;
-  const body = el.querySelector('.pl-body');
-  el.classList.remove('good','alert');
-  if (!plans.length) { body.innerHTML = 'No plan revenue recorded.'; return; }
-  const totalRate = total?.take_rate_pct || 0;
-  const bestPlan  = plans.reduce((a,b) => (a.take_rate_pct||0) > (b.take_rate_pct||0) ? a : b);
-  const worstPlan = plans.reduce((a,b) => (a.take_rate_pct||0) < (b.take_rate_pct||0) ? a : b);
-  const spread = (bestPlan.take_rate_pct || 0) - (worstPlan.take_rate_pct || 0);
-  if (totalRate < 3) {
-    el.classList.add('alert');
-    body.innerHTML = `Blended take rate of <strong>${totalRate.toFixed(2)}%</strong> is below the 3% healthy-margin floor. Check RM % configuration on newer policies and whether Wellx admin share is being captured on all plans.`;
-    return;
-  }
-  if (spread > 4) {
-    body.innerHTML = `<strong>${bestPlan.plan}</strong> leads at ${bestPlan.take_rate_pct.toFixed(2)}% while <strong>${worstPlan.plan}</strong> is at ${worstPlan.take_rate_pct.toFixed(2)}% — a ${spread.toFixed(1)}pt spread. Blended rate: ${totalRate.toFixed(2)}%. Revenue quality varies sharply by plan.`;
-    return;
-  }
-  el.classList.add('good');
-  body.innerHTML = `Blended take rate <strong>${totalRate.toFixed(2)}%</strong> with only ${spread.toFixed(1)}pt spread across plans — revenue quality is consistent.`;
-}
-
-// ── RM vs Targets ──────────────────────────────────────────────────────────────
-function renderRM() {
+// ── RM pills + edit ────────────────────────────────────────────────────────────
+function renderRmPills() {
   const year  = parseInt(document.getElementById('rmYear').value);
   const month = parseInt(document.getElementById('rmMonth').value);
 
@@ -1132,51 +1016,62 @@ function renderRM() {
     ...Object.keys(targetMap),
     ...(rmData.actuals||[]).map(a => a.rm_name),
   ])].filter(Boolean);
-
   allRMs.sort((a, b) => (actualMap[b]?.revenue || 0) - (actualMap[a]?.revenue || 0));
 
+  const pills = document.getElementById('rmPills');
   if (!allRMs.length) {
-    document.getElementById('rmBody').innerHTML = '<tr class="empty-row"><td colspan="7">No RM data for selected filters</td></tr>';
+    pills.innerHTML = '<div class="empty" style="grid-column:1/-1">No RM activity this month.</div>';
+    renderRmEditPanel([], targetMap);
     buildRmPunchline([], targetMap, {});
     return;
   }
 
   const { from: rmFrom, to: rmTo } = monthRange(`${year}-${String(month).padStart(2,'0')}`);
-
-  document.getElementById('rmBody').innerHTML = allRMs.map((rm, idx) => {
-    const revenue   = actualMap[rm]?.revenue || 0;
-    const actual    = actualMap[rm]?.amount  || 0;
-    const count     = actualMap[rm]?.count   || 0;
-    const target    = targetMap[rm] || 0;
-    const gap       = Math.max(target - actual, 0);
-    const hitTarget = target > 0 && actual >= target;
-    const pct       = target > 0 ? actual / target * 100 : null;
-    const pctClass  = pct === null ? '' : pct >= 100 ? 'pct-good' : pct >= 70 ? 'pct-warn' : 'pct-bad';
-    const pctLabel  = pct === null ? '—' : `<span class="pct ${pctClass}">${pct.toFixed(0)}%</span>`;
-    const safeId    = rm.replace(/\W+/g,'_');
-    const trophy    = idx === 0 && revenue > 0 ? '<span class="trophy">🏆</span>' : '';
-    const drillUrl  = buildDrillUrl({ rm, date_from: rmFrom, date_to: rmTo });
-    return `<tr class="drillable" onclick="location.href='${drillUrl}'">
-      <td><strong>${trophy}${rm}</strong></td>
-      <td class="num">${fmtCompact(revenue)}</td>
-      <td class="num">${fmtNum(count)}</td>
-      <td class="num">${fmtCompact(actual)}</td>
-      <td class="num" onclick="event.stopPropagation()">
-        <input class="target-input" type="text" inputmode="numeric"
-          value="${target ? fmtNum(target) : ''}" placeholder="Set target" id="ti-${safeId}"
-          onclick="event.stopPropagation()"
-          onfocus="this.value=this.value.replace(/,/g,'')"
-          onblur="if(this.value)this.value=Number(this.value.replace(/,/g,'')).toLocaleString('en-AE',{maximumFractionDigits:0})">
-        <button class="save-btn" onclick="event.stopPropagation();saveTarget('${rm.replace(/'/g,"\\'")}')">Save</button>
-      </td>
-      <td class="num" style="color:${hitTarget?'var(--good)':'var(--bad)'};font-weight:600">
-        ${target > 0 ? fmtCompact(gap) : '—'}
-      </td>
-      <td class="num">${pctLabel}</td>
-    </tr>`;
+  pills.innerHTML = allRMs.map((rm, idx) => {
+    const actual = actualMap[rm]?.amount || 0;
+    const target = targetMap[rm] || 0;
+    const pct = target > 0 ? (actual / target * 100) : null;
+    const tier = pct === null ? 'empty' : pct >= 100 ? 'good' : pct >= 70 ? 'warn' : 'bad';
+    const trophy = idx === 0 && (actualMap[rm]?.revenue || 0) > 0 ? '<span class="trophy">🏆</span>' : '';
+    const drill = buildDrillUrl({ rm, date_from: rmFrom, date_to: rmTo });
+    const pctLabel = pct === null ? 'no target set' : `<span class="pct-val">${pct.toFixed(0)}%</span> of target`;
+    const fillW = pct === null ? 0 : Math.min(pct, 100);
+    return `<div class="rm-pill" data-tier="${tier}" onclick="location.href='${drill.replace(/'/g,"\\'")}'" title="${escapeHtml(rm)} — click to drill in">
+      <div class="rm-pill-name"><span>${trophy}${escapeHtml(rm)}</span></div>
+      <div class="rm-pill-bar"><div class="rm-pill-bar-fill" style="width:${fillW}%"></div></div>
+      <div class="rm-pill-pct">${pctLabel}</div>
+    </div>`;
   }).join('');
 
+  renderRmEditPanel(allRMs, targetMap);
   buildRmPunchline(allRMs, targetMap, actualMap);
+}
+
+function renderRmEditPanel(allRMs, targetMap) {
+  const panel = document.getElementById('rmEditPanel');
+  if (!panel) return;
+  if (!allRMs.length) { panel.innerHTML = ''; panel.classList.remove('open'); return; }
+  panel.innerHTML = allRMs.map(rm => {
+    const target = targetMap[rm] || 0;
+    const safeId = rm.replace(/\W+/g,'_');
+    return `<div class="rm-edit-row">
+      <span class="ere-name">${escapeHtml(rm)}</span>
+      <input type="text" inputmode="numeric" id="ti-${safeId}"
+        value="${target ? fmtNum(target) : ''}" placeholder="target"
+        onfocus="this.value=this.value.replace(/,/g,'')"
+        onblur="if(this.value)this.value=Number(this.value.replace(/,/g,'')).toLocaleString('en-AE',{maximumFractionDigits:0})">
+      <button onclick="saveTarget('${rm.replace(/'/g,"\\'")}')">Save</button>
+    </div>`;
+  }).join('');
+  if (rmEditMode) panel.classList.add('open');
+}
+
+function toggleRmEdit() {
+  rmEditMode = !rmEditMode;
+  const panel = document.getElementById('rmEditPanel');
+  const toggle = document.getElementById('rmEditToggle');
+  panel.classList.toggle('open', rmEditMode);
+  toggle.classList.toggle('on', rmEditMode);
 }
 
 function buildRmPunchline(rms, targetMap, actualMap) {
@@ -1186,59 +1081,44 @@ function buildRmPunchline(rms, targetMap, actualMap) {
   el.classList.remove('good','alert');
   const withTargets = rms.filter(r => (targetMap[r] || 0) > 0);
   if (!withTargets.length) {
-    body.innerHTML = 'No targets set for the selected month. Set targets per RM to activate the pace-to-target view.';
+    body.innerHTML = rms.length
+      ? `Targets not set for this month — click <strong>✎ Targets</strong> to enable pace tracking.`
+      : 'No RM activity or targets.';
     return;
   }
   const hitting = withTargets.filter(r => (actualMap[r]?.amount || 0) >= (targetMap[r] || 0));
-  const nearMiss = withTargets.filter(r => {
+  const near = withTargets.filter(r => {
     const t = targetMap[r] || 0, a = actualMap[r]?.amount || 0;
     return t > 0 && a < t && a / t >= 0.7;
   });
   if (hitting.length === withTargets.length) {
     el.classList.add('good');
-    body.innerHTML = `<strong>Full team on target.</strong> All ${withTargets.length} RMs with targets have hit or exceeded them for this month.`;
+    body.innerHTML = `<strong>Full team on target.</strong> All ${withTargets.length} RMs with targets are at or above plan.`;
     return;
   }
-  if (!hitting.length && nearMiss.length) {
+  if (!hitting.length && near.length) {
     el.classList.add('alert');
-    body.innerHTML = `<strong>No RM has hit target yet.</strong> ${nearMiss.length} of ${withTargets.length} are within 30% of target — push the nearest to convert.`;
+    body.innerHTML = `<strong>No RM has hit target yet.</strong> ${near.length} of ${withTargets.length} are within 30% — push the nearest to convert.`;
     return;
   }
-  body.innerHTML = `<strong>${hitting.length} of ${withTargets.length}</strong> RMs are at or above target. ${nearMiss.length - hitting.length > 0 ? (nearMiss.length - hitting.length) + ' within 30% of target; ' : ''}Focus effort on RMs below 70% pace to recover the month.`;
+  body.innerHTML = `<strong>${hitting.length} of ${withTargets.length}</strong> RMs at target. Focus on anyone below 70% pace to recover the month.`;
 }
 
-// ── MTD heartbeat ──────────────────────────────────────────────────────────────
-function renderMTD() {
-  // Derive from monthlyRows: current calendar month vs prior calendar month, same-point-in-month scaling
-  const nowY = now.getFullYear(), nowM = now.getMonth() + 1, day = now.getDate();
-  const curYm = `${nowY}-${String(nowM).padStart(2,'0')}`;
-  const prvYm = `${nowM === 1 ? nowY-1 : nowY}-${String(nowM === 1 ? 12 : nowM-1).padStart(2,'0')}`;
-  const cur = monthlyRows.find(r => r.month === curYm);
-  const prv = monthlyRows.find(r => r.month === prvYm);
-
-  // Days in prior month
-  const prvDays = new Date(nowM === 1 ? nowY-1 : nowY, nowM === 1 ? 12 : nowM-1, 0).getDate();
-  // Same-point-in-prior-month = prv_total * (day / prvDays)
-  const pointProj = v => (v || 0) * (day / prvDays);
-
-  const curPol = parseInt(cur?.policy_count || 0);
-  const curGro = parseFloat(cur?.gross_premium || 0);
-  const curMem = parseInt(cur?.member_count || 0);
-
-  document.getElementById('mtdPolicies').textContent = fmtNum(curPol);
-  document.getElementById('mtdGross').textContent    = 'AED ' + fmtCompact(curGro);
-  document.getElementById('mtdMembers').textContent  = fmtNum(curMem);
-
-  const setSub = (id, cur, ref, label) => {
-    const el = document.getElementById(id);
-    if (!ref || !cur) { el.className = 'tile-sub'; el.textContent = `vs ${label}`; return; }
-    const d = (cur - ref) / ref * 100;
-    el.className = 'tile-sub ' + (d > 1 ? 'up' : d < -1 ? 'down' : '');
-    el.textContent = `${d > 0 ? '▲' : d < 0 ? '▼' : '—'} ${Math.abs(d).toFixed(0)}% vs ${label}`;
-  };
-  setSub('mtdPoliciesDelta', curPol, pointProj(parseInt(prv?.policy_count || 0)),  `day ${day} of last month`);
-  setSub('mtdGrossDelta',    curGro, pointProj(parseFloat(prv?.gross_premium || 0)), `day ${day} of last month`);
-  setSub('mtdMembersDelta',  curMem, pointProj(parseInt(prv?.member_count || 0)),  `day ${day} of last month`);
+async function saveTarget(rmName) {
+  const year  = parseInt(document.getElementById('rmYear').value);
+  const month = parseInt(document.getElementById('rmMonth').value);
+  const val   = parseFloat((document.getElementById(`ti-${rmName.replace(/\W+/g,'_')}`).value || '').replace(/,/g,'')) || 0;
+  const res   = await fetch('/api/dashboard/rm_targets', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ rm_name: rmName, year, month, target_amount: val }),
+  });
+  const data = await res.json();
+  if (data.ok) {
+    const ex = rmData.targets.find(t => t.rm_name===rmName && t.year===year && t.month===month);
+    if (ex) ex.target_amount = val;
+    else rmData.targets.push({ rm_name: rmName, year, month, target_amount: val });
+    renderRmPills();
+  }
 }
 
 // ── Forecast ───────────────────────────────────────────────────────────────────
@@ -1246,21 +1126,6 @@ function renderForecast() {
   if (!forecastData) return;
   const actuals = forecastData.actuals || [];
   const projected = forecastData.projected || [];
-  const ytd = forecastData.ytd || {};
-  const ye  = forecastData.year_end || {};
-
-  document.getElementById('ytdGross').textContent = 'AED ' + fmtCompact(ytd.gross_premium || 0);
-  document.getElementById('ytdGrossSub').textContent = `Actuals through ${fmtMonth(actuals[actuals.length-1]?.month || '')}`;
-
-  document.getElementById('yeGross').textContent = 'AED ' + fmtCompact(ye.gross_premium || 0);
-  document.getElementById('yeGrossSub').textContent = forecastData.window_months
-    ? `Last-${forecastData.window_months}-month run-rate`
-    : 'Insufficient history';
-
-  document.getElementById('yePolicies').textContent = fmtNum(ye.policy_count || 0);
-  document.getElementById('yePoliciesSub').textContent = `${fmtNum(ytd.policy_count||0)} actual + ${fmtNum((ye.policy_count||0) - (ytd.policy_count||0))} projected`;
-
-  // Build chart datasets — 12 months of current year
   const year = forecastData.year;
   const labels = [];
   const actualsData = [];
@@ -1280,32 +1145,15 @@ function renderForecast() {
     data: {
       labels,
       datasets: [
-        {
-          label: 'Actual',
-          data: actualsData,
-          backgroundColor: '#35c5fc',
-          borderColor: '#35c5fc',
-          borderWidth: 0,
-          borderRadius: 4,
-        },
-        {
-          label: 'Projected',
-          data: projData,
-          backgroundColor: 'rgba(132,49,203,.35)',
-          borderColor: '#8431cb',
-          borderWidth: 2,
-          borderDash: [6, 4],
-          borderRadius: 4,
-        }
+        { label: 'Actual', data: actualsData, backgroundColor: '#35c5fc', borderColor: '#35c5fc', borderRadius: 4 },
+        { label: 'Projected', data: projData, backgroundColor: 'rgba(132,49,203,.35)', borderColor: '#8431cb', borderWidth: 2, borderDash: [6,4], borderRadius: 4 }
       ]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: {
-          labels: { color: '#e6ecf5', font: { size: 12, weight: '500' }, padding: 14 }
-        },
+        legend: { labels: { color: '#e6ecf5', font: { size: 11 }, padding: 12, boxWidth: 14 } },
         tooltip: {
           backgroundColor: 'rgba(17,24,38,.95)',
           borderColor: '#2a3a53',
@@ -1316,34 +1164,31 @@ function renderForecast() {
         }
       },
       scales: {
-        x: { ticks: { color: '#8a97ad', font: { size: 11 } }, grid: { color: 'rgba(138,151,173,.08)' } },
-        y: {
-          ticks: { callback: v => 'AED ' + fmtCompact(v), color: '#8a97ad', font: { size: 11 } },
-          grid: { color: 'rgba(138,151,173,.08)' }
-        }
+        x: { ticks: { color: '#8a97ad', font: { size: 11 } }, grid: { color: 'rgba(138,151,173,.06)' } },
+        y: { ticks: { callback: v => 'AED ' + fmtCompact(v), color: '#8a97ad', font: { size: 11 } }, grid: { color: 'rgba(138,151,173,.06)' } }
       }
     }
   });
 
-  // Forecast punchline
   const el = document.getElementById('forecastPunch');
   const body = el.querySelector('.pl-body');
   el.classList.remove('good','alert');
   if (!forecastData.window_months || !projected.length) {
-    body.innerHTML = `<strong>Not enough history for a projection.</strong> Showing actuals only. Add more months (or widen filters) to enable the year-end run-rate forecast.`;
+    body.innerHTML = `<strong>Not enough history for a projection.</strong> Showing actuals only — add more months or widen filters.`;
     return;
   }
-  const yeGross = ye.gross_premium || 0;
-  const ytdGross = ytd.gross_premium || 0;
+  const yeGross  = forecastData.year_end?.gross_premium || 0;
+  const ytdGross = forecastData.ytd?.gross_premium || 0;
   const remaining = yeGross - ytdGross;
+  const yePolicies = forecastData.year_end?.policy_count || 0;
   el.classList.add('good');
-  body.innerHTML = `At the current <strong>last-${forecastData.window_months}-month run-rate</strong>, ${year} projects to <strong>AED ${fmtCompact(yeGross)}</strong> in gross premium (YTD AED ${fmtCompact(ytdGross)} + AED ${fmtCompact(remaining)} projected over the remaining ${12 - forecastData.current_month} months). Change any filter to model a different scenario — broker loss, plan focus, or RM swap.`;
+  body.innerHTML = `At the current <strong>last-${forecastData.window_months}-month run-rate</strong>, ${year} projects to <strong>AED ${fmtCompact(yeGross)}</strong> gross premium (YTD AED ${fmtCompact(ytdGross)} + AED ${fmtCompact(remaining)} projected over the remaining ${12 - forecastData.current_month} months) and ~${fmtNum(yePolicies)} policies. Change any filter to model a different scenario.`;
 }
 
-// ── Download / Print ───────────────────────────────────────────────────────────
+// ── Download / Print / Bionic ──────────────────────────────────────────────────
 async function downloadDashboard() {
   const btn = document.getElementById('dashDlBtn');
-  btn.disabled = true; btn.textContent = '⏳ Generating…';
+  btn.disabled = true; const old = btn.textContent; btn.textContent = '⏳ Generating…';
   try {
     const res = await fetch('/api/dashboard/export' + filterParams());
     if (!res.ok) { alert('Export failed: ' + res.statusText); return; }
@@ -1356,7 +1201,7 @@ async function downloadDashboard() {
     a.href = url; document.body.appendChild(a); a.click();
     document.body.removeChild(a); URL.revokeObjectURL(url);
   } catch(e) { alert('Network error: ' + e.message); }
-  finally { btn.disabled = false; btn.textContent = '⬇ Excel'; }
+  finally { btn.disabled = false; btn.textContent = old; }
 }
 
 function printDashboard() {
@@ -1366,7 +1211,6 @@ function printDashboard() {
   setTimeout(() => window.print(), 100);
 }
 
-// ── Bionic W stub ──────────────────────────────────────────────────────────────
 function toggleBionic() {
   const d = document.getElementById('bionicDrawer');
   d.classList.toggle('open');
@@ -1385,26 +1229,8 @@ document.addEventListener('click', (e) => {
   const d = document.getElementById('bionicDrawer');
   const btn = document.querySelector('.bionic-btn');
   const local = e.target.closest('.local-ask');
-  if (!d.contains(e.target) && e.target !== btn && !local) d.classList.remove('open');
+  if (!d.contains(e.target) && !btn.contains(e.target) && !local) d.classList.remove('open');
 });
-
-// ── RM target save ─────────────────────────────────────────────────────────────
-async function saveTarget(rmName) {
-  const year  = parseInt(document.getElementById('rmYear').value);
-  const month = parseInt(document.getElementById('rmMonth').value);
-  const val   = parseFloat((document.getElementById(`ti-${rmName.replace(/\W+/g,'_')}`).value || '').replace(/,/g,'')) || 0;
-  const res   = await fetch('/api/dashboard/rm_targets', {
-    method: 'POST', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ rm_name: rmName, year, month, target_amount: val }),
-  });
-  const data = await res.json();
-  if (data.ok) {
-    const ex = rmData.targets.find(t => t.rm_name===rmName && t.year===year && t.month===month);
-    if (ex) ex.target_amount = val;
-    else rmData.targets.push({ rm_name: rmName, year, month, target_amount: val });
-    renderRM();
-  }
-}
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 function fmtMonth(s) {
@@ -1423,9 +1249,12 @@ function fmtCompact(n) {
   if (a >= 1e3) return sign + Math.round(a/1e3) + 'K';
   return sign + Math.round(a).toLocaleString('en-AE');
 }
+function escapeHtml(s) {
+  return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+}
 
-document.getElementById('rmYear').addEventListener('change', renderRM);
-document.getElementById('rmMonth').addEventListener('change', renderRM);
+document.getElementById('rmYear').addEventListener('change', renderRmPills);
+document.getElementById('rmMonth').addEventListener('change', renderRmPills);
 
 buildDateBasisChip();
 loadMeta().then(loadAll);
