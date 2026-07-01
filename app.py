@@ -1473,6 +1473,13 @@ def make_combined_excel(form_data, members_data, verified_rates, maternity_rates
     # ══════════════════════════════════════════════════════════════════════════
     ws = ws1
 
+    # OpenX adds two per-member fee lines (Accidental Death Benefit + Assist
+    # America) to the fees block, pushing TOTAL FEES and everything below it
+    # down by 2 rows. Healthx keeps its original layout (fee_shift = 0).
+    fee_shift      = 2 if is_openx else 0
+    FEES_TOTAL_ROW = 16 + fee_shift   # 18 (OpenX) / 16 (Healthx)
+    TABLE_HDR_ROW  = 19 + fee_shift   # 21 (OpenX) / 19 (Healthx)
+
     def cv(r, c, val, bold=False, color=DARK, size=10, name='Inter',
            halign='left', fill_color=None, num_fmt=None, italic=False):
         cell = ws.cell(row=r, column=c, value=val)
@@ -1549,7 +1556,8 @@ def make_combined_excel(form_data, members_data, verified_rates, maternity_rates
     start_cell.number_format = 'DD MMM YYYY'
     cv(6, 5, 'TruDoc Fee', bold=True, color=DARK, size=9.5)
     cv(6, 6, 12, halign='center', size=9.5)
-    cv(6, 7, 'Paid by Healthx', size=9)
+    if not is_openx:
+        cv(6, 7, 'Paid by Healthx', size=9)
 
     # Row 7 — End Date formula (DD MMM YYYY)
     info_label(7, 1, 'Policy End Date')
@@ -1605,22 +1613,43 @@ def make_combined_excel(form_data, members_data, verified_rates, maternity_rates
     if has_lsb:
         cv(15, 7, pct_val(levy_l), halign='center', size=9.5, num_fmt='0.00%')
 
-    # Row 16 — TOTAL FEES with live SUM formulas
-    cv(16, 5, 'TOTAL FEES', bold=True, color=PRI, name='Raleway', size=9.5, halign='center')
-    sum_f = ws.cell(row=16, column=6)
-    sum_f.value         = '=SUM(F11:F15)'
+    # Rows 16-17 (OpenX only) — per-member fee lines folded into the fee %:
+    #   Accidental Death Benefit (AED 30 / member), Assist America (AED 12 / member).
+    # Each is expressed as a fraction of total premium so it rolls into TOTAL FEES.
+    if is_openx:
+        mem_totals_row = 5 + len(members_data)   # sheet-2 TOTALS row (title,company,summary,hdr,data…)
+        for rr, label, aed, adj in ((16, 'Accidental Death Benefit', 30, 0),
+                                    (17, 'Assist America',           12, 1)):
+            cv(rr, 5, label, bold=True, color=DARK, size=9.5)
+            fee_c = ws.cell(row=rr, column=6)
+            fee_c.value = (f"=ROUNDUP(({aed}*'Premium per Member'!$B$3)"
+                           f"/'Premium per Member'!$M${mem_totals_row},6)")
+            fee_c.font          = Font(name='Inter', size=9.5, color=DARK)
+            fee_c.alignment     = Alignment(horizontal='center', vertical='center')
+            fee_c.number_format = '0.0000%'
+            adj_txt = f'-{adj}' if adj else ''
+            note_c = ws.cell(row=rr, column=7)
+            note_c.value = (f"=\"AED {aed} x \"&'Premium per Member'!B3&\" members = AED \""
+                            f"&ROUND(F{rr}*'Premium per Member'!K{mem_totals_row},0){adj_txt}")
+            note_c.font      = Font(name='Inter', size=9, color='9AA5B4', italic=True)
+            note_c.alignment = Alignment(horizontal='left', vertical='center')
+
+    # TOTAL FEES with live SUM formulas
+    cv(FEES_TOTAL_ROW, 5, 'TOTAL FEES', bold=True, color=PRI, name='Raleway', size=9.5, halign='center')
+    sum_f = ws.cell(row=FEES_TOTAL_ROW, column=6)
+    sum_f.value         = f'=SUM(F11:F{FEES_TOTAL_ROW - 1})'
     sum_f.font          = Font(name='Raleway', bold=True, size=9.5, color=PRI)
     sum_f.alignment     = Alignment(horizontal='center', vertical='center')
     sum_f.number_format = '0.00%'
     if has_lsb:
-        sum_g = ws.cell(row=16, column=7)
-        sum_g.value         = '=SUM(G11:G15)'
+        sum_g = ws.cell(row=FEES_TOTAL_ROW, column=7)
+        sum_g.value         = f'=SUM(G11:G{FEES_TOTAL_ROW - 1})'
         sum_g.font          = Font(name='Raleway', bold=True, size=9.5, color=PRI)
         sum_g.alignment     = Alignment(horizontal='center', vertical='center')
         sum_g.number_format = '0.00%'
 
     # Row heights for info block
-    for r in range(3, 17):
+    for r in range(3, FEES_TOTAL_ROW + 1):
         ws.row_dimensions[r].height = 18
 
     # ── Thin gray borders on info ranges ──────────────────────────────────────
@@ -1628,7 +1657,8 @@ def make_combined_excel(form_data, members_data, verified_rates, maternity_rates
         s = Side(style='thin', color='BBBBBB')
         return Border(left=s, right=s, top=s, bottom=s)
 
-    for rng in ('A3:B8', 'A10:B11', 'A13:B13', 'E4:F7', 'E11:E16', 'F10:G16'):
+    for rng in ('A3:B8', 'A10:B11', 'A13:B13', 'E4:F7',
+                f'E11:E{FEES_TOTAL_ROW}', f'F10:G{FEES_TOTAL_ROW}'):
         for row_cells in ws[rng]:
             for cell in row_cells:
                 cell.border = _gray_border()
@@ -1637,12 +1667,12 @@ def make_combined_excel(form_data, members_data, verified_rates, maternity_rates
     hdr_cols = ['Category', 'Age Band', 'GROSS PREMIUM\n(MALE)', 'GROSS PREMIUM\n(FEMALE)',
                 'NET PREMIUM\n(MALE)', 'NET PREMIUM\n(FEMALE)']
     for ci, h in enumerate(hdr_cols, 1):
-        cell = ws.cell(row=19, column=ci, value=h)
+        cell = ws.cell(row=TABLE_HDR_ROW, column=ci, value=h)
         cell.font      = Font(name='Raleway', bold=True, size=9, color=PRI)
         cell.fill      = PatternFill('solid', fgColor=LGT)
         cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
         cell.border    = thin_border('AABDD6')
-    ws.row_dimensions[19].height = 30
+    ws.row_dimensions[TABLE_HDR_ROW].height = 30
 
     # ── Premium Data Rows (starting row 20) ────────────────────────────────────
     DATA_CLR = '1a2332'
@@ -1650,7 +1680,7 @@ def make_combined_excel(form_data, members_data, verified_rates, maternity_rates
     DEP_FILL = 'F5F5F5'
     MAT_FILL = 'FFF9F0'
 
-    row = 20
+    row = TABLE_HDR_ROW + 1
     MAT_BANDS = {'A': '18 - 45'}
     DEFAULT_MAT_BAND = '18 - 50'
 
@@ -1686,14 +1716,14 @@ def make_combined_excel(form_data, members_data, verified_rates, maternity_rates
                 if ci in (3, 4):
                     cell.number_format = '#,##0.00'
             net_m = ws.cell(row=row, column=5)
-            net_m.value         = f'=C{row}*(1-$F$16)'
+            net_m.value         = f'=C{row}*(1-$F${FEES_TOTAL_ROW})'
             net_m.font          = Font(name='Inter', size=9.5, color=DATA_CLR)
             net_m.fill          = PatternFill('solid', fgColor=fill_c)
             net_m.alignment     = Alignment(horizontal='center', vertical='center')
             net_m.border        = thin_border()
             net_m.number_format = '#,##0.00'
             net_f = ws.cell(row=row, column=6)
-            net_f.value         = f'=D{row}*(1-$F$16)'
+            net_f.value         = f'=D{row}*(1-$F${FEES_TOTAL_ROW})'
             net_f.font          = Font(name='Inter', size=9.5, color=DATA_CLR)
             net_f.fill          = PatternFill('solid', fgColor=fill_c)
             net_f.alignment     = Alignment(horizontal='center', vertical='center')
@@ -1720,14 +1750,14 @@ def make_combined_excel(form_data, members_data, verified_rates, maternity_rates
                 if ci in (3, 4):
                     cell.number_format = '#,##0.00'
             net_m = ws.cell(row=row, column=5)
-            net_m.value         = f'=C{row}*(1-$F$16)'
+            net_m.value         = f'=C{row}*(1-$F${FEES_TOTAL_ROW})'
             net_m.font          = Font(name='Inter', size=9.5, color=DATA_CLR)
             net_m.fill          = PatternFill('solid', fgColor=fill_c)
             net_m.alignment     = Alignment(horizontal='center', vertical='center')
             net_m.border        = thin_border()
             net_m.number_format = '#,##0.00'
             net_f = ws.cell(row=row, column=6)
-            net_f.value         = f'=D{row}*(1-$F$16)'
+            net_f.value         = f'=D{row}*(1-$F${FEES_TOTAL_ROW})'
             net_f.font          = Font(name='Inter', size=9.5, color=DATA_CLR)
             net_f.fill          = PatternFill('solid', fgColor=fill_c)
             net_f.alignment     = Alignment(horizontal='center', vertical='center')
@@ -1751,7 +1781,7 @@ def make_combined_excel(form_data, members_data, verified_rates, maternity_rates
                 cell.border    = thin_border()
 
             net_mat = ws.cell(row=row, column=6)
-            net_mat.value         = f'=D{row}*(1-$F$16)'
+            net_mat.value         = f'=D{row}*(1-$F${FEES_TOTAL_ROW})'
             net_mat.font          = Font(name='Inter', size=9.5, color=DATA_CLR, italic=True)
             net_mat.fill          = PatternFill('solid', fgColor=MAT_FILL)
             net_mat.alignment     = Alignment(horizontal='center', vertical='center')
@@ -1764,30 +1794,34 @@ def make_combined_excel(form_data, members_data, verified_rates, maternity_rates
             ws.row_dimensions[row].height = 16
             row += 1
 
-    # ── Additional Loading Section (cols I–Q) ──────────────────────────────────
-    cv(21, 9, 'Additional Loading', bold=True, color=PRI, name='Raleway', size=10)
+    # ── Additional Loading Section (cols I–Q) — shifts with the fees block ──────
+    LOAD_TITLE_ROW = 21 + fee_shift
+    LOAD_NET_ROW   = 23 + fee_shift
+    LOAD_GROSS_ROW = 24 + fee_shift
+    LOAD_HDR_ROW   = 27 + fee_shift
+    cv(LOAD_TITLE_ROW, 9, 'Additional Loading', bold=True, color=PRI, name='Raleway', size=10)
 
-    cv(23, 9, 'Net Loading',   bold=True, color=DARK, size=9.5)
-    net_load_cell = ws.cell(row=23, column=10)
-    net_load_cell.value         = '=J24*(1-F16)'
+    cv(LOAD_NET_ROW, 9, 'Net Loading',   bold=True, color=DARK, size=9.5)
+    net_load_cell = ws.cell(row=LOAD_NET_ROW, column=10)
+    net_load_cell.value         = f'=J{LOAD_GROSS_ROW}*(1-F{FEES_TOTAL_ROW})'
     net_load_cell.font          = Font(name='Inter', size=9.5, color=DARK)
     net_load_cell.alignment     = Alignment(horizontal='center', vertical='center')
     net_load_cell.number_format = '#,##0.00'
 
-    cv(24, 9, 'Gross Loading', bold=True, color=DARK, size=9.5)
+    cv(LOAD_GROSS_ROW, 9, 'Gross Loading', bold=True, color=DARK, size=9.5)
 
-    # Loading member table headers at row 27
+    # Loading member table headers
     loading_hdrs = ['Member', 'DOB', 'Gender', 'Category', 'Relation',
                     'Net Loading', 'Gross Loading', 'Declaration', 'Comments']
     for ci, h in enumerate(loading_hdrs, 9):
-        cell = ws.cell(row=27, column=ci, value=h)
+        cell = ws.cell(row=LOAD_HDR_ROW, column=ci, value=h)
         cell.font      = Font(name='Raleway', bold=True, size=9, color=WHITE)
         cell.fill      = PatternFill('solid', fgColor=PRI)
         cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
         cell.border    = thin_border(WHITE)
-    ws.row_dimensions[27].height = 22
+    ws.row_dimensions[LOAD_HDR_ROW].height = 22
 
-    MEMBER_ROW_START = 28
+    MEMBER_ROW_START = LOAD_HDR_ROW + 1
     last_loading_row = MEMBER_ROW_START - 1
 
     for li, lm in enumerate(loading_members):
@@ -1811,9 +1845,9 @@ def make_combined_excel(form_data, members_data, verified_rates, maternity_rates
             if ci == 15:
                 cell.number_format = '#,##0.00'
 
-        # Net Loading formula: =O{row}*(1-$F$16)
+        # Net Loading formula: =O{row}*(1-$F${FEES_TOTAL_ROW})
         net_cell = ws.cell(row=r, column=14)
-        net_cell.value         = f'=O{r}*(1-$F$16)'
+        net_cell.value         = f'=O{r}*(1-$F${FEES_TOTAL_ROW})'
         net_cell.font          = Font(name='Inter', size=9.5, color=DATA_CLR)
         net_cell.fill          = PatternFill('solid', fgColor=fill_c)
         net_cell.alignment     = Alignment(horizontal='center', vertical='center')
@@ -1834,13 +1868,13 @@ def make_combined_excel(form_data, members_data, verified_rates, maternity_rates
         ws.cell(row=total_r, column=15).value         = f'=SUM(O{MEMBER_ROW_START}:O{last_loading_row})'
         ws.cell(row=total_r, column=15).number_format = '#,##0.00'
 
-        j24 = ws.cell(row=24, column=10)
+        j24 = ws.cell(row=LOAD_GROSS_ROW, column=10)
         j24.value         = f'=O{total_r}'
         j24.font          = Font(name='Inter', size=9.5, color=DARK)
         j24.alignment     = Alignment(horizontal='center', vertical='center')
         j24.number_format = '#,##0.00'
     else:
-        j24 = ws.cell(row=24, column=10)
+        j24 = ws.cell(row=LOAD_GROSS_ROW, column=10)
         j24.value         = 0
         j24.font          = Font(name='Inter', size=9.5, color='888888', italic=True)
         j24.alignment     = Alignment(horizontal='center', vertical='center')
